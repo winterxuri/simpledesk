@@ -73,31 +73,31 @@ export async function signUpOwner({
   });
 
   if (error) {
-    throw error;
+    throwSupabaseError("Auth signup", error);
   }
 
   if (!data.session || !data.user) {
     return { requiresEmailConfirmation: true };
   }
 
-  const { data: company, error: companyError } = await supabase
+  const companyId = crypto.randomUUID();
+  const ownerEmployeeId = crypto.randomUUID();
+
+  const { error: companyError } = await supabase
     .from("companies")
     .insert({
+      id: companyId,
       name: companyName,
       business_template_id: "universal",
       industry: "Универсальный бизнес",
       email,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Moscow",
       terminology: getBusinessTemplate("universal").terminology
-    })
-    .select("id")
-    .single();
+    });
 
   if (companyError) {
-    throw companyError;
+    throwSupabaseError("Create company", companyError);
   }
-
-  const companyId = company.id as string;
 
   const { error: memberError } = await supabase.from("company_members").insert({
     company_id: companyId,
@@ -107,12 +107,13 @@ export async function signUpOwner({
   });
 
   if (memberError) {
-    throw memberError;
+    throwSupabaseError("Create company member", memberError);
   }
 
-  const { data: employee, error: employeeError } = await supabase
+  const { error: employeeError } = await supabase
     .from("employees")
     .insert({
+      id: ownerEmployeeId,
       company_id: companyId,
       user_id: data.user.id,
       name,
@@ -124,15 +125,13 @@ export async function signUpOwner({
       compensation_type: "mixed",
       base_salary: 0,
       commission_percent: 0
-    })
-    .select("id")
-    .single();
+    });
 
   if (employeeError) {
-    throw employeeError;
+    throwSupabaseError("Create owner employee", employeeError);
   }
 
-  await supabase.from("company_modules").insert(
+  const { error: modulesError } = await supabase.from("company_modules").insert(
     buildDefaultCompanyModules("universal").map((module) => ({
       company_id: companyId,
       code: module.code,
@@ -143,10 +142,14 @@ export async function signUpOwner({
     }))
   );
 
+  if (modulesError) {
+    throwSupabaseError("Create company modules", modulesError);
+  }
+
   return {
     requiresEmailConfirmation: false,
     companyId,
-    ownerEmployeeId: employee.id as string
+    ownerEmployeeId
   };
 }
 
@@ -155,7 +158,7 @@ export async function signInUser(email: string, password: string) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    throw error;
+    throwSupabaseError("Auth signin", error);
   }
 
   return loadCurrentBackendWorkspace();
@@ -260,6 +263,22 @@ export async function completeBackendOnboarding(company: Company, selectedModule
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function throwSupabaseError(stage: string, error: unknown): never {
+  const record = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
+  const message = typeof record.message === "string" ? record.message : String(error);
+  const details = typeof record.details === "string" ? record.details : "";
+  const hint = typeof record.hint === "string" ? record.hint : "";
+  const code = typeof record.code === "string" ? record.code : "";
+  const parts = [
+    `${stage}: ${message}`,
+    code ? `code: ${code}` : "",
+    details ? `details: ${details}` : "",
+    hint ? `hint: ${hint}` : ""
+  ].filter(Boolean);
+
+  throw new Error(parts.join(" | "));
 }
 
 type LooseRow = Record<string, unknown>;
