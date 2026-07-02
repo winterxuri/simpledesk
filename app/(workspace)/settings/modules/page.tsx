@@ -1,0 +1,84 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { MODULES, getModuleDefinition } from "@/config/modules";
+import { getModuleTitle } from "@/config/navigation";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/modules/page-header";
+import { ModuleCard } from "@/components/modules/module-card";
+import { ConfirmDialog } from "@/components/modules/confirm-dialog";
+import { useAppStore } from "@/store/app-store";
+import type { ModuleCode } from "@/types";
+
+export default function SettingsModulesPage() {
+  const company = useAppStore((state) => state.company);
+  const modules = useAppStore((state) => state.companyModules);
+  const toggleModule = useAppStore((state) => state.toggleModule);
+  const setVisibility = useAppStore((state) => state.setModuleVisibility);
+  const addToast = useAppStore((state) => state.addToast);
+  const [pendingDisable, setPendingDisable] = useState<ModuleCode | null>(null);
+
+  const enriched = useMemo(
+    () =>
+      modules.map((module) => ({
+        module,
+        definition: getModuleDefinition(module.code) ?? MODULES[0],
+        title: getModuleTitle(module.code, company.businessTemplateId)
+      })),
+    [company.businessTemplateId, modules]
+  );
+
+  return (
+    <div>
+      <PageHeader
+        title="Настройки модулей"
+        description="Каталог разделов с зависимостями, статусами и безопасным отключением."
+      />
+      <Card className="mb-6 border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
+        Модуль «Ресурсы» используется в 8 будущих записях. После скрытия существующие связи сохранятся.
+      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {enriched.map(({ module, definition, title }) => (
+          <ModuleCard
+            key={module.code}
+            module={module}
+            definition={definition}
+            title={title}
+            onToggle={(enabled) => {
+              if (!enabled) {
+                setPendingDisable(module.code);
+              } else {
+                toggleModule(module.code, true);
+              }
+            }}
+            onVisibility={(visible) => setVisibility(module.code, visible)}
+            onSettings={() =>
+              addToast({
+                title: "Демо-настройка",
+                description: `Параметры модуля "${title}" будут доступны после подключения backend.`,
+                variant: "info"
+              })
+            }
+          />
+        ))}
+      </div>
+      <ConfirmDialog
+        open={Boolean(pendingDisable)}
+        onOpenChange={(open) => !open && setPendingDisable(null)}
+        title="Отключить модуль?"
+        description="Данные не будут удалены. Модуль можно будет включить позже."
+        confirmLabel="Отключить"
+        onConfirm={() => {
+          if (pendingDisable) {
+            toggleModule(pendingDisable, false);
+          }
+          setPendingDisable(null);
+        }}
+      />
+      <div className="mt-6 flex justify-end">
+        <Button type="button" variant="outline">Сохранено автоматически</Button>
+      </div>
+    </div>
+  );
+}

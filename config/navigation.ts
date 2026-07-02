@@ -1,0 +1,92 @@
+import { MODULES, getModuleDefinition } from "@/config/modules";
+import { getBusinessTemplate } from "@/config/templates";
+import type { CompanyModule, ModuleCode, NavigationItem } from "@/types";
+
+const titleByTemplate: Partial<Record<string, Partial<Record<ModuleCode, string>>>> = {
+  auto: {
+    calendar: "Записи",
+    inventory: "Запчасти",
+    resources: "Посты"
+  },
+  cafe: {
+    inventory: "Товары и ингредиенты",
+    clients: "Гости"
+  },
+  shop: {
+    inventory: "Товары и остатки",
+    clients: "Покупатели"
+  },
+  beauty: {
+    inventory: "Расходники"
+  }
+};
+
+export function getModuleTitle(code: ModuleCode, templateId: string) {
+  const definition = getModuleDefinition(code);
+  return titleByTemplate[templateId]?.[code] ?? definition?.title ?? code;
+}
+
+export function buildNavigationItems(
+  modules: CompanyModule[],
+  templateId: string
+): NavigationItem[] {
+  const template = getBusinessTemplate(templateId);
+  const order = new Map(template.menuOrder.map((code, index) => [code, index + 1]));
+
+  const items = modules
+    .filter((module) => module.status !== "disabled" && module.status !== "unavailable")
+    .map((module) => {
+      const definition = getModuleDefinition(module.code);
+      return {
+        code: module.code,
+        title: getModuleTitle(module.code, templateId),
+        route: definition?.route ?? "/dashboard",
+        icon: definition?.icon ?? "Circle",
+        visible: module.visible && module.status === "enabled",
+        order: module.order || order.get(module.code) || definition?.defaultOrder || 99
+      } satisfies NavigationItem;
+    })
+    .sort((a, b) => a.order - b.order);
+
+  return [
+    ...items,
+    {
+      code: "settings",
+      title: "Настройки",
+      route: "/settings",
+      icon: "Settings",
+      visible: true,
+      order: 100
+    }
+  ];
+}
+
+export function buildDefaultCompanyModules(
+  templateId: string,
+  selectedModules?: ModuleCode[]
+): CompanyModule[] {
+  const template = getBusinessTemplate(templateId);
+  const selected = new Set(selectedModules ?? template.activeModules);
+  const menuOrder = new Map(template.menuOrder.map((code, index) => [code, index + 1]));
+
+  return MODULES.map((definition) => {
+    const availableOnTariff = definition.plan === "basic";
+    const active = selected.has(definition.code);
+    const hidden = template.hiddenModules.includes(definition.code);
+    const status = !availableOnTariff
+      ? "unavailable"
+      : active
+        ? hidden
+          ? "hidden"
+          : "enabled"
+        : "disabled";
+
+    return {
+      code: definition.code,
+      status,
+      visible: status === "enabled",
+      order: menuOrder.get(definition.code) ?? definition.defaultOrder,
+      availableOnTariff
+    };
+  });
+}
