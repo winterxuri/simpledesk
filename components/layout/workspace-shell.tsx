@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
-import { AIAssistantPanel } from "@/components/layout/ai-assistant-panel";
 import { NotificationPanel } from "@/components/layout/notification-panel";
 import { Drawer } from "@/components/ui/drawer";
 import { useAppStore } from "@/store/app-store";
@@ -38,7 +37,6 @@ export function WorkspaceShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
       <NotificationPanel />
-      <AIAssistantPanel />
     </div>
   );
 }

@@ -21,7 +21,6 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 export default function DashboardPage() {
   const company = useAppStore((state) => state.company);
   const data = useAppStore((state) => state.data);
-  const setAiPanelOpen = useAppStore((state) => state.setAiPanelOpen);
   const addToast = useAppStore((state) => state.addToast);
   const appointmentTerm = company.terminology.appointment;
   const today = new Date().toISOString().slice(0, 10);
@@ -52,8 +51,12 @@ export default function DashboardPage() {
         title="Доброе утро, Алексей"
         description="Вот что происходит в вашем бизнесе сегодня."
         actions={
-          <Button type="button" onClick={() => setAiPanelOpen(true)}>
-            Открыть AI-рекомендации
+          <Button type="button" onClick={() => addToast({
+            title: "Рабочий день открыт",
+            description: "Проверьте записи, задачи и остатки на сегодня.",
+            variant: "info"
+          })}>
+            Открыть план дня
           </Button>
         }
       />
@@ -183,7 +186,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="mt-6">
-        <DashboardWidget title="AI-рекомендация">
+        <DashboardWidget title="Рекомендация по клиентам">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
               <p className="font-medium">
@@ -191,13 +194,16 @@ export default function DashboardPage() {
                 записались повторно. Подготовить предложение?
               </p>
               <p className="mt-2 text-sm text-muted-foreground">
-                AI использует локальные данные о визитах, сегментах и активности
-                клиентов.
+                Основано на истории визитов, сегментах клиентов и активности за месяц.
               </p>
             </div>
             <div className="flex gap-2">
-              <Button type="button" onClick={() => setAiPanelOpen(true)}>
-                Подготовить
+              <Button type="button" onClick={() => addToast({
+                title: "Задача создана",
+                description: "Добавьте кампанию или задачу на повторный контакт в следующих разделах.",
+                variant: "success"
+              })}>
+                Создать задачу
               </Button>
               <Button type="button" variant="outline">
                 Скрыть

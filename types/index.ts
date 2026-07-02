@@ -11,7 +11,6 @@ export type ModuleCode =
   | "promotions"
   | "tasks"
   | "analytics"
-  | "ai-assistant"
   | "integrations";
 
 export type ModuleStatus = "enabled" | "hidden" | "disabled" | "unavailable";
@@ -236,20 +235,10 @@ export interface Notification {
   read: boolean;
 }
 
-export interface AIMessage {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  metrics?: string[];
-  recommendations?: string[];
-  actions?: string[];
-  createdAt: string;
-}
-
 export interface DashboardWidget {
   id: string;
   title: string;
-  type: "metric" | "schedule" | "attention" | "chart" | "ai";
+  type: "metric" | "schedule" | "attention" | "chart";
   visible: boolean;
   order: number;
 }

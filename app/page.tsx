@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PRODUCT_NAME } from "@/config/product";
@@ -9,7 +9,7 @@ const features = [
   "Календарь, записи и заказы",
   "Сотрудники, задачи и права",
   "Остатки, ресурсы и акции",
-  "Выручка, аналитика и AI-рекомендации"
+  "Выручка, аналитика и отчёты"
 ];
 
 const niches = ["Салон красоты", "Автосервис", "Кофейня", "Магазин", "Мастерская"];
@@ -17,6 +17,11 @@ const heroStats = [
   ["Клиенты", "единая база и история"],
   ["Записи", "календарь и ресурсы"],
   ["Задачи", "контроль выполнения"]
+];
+const workflows = [
+  ["1", "Записать клиента", "сразу выбрать услугу, время и ответственного"],
+  ["2", "Проверить остатки", "увидеть, что заканчивается и что нужно заказать"],
+  ["3", "Закрыть задачу", "отметить чек-лист и перевести работу в выполнено"]
 ];
 
 export default function LandingPage() {
@@ -45,13 +50,13 @@ export default function LandingPage() {
               <div className="mt-4 h-32 rounded-lg border border-border bg-[linear-gradient(135deg,rgba(20,184,166,0.18),rgba(14,165,233,0.08))]" />
             </div>
             <div className="rounded-lg border border-border bg-background p-4">
-              <p className="font-semibold">AI-рекомендация</p>
+              <p className="font-semibold">Операционная рекомендация</p>
               <p className="mt-3 text-sm text-muted-foreground">
                 12 клиентов обычно возвращаются каждые 30-40 дней, но пока не
-                записались повторно. Подготовить предложение?
+                записались повторно. Запланируйте повторный контакт.
               </p>
               <div className="mt-4 flex gap-2">
-                <Button size="sm">Подготовить</Button>
+                <Button size="sm">Создать задачу</Button>
                 <Button size="sm" variant="outline">
                   Скрыть
                 </Button>
@@ -92,23 +97,22 @@ export default function LandingPage() {
                 </div>
               ))}
             </div>
-          </div>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg">
-              <Link href="/register" className="flex items-center gap-2">
-                Попробовать бесплатно
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/login">Посмотреть демо</Link>
-            </Button>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button asChild size="lg">
+                <Link href="/register">
+                  Попробовать бесплатно
+                </Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/login">Посмотреть демо</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
       <section className="mx-auto grid max-w-6xl gap-5 px-4 py-20 md:grid-cols-3">
-        <Card className="p-5 md:col-span-2">
+        <Card className="p-5 transition-colors hover:bg-muted/30 md:col-span-2">
           <h2 className="text-2xl font-semibold">Основные возможности</h2>
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {features.map((feature) => (
@@ -119,14 +123,14 @@ export default function LandingPage() {
             ))}
           </div>
         </Card>
-        <Card className="p-5">
+        <Card className="p-5 transition-colors hover:bg-muted/30">
           <h2 className="text-2xl font-semibold">Настройка под бизнес</h2>
           <p className="mt-3 text-sm text-muted-foreground">
             Онбординг выбирает шаблон, терминологию, меню и демонстрационные
             данные под вашу нишу. Ненужные разделы скрываются сразу.
           </p>
         </Card>
-        <Card className="p-5">
+        <Card className="p-5 transition-colors hover:bg-muted/30">
           <h2 className="text-xl font-semibold">Примеры ниш</h2>
           <div className="mt-4 flex flex-wrap gap-2">
             {niches.map((niche) => (
@@ -136,18 +140,27 @@ export default function LandingPage() {
             ))}
           </div>
         </Card>
-        <Card className="p-5">
-          <h2 className="text-xl font-semibold">Проще перегруженных CRM</h2>
-          <p className="mt-3 text-sm text-muted-foreground">
-            Только нужные модули, понятная навигация, рабочие сценарии для
-            малой команды и локальные настройки без корпоративного шума.
-          </p>
+        <Card className="p-5 transition-colors hover:bg-muted/30">
+          <h2 className="text-xl font-semibold">Рабочие сценарии</h2>
+          <div className="mt-4 space-y-3">
+            {workflows.map(([step, title, description]) => (
+              <div key={step} className="flex gap-3 rounded-lg border border-border bg-background p-3">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
+                  {step}
+                </span>
+                <div>
+                  <p className="text-sm font-medium">{title}</p>
+                  <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
-        <Card className="p-5">
+        <Card className="p-5 transition-colors hover:bg-muted/30">
           <h2 className="text-xl font-semibold">Готово к пилоту</h2>
           <p className="mt-3 text-sm text-muted-foreground">
-            Внутри есть кликабельный кабинет, AI-помощник, аналитика,
-            настройки модулей и адаптивная версия.
+            Внутри есть кликабельный кабинет, аналитика, настройки модулей
+            и адаптивная версия.
           </p>
         </Card>
       </section>

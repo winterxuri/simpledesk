@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PRODUCT_NAME } from "@/config/product";
 import { buildNavigationItems } from "@/config/navigation";
@@ -24,7 +23,6 @@ export function AppSidebar({
   const modules = useAppStore((state) => state.companyModules);
   const collapsed = useAppStore((state) => state.sidebarCollapsed);
   const setCollapsed = useAppStore((state) => state.setSidebarCollapsed);
-  const setAiPanelOpen = useAppStore((state) => state.setAiPanelOpen);
 
   const items = buildNavigationItems(modules, company.businessTemplateId).filter(
     (item) => item.visible && (role !== "employee" || item.code !== "settings")
@@ -40,7 +38,7 @@ export function AppSidebar({
     >
       <div className="flex h-16 items-center gap-3 border-b border-border px-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-          SF
+          SD
         </div>
         {!collapsed || mobile ? (
           <div className="min-w-0">
@@ -75,15 +73,6 @@ export function AppSidebar({
         })}
       </nav>
       <div className="space-y-3 border-t border-border p-3">
-        <Button
-          type="button"
-          variant="outline"
-          className={cn("w-full", collapsed && !mobile && "px-0")}
-          onClick={() => setAiPanelOpen(true)}
-        >
-          <Sparkles className="h-4 w-4" />
-          {!collapsed || mobile ? "AI-помощник" : null}
-        </Button>
         {!mobile ? (
           <Button
             type="button"

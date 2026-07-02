@@ -53,4 +53,15 @@
   .scrollbar-thin {
     scrollbar-width: thin;
   }
+
+  .recharts-wrapper *:focus,
+  .recharts-surface:focus,
+  .recharts-sector:focus {
+    outline: none !important;
+  }
+
+  .recharts-text,
+  .recharts-cartesian-axis-tick-value {
+    fill: hsl(var(--muted-foreground));
+  }
 }

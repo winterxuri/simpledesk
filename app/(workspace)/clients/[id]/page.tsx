@@ -6,12 +6,18 @@ import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { EmptyState } from "@/components/modules/empty-state";
 import { useAppStore } from "@/store/app-store";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import type { ClientStatus } from "@/types";
 
 const tabs = [
   { value: "overview", label: "Обзор" },
@@ -22,11 +28,33 @@ const tabs = [
   { value: "files", label: "Файлы" }
 ];
 
+const statusOptions: { value: ClientStatus; label: string }[] = [
+  { value: "active", label: "Активный" },
+  { value: "new", label: "Новый" },
+  { value: "loyal", label: "Постоянный" },
+  { value: "inactive", label: "Давно не возвращался" },
+  { value: "attention", label: "Требует внимания" }
+];
+
 export default function ClientDetailPage() {
   const params = useParams<{ id: string }>();
   const [tab, setTab] = useState("overview");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    status: "active" as ClientStatus,
+    responsibleId: "",
+    nextAppointment: "",
+    totalSpent: "0",
+    visits: "0",
+    source: "",
+    notes: ""
+  });
   const data = useAppStore((state) => state.data);
   const company = useAppStore((state) => state.company);
+  const updateClient = useAppStore((state) => state.updateClient);
   const client = data.clients.find((item) => item.id === params.id);
 
   if (!client) {
@@ -40,8 +68,41 @@ export default function ClientDetailPage() {
     );
   }
 
-  const responsible = data.employees.find((employee) => employee.id === client.responsibleId);
-  const appointments = data.appointments.filter((appointment) => appointment.clientId === client.id);
+  const currentClient = client;
+  const responsible = data.employees.find((employee) => employee.id === currentClient.responsibleId);
+  const appointments = data.appointments.filter((appointment) => appointment.clientId === currentClient.id);
+
+  function openEdit() {
+    setEditForm({
+      name: currentClient.name,
+      phone: currentClient.phone,
+      email: currentClient.email,
+      status: currentClient.status,
+      responsibleId: currentClient.responsibleId,
+      nextAppointment: currentClient.nextAppointment ?? "",
+      totalSpent: String(currentClient.totalSpent),
+      visits: String(currentClient.visits),
+      source: currentClient.source,
+      notes: currentClient.notes
+    });
+    setEditOpen(true);
+  }
+
+  function saveEdit() {
+    updateClient(currentClient.id, {
+      name: editForm.name,
+      phone: editForm.phone,
+      email: editForm.email,
+      status: editForm.status,
+      responsibleId: editForm.responsibleId,
+      nextAppointment: editForm.nextAppointment || undefined,
+      totalSpent: Number(editForm.totalSpent) || 0,
+      visits: Number(editForm.visits) || 0,
+      source: editForm.source,
+      notes: editForm.notes
+    });
+    setEditOpen(false);
+  }
 
   return (
     <div>
@@ -49,12 +110,17 @@ export default function ClientDetailPage() {
         title={client.name}
         description={`${client.phone} · ${client.email}`}
         actions={
-          <Button type="button" variant="outline" asChild>
-            <Link href="/clients">
-              <ArrowLeft className="h-4 w-4" />
-              Назад
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <Button type="button" onClick={openEdit}>
+              Редактировать
+            </Button>
+            <Button type="button" variant="outline" asChild>
+              <Link href="/clients">
+                <ArrowLeft className="h-4 w-4" />
+                Назад
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -154,6 +220,83 @@ export default function ClientDetailPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        title="Редактировать клиента"
+        description="Изменения сохраняются в текущем рабочем пространстве."
+        className="max-w-2xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
+              Отмена
+            </Button>
+            <Button type="button" onClick={saveEdit}>
+              Сохранить
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>ФИО</Label>
+              <Input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Телефон</Label>
+              <Input value={editForm.phone} onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Источник</Label>
+              <Input value={editForm.source} onChange={(event) => setEditForm({ ...editForm, source: event.target.value })} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Статус</Label>
+              <Select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value as ClientStatus })}>
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Ответственный</Label>
+              <Select value={editForm.responsibleId} onChange={(event) => setEditForm({ ...editForm, responsibleId: event.target.value })}>
+                {data.employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>{employee.name}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Следующая {company.terminology.appointment}</Label>
+              <Input type="date" value={editForm.nextAppointment} onChange={(event) => setEditForm({ ...editForm, nextAppointment: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Общая сумма</Label>
+              <Input value={editForm.totalSpent} onChange={(event) => setEditForm({ ...editForm, totalSpent: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Визитов</Label>
+              <Input value={editForm.visits} onChange={(event) => setEditForm({ ...editForm, visits: event.target.value })} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Заметка</Label>
+            <Textarea value={editForm.notes} onChange={(event) => setEditForm({ ...editForm, notes: event.target.value })} />
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

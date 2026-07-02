@@ -301,9 +301,9 @@ export default function OnboardingPage() {
                     </ul>
                   </div>
                   <div className="mt-4 rounded-lg border border-border bg-card p-4">
-                    <p className="font-medium">AI-рекомендация</p>
+                    <p className="font-medium">Операционная подсказка</p>
                     <p className="mt-2 text-sm text-muted-foreground">
-                      12 клиентов обычно возвращаются каждые 30-40 дней, но пока не записались повторно.
+                      Система подсветит клиентов без повторной записи, низкие остатки и просроченные задачи.
                     </p>
                   </div>
                 </div>

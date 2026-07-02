@@ -28,7 +28,7 @@ export function Drawer({
   }
 
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-[100] p-3 sm:p-4">
       <button
         type="button"
         aria-label="Закрыть"
@@ -37,8 +37,8 @@ export function Drawer({
       />
       <aside
         className={cn(
-          "absolute top-0 h-full w-full max-w-xl overflow-auto border-border bg-card shadow-2xl",
-          side === "right" ? "right-0 border-l" : "left-0 border-r",
+          "absolute top-3 bottom-3 h-auto w-[calc(100%-1.5rem)] max-w-xl overflow-auto rounded-lg border border-border bg-card shadow-2xl sm:top-4 sm:bottom-4 sm:w-[calc(100%-2rem)]",
+          side === "right" ? "right-3 sm:right-4" : "left-3 sm:left-4",
           className
         )}
       >

@@ -92,23 +92,13 @@ export const MODULES: ModuleDefinition[] = [
     plan: "basic"
   },
   {
-    code: "ai-assistant",
-    title: "AI-помощник",
-    description: "Ответы и рекомендации по данным текущей компании.",
-    icon: "Sparkles",
-    route: "/ai-assistant",
-    dependencies: ["analytics"],
-    defaultOrder: 10,
-    plan: "basic"
-  },
-  {
     code: "integrations",
     title: "Интеграции",
     description: "Telegram, WhatsApp, календарь, CSV, оплата, API и вебхуки.",
     icon: "Cable",
     route: "/settings/integrations",
     dependencies: [],
-    defaultOrder: 11,
+    defaultOrder: 10,
     plan: "pro"
   }
 ];

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -16,23 +16,43 @@ import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { Client } from "@/types";
+import type { Client, ClientStatus } from "@/types";
+
+const pageSize = 12;
+
+const statusOptions: { value: ClientStatus; label: string }[] = [
+  { value: "active", label: "Активный" },
+  { value: "new", label: "Новый" },
+  { value: "loyal", label: "Постоянный" },
+  { value: "inactive", label: "Давно не возвращался" },
+  { value: "attention", label: "Требует внимания" }
+];
 
 export default function ClientsPage() {
   const clients = useAppStore((state) => state.data.clients);
   const employees = useAppStore((state) => state.data.employees);
   const addClient = useAppStore((state) => state.addClient);
+  const bulkUpdateClients = useAppStore((state) => state.bulkUpdateClients);
   const company = useAppStore((state) => state.company);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("total");
+  const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
     phone: "",
     email: "",
+    status: "new" as ClientStatus,
+    responsibleId: employees[0]?.id ?? "",
+    nextAppointment: "",
     notes: ""
+  });
+  const [bulk, setBulk] = useState({
+    status: "",
+    responsibleId: "",
+    nextAppointment: ""
   });
 
   const filtered = useMemo(() => {
@@ -52,6 +72,13 @@ export default function ClientsPage() {
             : b.totalSpent - a.totalSpent
       );
   }, [clients, search, sort, status]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, sort, status]);
 
   const columns: DataTableColumn<Client>[] = [
     {
@@ -97,14 +124,40 @@ export default function ClientsPage() {
       name: form.name || "Новый клиент",
       phone: form.phone || "+7 900 000-00-00",
       email: form.email || "client@example.ru",
-      status: "new",
-      responsibleId: employees[0]?.id ?? "employee-1",
-      nextAppointment: undefined,
+      status: form.status,
+      responsibleId: form.responsibleId || employees[0]?.id || "employee-1",
+      nextAppointment: form.nextAppointment || undefined,
       source: "Ручное добавление",
       notes: form.notes
     });
     setOpen(false);
-    setForm({ name: "", phone: "", email: "", notes: "" });
+    setForm({
+      name: "",
+      phone: "",
+      email: "",
+      status: "new",
+      responsibleId: employees[0]?.id ?? "",
+      nextAppointment: "",
+      notes: ""
+    });
+  }
+
+  function applyBulkAction() {
+    const patch: Partial<Client> = {};
+    if (bulk.status) {
+      patch.status = bulk.status as ClientStatus;
+    }
+    if (bulk.responsibleId) {
+      patch.responsibleId = bulk.responsibleId;
+    }
+    if (bulk.nextAppointment) {
+      patch.nextAppointment = bulk.nextAppointment;
+    }
+    if (Object.keys(patch).length) {
+      bulkUpdateClients(selected, patch);
+      setSelected([]);
+      setBulk({ status: "", responsibleId: "", nextAppointment: "" });
+    }
   }
 
   return (
@@ -129,11 +182,7 @@ export default function ClientsPage() {
             onChange: setStatus,
             options: [
               { value: "all", label: "Все статусы" },
-              { value: "active", label: "Активные" },
-              { value: "new", label: "Новые" },
-              { value: "loyal", label: "Постоянные" },
-              { value: "inactive", label: "Давно не возвращались" },
-              { value: "attention", label: "Требуют внимания" }
+              ...statusOptions.map((option) => ({ value: option.value, label: option.label }))
             ]
           },
           {
@@ -157,9 +206,41 @@ export default function ClientsPage() {
         ))}
       </div>
 
+      {selected.length ? (
+        <div className="mb-4 grid gap-3 rounded-lg border border-border bg-card p-4 lg:grid-cols-[1fr_1fr_1fr_auto]">
+          <div>
+            <p className="text-sm font-medium">Выбрано клиентов: {selected.length}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Измените статус, ответственного или дату следующей записи.</p>
+          </div>
+          <Select value={bulk.status} onChange={(event) => setBulk({ ...bulk, status: event.target.value })}>
+            <option value="">Статус не менять</option>
+            {statusOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </Select>
+          <Select value={bulk.responsibleId} onChange={(event) => setBulk({ ...bulk, responsibleId: event.target.value })}>
+            <option value="">Ответственного не менять</option>
+            {employees.map((employee) => (
+              <option key={employee.id} value={employee.id}>{employee.name}</option>
+            ))}
+          </Select>
+          <div className="flex gap-2">
+            <Input
+              type="date"
+              value={bulk.nextAppointment}
+              onChange={(event) => setBulk({ ...bulk, nextAppointment: event.target.value })}
+              aria-label="Следующая запись"
+            />
+            <Button type="button" onClick={applyBulkAction}>
+              Применить
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
       <div className="hidden md:block">
         <DataTable
-          rows={filtered.slice(0, 12)}
+          rows={pageRows}
           columns={columns}
           selectedIds={selected}
           onSelect={(id, checked) =>
@@ -177,7 +258,7 @@ export default function ClientsPage() {
       </div>
 
       <div className="grid gap-3 md:hidden">
-        {filtered.slice(0, 12).map((client) => (
+        {pageRows.map((client) => (
           <Link
             key={client.id}
             href={`/clients/${client.id}`}
@@ -201,12 +282,24 @@ export default function ClientsPage() {
       </div>
 
       <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-        <span>Показано {Math.min(12, filtered.length)} из {filtered.length}</span>
+        <span>Страница {page} из {totalPages} · показано {pageRows.length} из {filtered.length}</span>
         <div className="flex gap-2">
-          <Button type="button" variant="outline" size="sm" disabled>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page === 1}
+            onClick={() => setPage((current) => Math.max(1, current - 1))}
+          >
             Назад
           </Button>
-          <Button type="button" variant="outline" size="sm">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={page === totalPages}
+            onClick={() => setPage((current) => Math.min(totalPages, current + 1))}
+          >
             Далее
           </Button>
         </div>
@@ -240,6 +333,28 @@ export default function ClientsPage() {
           <div className="space-y-2">
             <Label>Email</Label>
             <Input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Статус</Label>
+              <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ClientStatus })}>
+                {statusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Ответственный</Label>
+              <Select value={form.responsibleId} onChange={(event) => setForm({ ...form, responsibleId: event.target.value })}>
+                {employees.map((employee) => (
+                  <option key={employee.id} value={employee.id}>{employee.name}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Следующая {company.terminology.appointment}</Label>
+            <Input type="date" value={form.nextAppointment} onChange={(event) => setForm({ ...form, nextAppointment: event.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Заметка</Label>

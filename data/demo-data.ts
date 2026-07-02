@@ -441,7 +441,7 @@ function makeNotifications(): Notification[] {
     ["Акция завершится через три дня", "Промокод для новых клиентов скоро закончится", "system"],
     ["Сотрудник выполнил задачу", "Марина Ершова закрыла задачу по графику", "tasks"],
     ["Обнаружена просроченная оплата", "Счет по заказу #184 требует проверки", "finance"],
-    ["AI подготовил недельный отчет", "Отчет доступен на странице AI-помощника", "system"]
+    ["Недельный отчет готов", "Сводка доступна в разделе аналитики", "system"]
   ] as const;
 
   return Array.from({ length: 12 }, (_, index) => {
@@ -464,7 +464,7 @@ function makeWidgets(): DashboardWidget[] {
     { id: "attention", title: "Требует внимания", type: "attention", visible: true, order: 2 },
     { id: "schedule", title: "Расписание", type: "schedule", visible: true, order: 3 },
     { id: "revenue", title: "Выручка", type: "chart", visible: true, order: 4 },
-    { id: "ai", title: "AI-рекомендации", type: "ai", visible: true, order: 5 }
+    { id: "summary", title: "Операционная сводка", type: "attention", visible: true, order: 5 }
   ];
 }
 

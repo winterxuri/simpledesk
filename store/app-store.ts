@@ -13,7 +13,10 @@ import type {
   Company,
   CompanyModule,
   DemoData,
+  Employee,
+  InventoryMovement,
   ModuleCode,
+  Product,
   Promotion,
   Role,
   Task,
@@ -60,7 +63,6 @@ interface AppStore {
   data: DemoData;
   toasts: ToastMessage[];
   quickCreateOpen: boolean;
-  aiPanelOpen: boolean;
   notificationPanelOpen: boolean;
   sidebarCollapsed: boolean;
   setTheme: (theme: ThemeMode) => void;
@@ -76,14 +78,19 @@ interface AppStore {
   reorderNavigation: (orderedCodes: ModuleCode[]) => void;
   restoreRecommendedNavigation: () => void;
   addClient: (client: Omit<Client, "id" | "totalSpent" | "visits" | "lastVisit">) => void;
+  updateClient: (id: string, client: Partial<Client>) => void;
+  bulkUpdateClients: (ids: string[], client: Partial<Client>) => void;
   addAppointment: (appointment: Omit<Appointment, "id">) => void;
+  updateAppointment: (id: string, appointment: Partial<Appointment>) => void;
+  updateEmployee: (id: string, employee: Partial<Employee>) => void;
+  updateProduct: (id: string, product: Partial<Product>) => void;
+  addInventoryMovement: (movement: Omit<InventoryMovement, "id">) => void;
   addTask: (task: Omit<Task, "id">) => void;
   updateTask: (id: string, task: Partial<Task>) => void;
   toggleTaskChecklistItem: (taskId: string, itemIndex: number, done: boolean) => void;
   addPromotion: (promotion: Omit<Promotion, "id" | "usageCount" | "revenue" | "newClients" | "efficiency">) => void;
   markNotificationRead: (id: string) => void;
   setQuickCreateOpen: (open: boolean) => void;
-  setAiPanelOpen: (open: boolean) => void;
   setNotificationPanelOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   addToast: (toast: Omit<ToastMessage, "id">) => void;
@@ -103,7 +110,6 @@ export const useAppStore = create<AppStore>()(
       data: createDemoData(defaultTemplateId),
       toasts: [],
       quickCreateOpen: false,
-      aiPanelOpen: false,
       notificationPanelOpen: false,
       sidebarCollapsed: false,
       setTheme: (theme) => set({ theme }),
@@ -258,11 +264,66 @@ export const useAppStore = create<AppStore>()(
             ]
           }
         })),
+      updateClient: (id, client) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            clients: state.data.clients.map((item) =>
+              item.id === id ? { ...item, ...client } : item
+            )
+          }
+        })),
+      bulkUpdateClients: (ids, client) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            clients: state.data.clients.map((item) =>
+              ids.includes(item.id) ? { ...item, ...client } : item
+            )
+          }
+        })),
       addAppointment: (appointment) =>
         set((state) => ({
           data: {
             ...state.data,
             appointments: [{ ...appointment, id: createId("appointment") }, ...state.data.appointments]
+          }
+        })),
+      updateAppointment: (id, appointment) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            appointments: state.data.appointments.map((item) =>
+              item.id === id ? { ...item, ...appointment } : item
+            )
+          }
+        })),
+      updateEmployee: (id, employee) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            employees: state.data.employees.map((item) =>
+              item.id === id ? { ...item, ...employee } : item
+            )
+          }
+        })),
+      updateProduct: (id, product) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            products: state.data.products.map((item) =>
+              item.id === id ? { ...item, ...product } : item
+            )
+          }
+        })),
+      addInventoryMovement: (movement) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            inventoryMovements: [
+              { ...movement, id: createId("movement") },
+              ...state.data.inventoryMovements
+            ]
           }
         })),
       addTask: (task) =>
@@ -324,7 +385,6 @@ export const useAppStore = create<AppStore>()(
           }
         })),
       setQuickCreateOpen: (quickCreateOpen) => set({ quickCreateOpen }),
-      setAiPanelOpen: (aiPanelOpen) => set({ aiPanelOpen }),
       setNotificationPanelOpen: (notificationPanelOpen) =>
         set({ notificationPanelOpen }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),

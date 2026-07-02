@@ -54,8 +54,7 @@ supabase/migrations/0001_initial_schema.sql
 - акции;
 - задачи и чек-листы;
 - финансовые операции;
-- уведомления;
-- AI-сообщения.
+- уведомления.
 
 ## Vercel
 
@@ -78,7 +77,7 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 - `/login`, `/register`, `/onboarding` - демо-вход, регистрация и мастер настройки.
 - `/dashboard`, `/calendar`, `/clients`, `/clients/[id]`.
 - `/employees`, `/inventory`, `/resources`, `/promotions`, `/tasks`.
-- `/analytics`, `/ai-assistant`.
+- `/analytics`.
 - `/settings`, `/settings/modules`, `/settings/navigation`, `/settings/company`, `/settings/integrations`.
 
 ## Что есть в прототипе
@@ -89,20 +88,17 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
 - Динамическое меню по активным модулям, скрытие и отключение модулей.
 - Переключатель светлой/тёмной темы и демо-роль: владелец, администратор, сотрудник.
 - Mock-данные: клиенты, сотрудники, записи, товары, движения склада, ресурсы, акции, задачи, финансы, уведомления.
-- Быстрое создание, панель уведомлений, AI-панель, route loading/error состояния.
+- Быстрое создание, панель уведомлений, route loading/error состояния.
 
 ## Mock-реализации для замены backend
 
 - Авторизация и регистрация: пока demo-реализация в `store/app-store.ts`, далее переносится на Supabase Auth.
 - Сохранение компании, модулей, меню и данных: Zustand persist + `localStorage`.
-- AI-ответы: `lib/mock-ai.ts`.
 - Демонстрационные данные: `data/demo-data.ts`.
 - Интеграции и платежи: только визуальные формы в `/settings/integrations`.
 
-## Как подключать backend и настоящий AI
+## Как подключать backend
 
 1. Заменить actions в `store/app-store.ts` на запросы к Supabase/Server Actions и оставить Zustand как клиентский UI-state.
 2. Перенести генерацию demo-данных из `data/demo-data.ts` в seed-данные backend.
 3. Подключить настоящую авторизацию и хранить `User`, `Company`, `CompanyModule` на сервере.
-4. Заменить `buildAIResponse` на endpoint, который получает разрешённый срез данных компании и возвращает структурированный ответ: вывод, метрики, рекомендации, действия.
-5. Для действий AI оставить confirmation flow на клиенте, а фактическое изменение данных выполнять отдельными backend-командами.

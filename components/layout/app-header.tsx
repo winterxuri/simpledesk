@@ -18,7 +18,6 @@ const titles: Record<string, string> = {
   "/promotions": "Акции",
   "/tasks": "Задачи",
   "/analytics": "Аналитика",
-  "/ai-assistant": "AI-помощник",
   "/settings": "Настройки",
   "/settings/modules": "Модули",
   "/settings/navigation": "Меню",

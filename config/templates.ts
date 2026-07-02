@@ -14,8 +14,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     hiddenModules: ["resources", "integrations"],
     menuOrder: [
@@ -26,8 +25,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     terminology: {
       appointment: "запись",
@@ -39,7 +37,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       product: "товар",
       material: "расходник"
     },
-    dashboardWidgets: ["metrics", "schedule", "attention", "revenue", "ai"],
+    dashboardWidgets: ["metrics", "schedule", "attention", "revenue"],
     sampleFocus: "Окрашивание, стрижки, повторные записи и расходники"
   },
   {
@@ -55,8 +53,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "resources",
       "inventory",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     hiddenModules: ["promotions", "integrations"],
     menuOrder: [
@@ -67,8 +64,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "employees",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     terminology: {
       appointment: "заказ-наряд",
@@ -80,7 +76,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       product: "запчасть",
       material: "расходник"
     },
-    dashboardWidgets: ["metrics", "schedule", "attention", "resources", "ai"],
+    dashboardWidgets: ["metrics", "schedule", "attention", "resources"],
     sampleFocus: "Посты, механики, запчасти и повторные обращения"
   },
   {
@@ -95,8 +91,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     hiddenModules: ["calendar", "resources", "integrations"],
     menuOrder: [
@@ -106,8 +101,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "employees",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     terminology: {
       appointment: "заказ",
@@ -119,7 +113,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       product: "товар",
       material: "ингредиент"
     },
-    dashboardWidgets: ["metrics", "attention", "revenue", "inventory", "ai"],
+    dashboardWidgets: ["metrics", "attention", "revenue", "inventory"],
     sampleFocus: "Продажи, списания ингредиентов и возвращаемость гостей"
   },
   {
@@ -133,8 +127,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     hiddenModules: ["calendar", "employees", "resources", "integrations"],
     menuOrder: [
@@ -143,8 +136,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "clients",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     terminology: {
       appointment: "заказ",
@@ -156,7 +148,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       product: "товар",
       material: "остаток"
     },
-    dashboardWidgets: ["metrics", "attention", "revenue", "inventory", "ai"],
+    dashboardWidgets: ["metrics", "attention", "revenue", "inventory"],
     sampleFocus: "Остатки, поставщики, акции и повторные покупки"
   },
   {
@@ -173,8 +165,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "resources",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     hiddenModules: ["integrations"],
     menuOrder: [
@@ -186,8 +177,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "resources",
       "promotions",
       "tasks",
-      "analytics",
-      "ai-assistant"
+      "analytics"
     ],
     terminology: {
       appointment: "запись",
@@ -199,7 +189,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       product: "товар",
       material: "расходник"
     },
-    dashboardWidgets: ["metrics", "schedule", "attention", "revenue", "ai"],
+    dashboardWidgets: ["metrics", "schedule", "attention", "revenue"],
     sampleFocus: "Клиенты, заказы, сотрудники и операционные задачи"
   }
 ];

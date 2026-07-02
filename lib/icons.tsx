@@ -44,7 +44,6 @@ import {
   Send,
   Settings,
   ShieldCheck,
-  Sparkles,
   Store,
   Sun,
   Trash2,
@@ -52,7 +51,6 @@ import {
   UserRound,
   UserRoundCog,
   UsersRound,
-  WandSparkles,
   Wrench,
   X
 } from "lucide-react";
@@ -100,7 +98,6 @@ const icons: Record<string, LucideIcon> = {
   Send,
   Settings,
   ShieldCheck,
-  Sparkles,
   Store,
   Sun,
   Trash2,
@@ -108,7 +105,6 @@ const icons: Record<string, LucideIcon> = {
   UserRound,
   UserRoundCog,
   UsersRound,
-  WandSparkles,
   Wrench,
   X
 };
