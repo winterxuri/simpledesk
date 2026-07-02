@@ -15,6 +15,7 @@ import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
 import { formatDate } from "@/lib/utils";
+import type { TaskStatus } from "@/types";
 
 const views = [
   { value: "list", label: "Список" },
@@ -29,13 +30,38 @@ const columns = [
   ["overdue", "Просрочена"]
 ] as const;
 
+const statusActions: Partial<Record<TaskStatus, { label: string; status: TaskStatus }[]>> = {
+  new: [{ label: "Взять в работу", status: "inProgress" }],
+  inProgress: [
+    { label: "Ожидание", status: "waiting" },
+    { label: "Закрыть", status: "done" }
+  ],
+  waiting: [
+    { label: "Вернуть в работу", status: "inProgress" },
+    { label: "Закрыть", status: "done" }
+  ],
+  overdue: [
+    { label: "В работу", status: "inProgress" },
+    { label: "Закрыть", status: "done" }
+  ],
+  done: [{ label: "Переоткрыть", status: "inProgress" }]
+};
+
 export default function TasksPage() {
   const data = useAppStore((state) => state.data);
   const addTask = useAppStore((state) => state.addTask);
+  const updateTask = useAppStore((state) => state.updateTask);
+  const toggleTaskChecklistItem = useAppStore((state) => state.toggleTaskChecklistItem);
   const [view, setView] = useState("list");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", responsibleId: data.employees[0]?.id ?? "", priority: "medium" });
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    responsibleId: data.employees[0]?.id ?? "",
+    priority: "medium",
+    dueDate: new Date().toISOString().slice(0, 10)
+  });
 
   const tasks = useMemo(
     () => data.tasks.filter((task) => task.title.toLowerCase().includes(search.toLowerCase())),
@@ -47,10 +73,20 @@ export default function TasksPage() {
       title: form.title || "Новая задача",
       description: form.description,
       responsibleId: form.responsibleId,
-      dueDate: new Date().toISOString().slice(0, 10),
+      dueDate: form.dueDate || new Date().toISOString().slice(0, 10),
       priority: form.priority as "low" | "medium" | "high",
       status: "new",
-      checklist: [{ title: "Проверить детали", done: false }]
+      checklist: [
+        { title: "Проверить детали", done: false },
+        { title: "Подтвердить выполнение", done: false }
+      ]
+    });
+    setForm({
+      title: "",
+      description: "",
+      responsibleId: data.employees[0]?.id ?? "",
+      priority: "medium",
+      dueDate: new Date().toISOString().slice(0, 10)
     });
     setOpen(false);
   }
@@ -71,6 +107,20 @@ export default function TasksPage() {
         }
       />
       <SearchAndFilters search={search} onSearchChange={setSearch} />
+      <div className="mb-5 grid gap-3 md:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-sm font-medium">1. Создать</p>
+          <p className="mt-1 text-sm text-muted-foreground">Задача получает ответственного, срок, приоритет и чек-лист.</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm font-medium">2. Выполнить</p>
+          <p className="mt-1 text-sm text-muted-foreground">Ответственный переводит задачу в работу и отмечает пункты проверки.</p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-sm font-medium">3. Закрыть</p>
+          <p className="mt-1 text-sm text-muted-foreground">После проверки задача переводится в статус «выполнена».</p>
+        </Card>
+      </div>
       {view === "list" ? (
         <div className="space-y-3">
           {tasks.map((task) => (
@@ -80,13 +130,43 @@ export default function TasksPage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="font-semibold">{task.title}</p>
                     <StatusBadge status={task.status} />
-                    <StatusBadge status={task.priority === "high" ? "attention" : task.priority === "medium" ? "waiting" : "done"} />
+                    <StatusBadge status={`priority-${task.priority}`} />
                   </div>
                   <p className="mt-2 text-sm text-muted-foreground">{task.description}</p>
                   <p className="mt-2 text-xs text-muted-foreground">Срок: {formatDate(task.dueDate)}</p>
+                  <div className="mt-3 space-y-2">
+                    {task.checklist.map((item, index) => (
+                      <label key={`${task.id}-${item.title}-${index}`} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-primary"
+                          checked={item.done}
+                          onChange={(event) =>
+                            toggleTaskChecklistItem(task.id, index, event.target.checked)
+                          }
+                        />
+                        <span className={item.done ? "text-muted-foreground line-through" : ""}>
+                          {item.title}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  {data.employees.find((employee) => employee.id === task.responsibleId)?.name}
+                <div className="flex min-w-48 flex-col gap-3 text-sm text-muted-foreground">
+                  <span>{data.employees.find((employee) => employee.id === task.responsibleId)?.name}</span>
+                  <div className="flex flex-wrap gap-2 md:justify-end">
+                    {(statusActions[task.status] ?? []).map((action) => (
+                      <Button
+                        key={action.status}
+                        type="button"
+                        size="sm"
+                        variant={action.status === "done" ? "default" : "outline"}
+                        onClick={() => updateTask(task.id, { status: action.status })}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -102,6 +182,22 @@ export default function TasksPage() {
                   <div key={task.id} className="rounded-lg border border-border bg-background p-3">
                     <p className="text-sm font-medium">{task.title}</p>
                     <p className="mt-2 text-xs text-muted-foreground">{formatDate(task.dueDate)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {task.checklist.filter((item) => item.done).length}/{task.checklist.length} проверок
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(statusActions[task.status] ?? []).slice(0, 2).map((action) => (
+                        <Button
+                          key={action.status}
+                          type="button"
+                          size="sm"
+                          variant={action.status === "done" ? "default" : "outline"}
+                          onClick={() => updateTask(task.id, { status: action.status })}
+                        >
+                          {action.label}
+                        </Button>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -135,6 +231,14 @@ export default function TasksPage() {
                 <option value="high">Высокий</option>
               </Select>
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Срок выполнения</Label>
+            <Input
+              type="date"
+              value={form.dueDate}
+              onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
+            />
           </div>
           <Button type="button" className="w-full" onClick={save}>Сохранить</Button>
         </div>

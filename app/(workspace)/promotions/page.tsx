@@ -12,24 +12,51 @@ import { FormDrawer } from "@/components/modules/form-drawer";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Promotion } from "@/types";
+
+function buildPeriod(startDate: string, endDate: string) {
+  if (startDate && endDate) {
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+  if (startDate) {
+    return `с ${formatDate(startDate)}`;
+  }
+  if (endDate) {
+    return `до ${formatDate(endDate)}`;
+  }
+  return "период не указан";
+}
+
+const emptyPromotionForm = {
+  name: "",
+  description: "",
+  discount: "10",
+  audience: "",
+  promocode: "",
+  startDate: "",
+  endDate: ""
+};
 
 export default function PromotionsPage() {
   const promotions = useAppStore((state) => state.data.promotions);
   const addPromotion = useAppStore((state) => state.addPromotion);
   const [createOpen, setCreateOpen] = useState(false);
   const [selected, setSelected] = useState<Promotion | null>(null);
-  const [form, setForm] = useState({ name: "", description: "", discount: "10", audience: "", promocode: "" });
+  const [form, setForm] = useState(emptyPromotionForm);
 
   function save() {
     addPromotion({
       name: form.name || "Новая акция",
-      period: "1-31 июля",
+      period: buildPeriod(form.startDate, form.endDate),
       status: "draft",
-      conditions: `${form.discount}% для аудитории: ${form.audience || "все клиенты"}`,
+      conditions: [
+        `${form.discount || "0"}% для аудитории: ${form.audience || "все клиенты"}`,
+        form.promocode ? `промокод ${form.promocode}` : null
+      ].filter(Boolean).join(", "),
       description: form.description || "Черновик акции."
     });
+    setForm(emptyPromotionForm);
     setCreateOpen(false);
   }
 
@@ -68,7 +95,7 @@ export default function PromotionsPage() {
         ))}
       </div>
 
-      <FormDrawer open={createOpen} onOpenChange={setCreateOpen} title="Новая акция" description="Mock-форма создания акции.">
+      <FormDrawer open={createOpen} onOpenChange={setCreateOpen} title="Новая акция" description="Заполните условия и период действия акции.">
         <div className="space-y-4">
           {[
             ["name", "Название"],
@@ -81,6 +108,24 @@ export default function PromotionsPage() {
               <Input value={form[key as keyof typeof form]} onChange={(event) => setForm({ ...form, [key]: event.target.value })} />
             </div>
           ))}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Дата начала</Label>
+              <Input
+                type="date"
+                value={form.startDate}
+                onChange={(event) => setForm({ ...form, startDate: event.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Дата окончания</Label>
+              <Input
+                type="date"
+                value={form.endDate}
+                onChange={(event) => setForm({ ...form, endDate: event.target.value })}
+              />
+            </div>
+          </div>
           <div className="space-y-2">
             <Label>Описание и каналы продвижения</Label>
             <Textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />

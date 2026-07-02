@@ -17,9 +17,7 @@ const schema = z.object({
   email: z.string().email("Введите корректный email"),
   password: z.string().min(6, "Минимум 6 символов"),
   companyName: z.string().min(2, "Введите название компании"),
-  terms: z.literal(true, {
-    errorMap: () => ({ message: "Нужно согласиться с условиями" })
-  })
+  terms: z.boolean().refine(Boolean, "Нужно согласиться с условиями")
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -34,16 +32,20 @@ export default function RegisterPage() {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      name: "Алексей",
-      email: "alexey@example.ru",
-      password: "demo123",
-      companyName: "Студия на Петровке",
-      terms: true
+      name: "",
+      email: "",
+      password: "",
+      companyName: "",
+      terms: false
     }
   });
 
   function submit(values: FormValues) {
-    registerUser(values);
+    registerUser({
+      name: values.name,
+      email: values.email,
+      companyName: values.companyName
+    });
     router.push("/onboarding");
   }
 
@@ -84,7 +86,7 @@ export default function RegisterPage() {
           </div>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" {...register("terms")} />
-            <span>Согласен с условиями демо-использования</span>
+            <span>Согласен с условиями использования SimpleDesk</span>
           </label>
           {errors.terms ? <p className="text-xs text-destructive">{errors.terms.message}</p> : null}
           <Button type="submit" className="w-full" disabled={isSubmitting}>

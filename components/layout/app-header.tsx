@@ -26,6 +26,12 @@ const titles: Record<string, string> = {
   "/settings/integrations": "Интеграции"
 };
 
+const roleLabels = {
+  owner: "Владелец",
+  admin: "Администратор",
+  employee: "Сотрудник"
+} as const;
+
 function getTitle(pathname: string) {
   if (pathname.startsWith("/clients/")) {
     return "Карточка клиента";
@@ -39,6 +45,8 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   const setTheme = useAppStore((state) => state.setTheme);
   const role = useAppStore((state) => state.role);
   const setRole = useAppStore((state) => state.setRole);
+  const company = useAppStore((state) => state.company);
+  const sessionMode = useAppStore((state) => state.sessionMode);
   const notifications = useAppStore((state) => state.data.notifications);
   const setNotificationPanelOpen = useAppStore(
     (state) => state.setNotificationPanelOpen
@@ -58,7 +66,9 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
         <Menu className="h-5 w-5" />
       </Button>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-muted-foreground">Рабочий кабинет</p>
+        <p className="truncate text-sm text-muted-foreground">
+          {sessionMode === "demo" ? "Демо-кабинет" : company.name}
+        </p>
         <h1 className="truncate text-lg font-semibold">{getTitle(pathname)}</h1>
       </div>
       <div className="hidden min-w-60 max-w-sm flex-1 md:block">
@@ -92,16 +102,22 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
       >
         {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
-      <Select
-        value={role}
-        onChange={(event) => setRole(event.target.value as typeof role)}
-        className="hidden w-40 md:block"
-        aria-label="Демо-роль"
-      >
-        <option value="owner">Владелец</option>
-        <option value="admin">Администратор</option>
-        <option value="employee">Сотрудник</option>
-      </Select>
+      {sessionMode === "demo" ? (
+        <Select
+          value={role}
+          onChange={(event) => setRole(event.target.value as typeof role)}
+          className="hidden w-40 md:block"
+          aria-label="Роль"
+        >
+          <option value="owner">Владелец</option>
+          <option value="admin">Администратор</option>
+          <option value="employee">Сотрудник</option>
+        </Select>
+      ) : (
+        <span className="hidden rounded-md border border-border bg-card px-3 py-2 text-sm text-muted-foreground md:inline-flex">
+          {roleLabels[role]}
+        </span>
+      )}
     </header>
   );
 }

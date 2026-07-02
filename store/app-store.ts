@@ -54,6 +54,7 @@ interface AppStore {
   company: Company;
   theme: ThemeMode;
   role: Role;
+  sessionMode: "demo" | "registered";
   onboardingComplete: boolean;
   companyModules: CompanyModule[];
   data: DemoData;
@@ -77,6 +78,8 @@ interface AppStore {
   addClient: (client: Omit<Client, "id" | "totalSpent" | "visits" | "lastVisit">) => void;
   addAppointment: (appointment: Omit<Appointment, "id">) => void;
   addTask: (task: Omit<Task, "id">) => void;
+  updateTask: (id: string, task: Partial<Task>) => void;
+  toggleTaskChecklistItem: (taskId: string, itemIndex: number, done: boolean) => void;
   addPromotion: (promotion: Omit<Promotion, "id" | "usageCount" | "revenue" | "newClients" | "efficiency">) => void;
   markNotificationRead: (id: string) => void;
   setQuickCreateOpen: (open: boolean) => void;
@@ -94,6 +97,7 @@ export const useAppStore = create<AppStore>()(
       company: defaultCompany,
       theme: "light",
       role: "owner",
+      sessionMode: "demo",
       onboardingComplete: false,
       companyModules: buildDefaultCompanyModules(defaultTemplateId),
       data: createDemoData(defaultTemplateId),
@@ -112,7 +116,8 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({
           user: state.user ?? defaultUser,
           onboardingComplete: true,
-          role: state.user?.role ?? "owner"
+          role: state.user?.role ?? "owner",
+          sessionMode: "demo"
         })),
       registerUser: ({ name, email, companyName }) =>
         set((state) => ({
@@ -123,6 +128,7 @@ export const useAppStore = create<AppStore>()(
             role: "owner"
           },
           role: "owner",
+          sessionMode: "registered",
           company: {
             ...state.company,
             id: createId("company"),
@@ -143,9 +149,13 @@ export const useAppStore = create<AppStore>()(
           data: createDemoData(template.id),
           onboardingComplete: true
         }));
+        const sessionMode = get().sessionMode;
         get().addToast({
           title: "Рабочее пространство настроено",
-          description: "Шаблон применен, демонстрационные данные созданы.",
+          description:
+            sessionMode === "demo"
+              ? "Шаблон применен, демонстрационные данные созданы."
+              : "Шаблон применен, настройки компании сохранены.",
           variant: "success"
         });
       },
@@ -262,6 +272,31 @@ export const useAppStore = create<AppStore>()(
             tasks: [{ ...task, id: createId("task") }, ...state.data.tasks]
           }
         })),
+      updateTask: (id, task) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            tasks: state.data.tasks.map((item) =>
+              item.id === id ? { ...item, ...task } : item
+            )
+          }
+        })),
+      toggleTaskChecklistItem: (taskId, itemIndex, done) =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            tasks: state.data.tasks.map((task) =>
+              task.id === taskId
+                ? {
+                    ...task,
+                    checklist: task.checklist.map((item, index) =>
+                      index === itemIndex ? { ...item, done } : item
+                    )
+                  }
+                : task
+            )
+          }
+        })),
       addPromotion: (promotion) =>
         set((state) => ({
           data: {
@@ -316,6 +351,7 @@ export const useAppStore = create<AppStore>()(
         company: state.company,
         theme: state.theme,
         role: state.role,
+        sessionMode: state.sessionMode,
         onboardingComplete: state.onboardingComplete,
         companyModules: state.companyModules,
         data: state.data,

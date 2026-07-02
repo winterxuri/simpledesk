@@ -93,7 +93,8 @@ export default function AnalyticsPage() {
           </div>
         </DashboardWidget>
         <DashboardWidget title="Новые и повторные клиенты">
-          <div className="h-80">
+          <div className="grid min-h-80 gap-4 lg:grid-cols-[1fr_180px] lg:items-center">
+            <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={pie} dataKey="value" nameKey="name" innerRadius={70} outerRadius={110} paddingAngle={4}>
@@ -102,6 +103,21 @@ export default function AnalyticsPage() {
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            </div>
+            <div className="space-y-3">
+              {pie.map((item, index) => (
+                <div key={item.name} className="flex items-center justify-between gap-3 text-sm">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="h-3 w-3 shrink-0 rounded-sm"
+                      style={{ backgroundColor: colors[index % colors.length] }}
+                    />
+                    <span className="truncate text-muted-foreground">{item.name}</span>
+                  </div>
+                  <span className="font-medium">{item.value}%</span>
+                </div>
+              ))}
+            </div>
           </div>
         </DashboardWidget>
       </div>

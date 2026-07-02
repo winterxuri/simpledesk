@@ -13,19 +13,24 @@ const features = [
 ];
 
 const niches = ["Салон красоты", "Автосервис", "Кофейня", "Магазин", "Мастерская"];
+const heroStats = [
+  ["Клиенты", "единая база и история"],
+  ["Записи", "календарь и ресурсы"],
+  ["Задачи", "контроль выполнения"]
+];
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-background">
       <section className="relative flex min-h-[86vh] overflow-hidden border-b border-border">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,rgba(20,184,166,0.16),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.85),rgba(241,245,249,0.78))] dark:bg-[radial-gradient(circle_at_50%_20%,rgba(20,184,166,0.16),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.76),rgba(15,23,42,0.92))]" />
-        <div className="absolute inset-x-4 bottom-[-90px] mx-auto max-w-6xl rounded-lg border border-border bg-card/88 p-4 shadow-2xl backdrop-blur md:bottom-[-130px]">
+        <div className="absolute inset-x-4 bottom-[-82px] mx-auto max-w-6xl rounded-lg border border-border bg-card/90 p-4 shadow-2xl backdrop-blur md:bottom-[-126px]">
           <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
             <div className="rounded-lg border border-border bg-background p-4">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-muted-foreground">Сегодня</p>
-                  <p className="text-xl font-semibold">Доброе утро, Алексей</p>
+                  <p className="text-sm text-muted-foreground">Рабочий день</p>
+                  <p className="text-xl font-semibold">Панель владельца</p>
                 </div>
                 <Button size="sm">Создать</Button>
               </div>
@@ -54,17 +59,40 @@ export default function LandingPage() {
             </div>
           </div>
         </div>
-        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col justify-center px-4 pb-44 pt-20 md:pb-56">
-          <div className="mb-6 inline-flex w-fit rounded-full border border-border bg-card/80 px-3 py-1 text-sm text-muted-foreground backdrop-blur">
-            {PRODUCT_NAME} для предпринимателей без тяжёлой CRM
+        <div className="relative z-10 mx-auto flex w-full max-w-6xl flex-col px-4 pb-44 pt-6 md:pb-56">
+          <nav className="mb-16 flex items-center justify-between gap-4">
+            <Link href="/" className="text-lg font-semibold text-primary">
+              {PRODUCT_NAME}
+            </Link>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" asChild>
+                <Link href="/login">Демо</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/register">Регистрация</Link>
+              </Button>
+            </div>
+          </nav>
+          <div className="flex flex-1 flex-col justify-center">
+            <div className="mb-6 inline-flex w-fit rounded-full border border-border bg-card/80 px-3 py-1 text-sm text-muted-foreground backdrop-blur">
+              CRM и операционный кабинет для малого бизнеса
+            </div>
+            <h1 className="max-w-3xl text-5xl font-semibold tracking-normal md:text-7xl">
+              {PRODUCT_NAME}
+            </h1>
+            <p className="mt-6 max-w-2xl text-xl text-muted-foreground">
+              Простая платформа для клиентов, записей, сотрудников, ресурсов,
+              акций, задач и аналитики без перегруженного интерфейса.
+            </p>
+            <div className="mt-6 grid max-w-3xl gap-3 sm:grid-cols-3">
+              {heroStats.map(([title, description]) => (
+                <div key={title} className="rounded-lg border border-border bg-card/75 p-3 backdrop-blur">
+                  <p className="font-medium">{title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-normal md:text-6xl">
-            Управляйте малым бизнесом без сложной CRM
-          </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            Клиенты, записи, сотрудники, ресурсы, акции и аналитика в одной
-            понятной системе.
-          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Button asChild size="lg">
               <Link href="/register" className="flex items-center gap-2">
@@ -116,10 +144,10 @@ export default function LandingPage() {
           </p>
         </Card>
         <Card className="p-5">
-          <h2 className="text-xl font-semibold">Готово к демонстрации</h2>
+          <h2 className="text-xl font-semibold">Готово к пилоту</h2>
           <p className="mt-3 text-sm text-muted-foreground">
-            Внутри есть кликабельный кабинет, mock-данные, AI-помощник,
-            аналитика, настройки модулей и адаптивная версия.
+            Внутри есть кликабельный кабинет, AI-помощник, аналитика,
+            настройки модулей и адаптивная версия.
           </p>
         </Card>
       </section>

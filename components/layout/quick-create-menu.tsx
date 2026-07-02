@@ -88,14 +88,14 @@ export function QuickCreateMenu() {
     } else if (drawerType === "promotion") {
       addPromotion({
         name: name || "Новая акция",
-        period: "июль",
+        period: "период не указан",
         status: "draft",
         conditions: secondary || "Условия нужно заполнить",
         description: comment || "Черновик акции."
       });
     } else {
       addToast({
-        title: "Форма сохранена в демо-режиме",
+        title: "Форма сохранена локально",
         description: `${item?.label ?? "Объект"} можно подключить к backend позже.`,
         variant: "success"
       });
@@ -141,7 +141,7 @@ export function QuickCreateMenu() {
           }
         }}
         title={item ? `Создать: ${item.label.toLowerCase()}` : "Создать"}
-        description="Демо-форма сохраняет данные локально в браузере."
+        description="Форма сохраняет данные локально в браузере до подключения backend."
       >
         <div className="space-y-4">
           <div className="space-y-2">
