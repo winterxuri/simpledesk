@@ -9,6 +9,7 @@ import {
   Settings2,
   UsersRound
 } from "lucide-react";
+import { ProductMark } from "@/components/layout/product-logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PublicSite } from "@/components/layout/public-site";
@@ -63,9 +64,12 @@ export default function LandingPage() {
               <span className="h-2 w-2 rounded-full bg-primary" />
               CRM, записи и отчёты для малого бизнеса
             </div>
-            <h1 className="max-w-3xl text-5xl font-semibold tracking-normal md:text-7xl">
-              {PRODUCT_NAME}
-            </h1>
+            <div className="flex flex-wrap items-center gap-4">
+              <ProductMark decorative className="h-12 w-12 rounded-xl md:h-16 md:w-16" />
+              <h1 className="max-w-3xl text-4xl font-semibold tracking-normal md:text-7xl">
+                {PRODUCT_NAME}
+              </h1>
+            </div>
             <p className="mt-6 max-w-2xl text-xl leading-8 text-muted-foreground">
               Простая рабочая платформа для клиентов, записей, сотрудников,
               остатков, акций, задач и отчётов без перегруженного интерфейса.

@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <title>SimpleDesk logo options</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5f8f8;
+        --card: #ffffff;
+        --ink: #172033;
+        --muted: #64748b;
+        --line: #d7e4e6;
+        --primary: #168a82;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--ink);
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+      }
+
+      main {
+        width: min(1120px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 48px 0;
+      }
+
+      header {
+        margin-bottom: 28px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(32px, 5vw, 56px);
+        line-height: 1.05;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 10px 0 0;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .grid {
+        display: grid;
+        gap: 20px;
+      }
+
+      .option {
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: var(--card);
+        box-shadow: 0 16px 40px -28px rgba(15, 23, 42, 0.22);
+      }
+
+      .option-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid var(--line);
+        padding: 16px 18px;
+      }
+
+      .option-title {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 720;
+      }
+
+      .badge {
+        border-radius: 999px;
+        background: #ddf4f1;
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 720;
+        padding: 5px 10px;
+      }
+
+      .logo-stage {
+        display: grid;
+        place-items: center;
+        min-height: 260px;
+        padding: 28px;
+      }
+
+      .logo-stage img {
+        width: min(720px, 100%);
+        height: auto;
+      }
+
+      .icons {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        border-top: 1px solid var(--line);
+        padding: 18px;
+      }
+
+      .icons img {
+        width: 72px;
+        height: 72px;
+      }
+
+      code {
+        color: var(--muted);
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 13px;
+      }
+
+      @media (max-width: 640px) {
+        main {
+          width: min(100% - 20px, 1120px);
+          padding: 24px 0;
+        }
+
+        .logo-stage {
+          min-height: 190px;
+          padding: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>SimpleDesk logo options</h1>
+        <p>Open the SVG files directly, or use this page to compare the marks at a glance.</p>
+      </header>
+
+      <section class="grid">
+        <article class="option">
+          <div class="option-header">
+            <h2 class="option-title">Option A: modular check</h2>
+            <span class="badge">recommended</span>
+          </div>
+          <div class="logo-stage">
+            <img src="simpledesk-logo-a.svg" alt="SimpleDesk logo option A"/>
+          </div>
+          <div class="icons">
+            <img src="simpledesk-icon-a.svg" alt="SimpleDesk icon option A"/>
+            <code>simpledesk-logo-a.svg / simpledesk-icon-a.svg</code>
+          </div>
+        </article>
+
+        <article class="option">
+          <div class="option-header">
+            <h2 class="option-title">Option B: SD monogram</h2>
+          </div>
+          <div class="logo-stage">
+            <img src="simpledesk-logo-b.svg" alt="SimpleDesk logo option B"/>
+          </div>
+          <div class="icons">
+            <img src="simpledesk-icon-b.svg" alt="SimpleDesk icon option B"/>
+            <code>simpledesk-logo-b.svg / simpledesk-icon-b.svg</code>
+          </div>
+        </article>
+
+        <article class="option">
+          <div class="option-header">
+            <h2 class="option-title">Option C: daily control board</h2>
+          </div>
+          <div class="logo-stage">
+            <img src="simpledesk-logo-c.svg" alt="SimpleDesk logo option C"/>
+          </div>
+          <div class="icons">
+            <img src="simpledesk-icon-c.svg" alt="SimpleDesk icon option C"/>
+            <code>simpledesk-logo-c.svg / simpledesk-icon-c.svg</code>
+          </div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

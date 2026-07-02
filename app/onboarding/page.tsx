@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2 } from "lucide-react";
+import { ProductLogo } from "@/components/layout/product-logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { PRODUCT_NAME } from "@/config/product";
 import {
   ONBOARDING_BUSINESS_OPTIONS,
   getBusinessTemplate
@@ -100,7 +101,12 @@ export default function OnboardingPage() {
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-semibold text-primary">{PRODUCT_NAME}</p>
+            <Link href="/" className="inline-flex">
+              <ProductLogo
+                markClassName="h-8 w-8"
+                wordmarkClassName="text-sm text-primary"
+              />
+            </Link>
             <h1 className="mt-2 text-3xl font-semibold">Настройка рабочего пространства</h1>
             <p className="mt-2 text-sm text-muted-foreground">
               6 коротких шагов, чтобы оставить только нужные разделы и термины.

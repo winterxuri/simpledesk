@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { ProductLogo } from "@/components/layout/product-logo";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PRODUCT_NAME } from "@/config/product";
 import { signInUser } from "@/lib/backend/auth";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/app-store";
@@ -114,8 +113,11 @@ export default function LoginPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <Card className="w-full max-w-md p-6">
         <div className="mb-6">
-          <Link href="/" className="text-sm font-semibold text-primary">
-            {PRODUCT_NAME}
+          <Link href="/" className="inline-flex">
+            <ProductLogo
+              markClassName="h-8 w-8"
+              wordmarkClassName="text-sm text-primary"
+            />
           </Link>
           <h1 className="mt-3 text-2xl font-semibold">Вход</h1>
           <p className="mt-2 text-sm text-muted-foreground">

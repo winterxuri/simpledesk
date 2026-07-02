@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-labelledby="title desc">
+  <title id="title">SimpleDesk icon option A</title>
+  <desc id="desc">A modular teal app icon with a check path.</desc>
+  <rect width="192" height="192" rx="40" fill="#168A82"/>
+  <rect x="40" y="40" width="50" height="50" rx="13" fill="#FFFFFF" opacity="0.96"/>
+  <rect x="102" y="40" width="48" height="50" rx="13" fill="#DDF4F1" opacity="0.78"/>
+  <rect x="40" y="102" width="50" height="48" rx="13" fill="#DDF4F1" opacity="0.78"/>
+  <circle cx="126" cy="126" r="26" fill="#0F615D" opacity="0.42"/>
+  <path d="M101 130L126 154L166 101" fill="none" stroke="#FFFFFF" stroke-width="17" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

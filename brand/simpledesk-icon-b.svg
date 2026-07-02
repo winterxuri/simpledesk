@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-labelledby="title desc">
+  <title id="title">SimpleDesk icon option B</title>
+  <desc id="desc">A clean SD monogram app icon.</desc>
+  <rect x="8" y="8" width="176" height="176" rx="40" fill="#FFFFFF" stroke="#D7E4E6" stroke-width="3"/>
+  <rect x="49" y="43" width="40" height="101" rx="17" fill="#168A82"/>
+  <rect x="49" y="134" width="97" height="32" rx="16" fill="#168A82"/>
+  <path d="M82 43H116C157 43 180 69 180 96C180 123 157 149 116 149H82V117H116C134 117 148 108 148 96C148 84 134 75 116 75H82V43Z" fill="#172033"/>
+  <circle cx="116" cy="96" r="13" fill="#24B8AA"/>
+</svg>

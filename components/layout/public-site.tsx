@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ProductLogo } from "@/components/layout/product-logo";
 import { Button } from "@/components/ui/button";
 import { PRODUCT_NAME } from "@/config/product";
 import { AppIcon } from "@/lib/icons";
@@ -61,11 +62,8 @@ function PublicHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/92 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            SD
-          </span>
-          <span className="truncate text-base font-semibold">{PRODUCT_NAME}</span>
+        <Link href="/" className="flex min-w-0 items-center" aria-label={PRODUCT_NAME}>
+          <ProductLogo wordmarkClassName="text-base" />
         </Link>
 
         <nav className="hidden items-center gap-1 md:flex">
@@ -116,10 +114,7 @@ function PublicFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.4fr_2fr]">
           <div>
             <Link href="/" className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-                SD
-              </span>
-              <span className="text-lg font-semibold">{PRODUCT_NAME}</span>
+              <ProductLogo wordmarkClassName="text-lg" />
             </Link>
             <p className="mt-5 max-w-sm text-sm leading-7 text-muted-foreground">
               Рабочая платформа для малого бизнеса: клиенты, записи, сотрудники,

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-labelledby="title desc">
+  <title id="title">SimpleDesk icon option C</title>
+  <desc id="desc">A dashboard-inspired app icon.</desc>
+  <rect width="192" height="192" rx="40" fill="#172033"/>
+  <rect x="40" y="45" width="84" height="18" rx="9" fill="#24B8AA"/>
+  <circle cx="152" cy="54" r="12" fill="#F2B84A"/>
+  <rect x="40" y="84" width="112" height="18" rx="9" fill="#FFFFFF" opacity="0.72"/>
+  <circle cx="166" cy="93" r="8" fill="#DDF4F1"/>
+  <path d="M47 142L71 164L115 111" fill="none" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="124" y="128" width="32" height="18" rx="9" fill="#24B8AA"/>
+  <rect x="124" y="158" width="50" height="18" rx="9" fill="#DDF4F1"/>
+</svg>

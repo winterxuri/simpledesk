@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="220" viewBox="0 0 720 220" role="img" aria-labelledby="title desc">
+  <title id="title">SimpleDesk logo option B</title>
+  <desc id="desc">A clean SD monogram mark and SimpleDesk wordmark.</desc>
+  <defs>
+    <filter id="soft-shadow-b" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="14" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+  </defs>
+  <rect width="720" height="220" fill="none"/>
+  <g transform="translate(28 28)" filter="url(#soft-shadow-b)">
+    <rect width="164" height="164" rx="34" fill="#FFFFFF" stroke="#D7E4E6" stroke-width="2"/>
+    <rect x="40" y="38" width="35" height="88" rx="15" fill="#168A82"/>
+    <rect x="40" y="126" width="84" height="28" rx="14" fill="#168A82"/>
+    <path d="M70 38H100C137 38 158 62 158 96C158 130 137 154 100 154H70V126H100C118 126 130 114 130 96C130 78 118 66 100 66H70V38Z" fill="#172033"/>
+    <circle cx="100" cy="96" r="11" fill="#24B8AA"/>
+  </g>
+  <g transform="translate(222 71)">
+    <text x="0" y="47" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="56" font-weight="760" letter-spacing="0" fill="#172033">SimpleDesk</text>
+    <text x="3" y="82" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="500" letter-spacing="0" fill="#64748B">clear daily operations</text>
+  </g>
+</svg>

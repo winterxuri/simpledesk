@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ProductMark } from "@/components/layout/product-logo";
 import { Button } from "@/components/ui/button";
 import { PRODUCT_NAME } from "@/config/product";
 import { buildNavigationItems } from "@/config/navigation";
@@ -37,9 +38,7 @@ export function AppSidebar({
       )}
     >
       <div className="flex h-16 items-center gap-3 border-b border-border px-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-          SD
-        </div>
+        <ProductMark decorative className="h-10 w-10" />
         {!collapsed || mobile ? (
           <div className="min-w-0">
             <p className="truncate font-semibold">{PRODUCT_NAME}</p>
