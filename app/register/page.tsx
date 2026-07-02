@@ -116,7 +116,20 @@ export default function RegisterPage() {
           </div>
           <label className="flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-primary" {...register("terms")} />
-            <span>Согласен с условиями использования SimpleDesk</span>
+            <span>
+              Согласен с{" "}
+              <Link href="/legal/terms" className="font-medium text-primary">
+                условиями использования
+              </Link>
+              ,{" "}
+              <Link href="/legal/privacy" className="font-medium text-primary">
+                политикой конфиденциальности
+              </Link>
+              {" "}и{" "}
+              <Link href="/legal/personal-data" className="font-medium text-primary">
+                согласием на обработку персональных данных
+              </Link>
+            </span>
           </label>
           {errors.terms ? <p className="text-xs text-destructive">{errors.terms.message}</p> : null}
           <Button type="submit" className="w-full" disabled={isSubmitting}>

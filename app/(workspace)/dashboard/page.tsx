@@ -26,7 +26,6 @@ export default function DashboardPage() {
   const data = useAppStore((state) => state.data);
   const addToast = useAppStore((state) => state.addToast);
   const openQuickCreate = useAppStore((state) => state.openQuickCreate);
-  const [recommendationVisible, setRecommendationVisible] = useState(true);
   const [greeting, setGreeting] = useState("Здравствуйте");
   const appointmentTerm = company.terminology.appointment;
   const today = getLocalDateKey(new Date());
@@ -229,36 +228,6 @@ export default function DashboardPage() {
           )}
         </DashboardWidget>
       </div>
-
-      {recommendationVisible && data.clients.length ? (
-      <div className="mt-6">
-        <DashboardWidget title="Рекомендация по клиентам">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-medium">
-                12 клиентов обычно возвращаются каждые 30-40 дней, но пока не
-                записались повторно. Подготовить предложение?
-              </p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Основано на истории визитов, сегментах клиентов и активности за месяц.
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button type="button" onClick={() => addToast({
-                title: "Задача создана",
-                description: "Добавьте кампанию или задачу на повторный контакт в следующих разделах.",
-                variant: "success"
-              })}>
-                Создать задачу
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setRecommendationVisible(false)}>
-                Скрыть
-              </Button>
-            </div>
-          </div>
-        </DashboardWidget>
-      </div>
-      ) : null}
     </div>
   );
 }

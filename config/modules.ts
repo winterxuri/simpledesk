@@ -4,7 +4,7 @@ export const MODULES: ModuleDefinition[] = [
   {
     code: "dashboard",
     title: "Сегодня",
-    description: "Ключевые показатели, расписание и рекомендации на день.",
+    description: "Ключевые показатели, расписание и события на день.",
     icon: "LayoutDashboard",
     route: "/dashboard",
     dependencies: [],
