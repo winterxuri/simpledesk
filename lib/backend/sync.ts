@@ -10,6 +10,7 @@ import type {
   InventoryMovement,
   Product,
   Promotion,
+  ReportSnapshot,
   Task
 } from "@/types";
 
@@ -183,6 +184,33 @@ export async function syncPromotion(companyId: string, promotion: Promotion) {
       efficiency: promotion.efficiency,
       description: promotion.description
     })
+  );
+}
+
+export async function syncReportSnapshot(companyId: string, report: ReportSnapshot) {
+  if (!canSync(companyId) || !canSync(report.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("report_snapshots").upsert({
+      id: report.id,
+      company_id: companyId,
+      title: report.title,
+      period_start: report.periodStart,
+      period_end: report.periodEnd,
+      generated_at: report.generatedAt,
+      summary: report.summary,
+      sections: report.sections
+    })
+  );
+}
+
+export async function deleteReportSnapshot(companyId: string, reportId: string) {
+  if (!canSync(companyId) || !canSync(reportId)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient()
+      .from("report_snapshots")
+      .delete()
+      .eq("company_id", companyId)
+      .eq("id", reportId)
   );
 }
 

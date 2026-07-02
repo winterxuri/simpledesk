@@ -14,6 +14,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     hiddenModules: ["resources", "integrations"],
@@ -25,6 +26,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     terminology: {
@@ -53,6 +55,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "resources",
       "inventory",
       "tasks",
+      "reports",
       "analytics"
     ],
     hiddenModules: ["promotions", "integrations"],
@@ -64,6 +67,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "employees",
       "tasks",
+      "reports",
       "analytics"
     ],
     terminology: {
@@ -91,6 +95,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     hiddenModules: ["calendar", "resources", "integrations"],
@@ -101,6 +106,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "employees",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     terminology: {
@@ -127,6 +133,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "inventory",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     hiddenModules: ["calendar", "employees", "resources", "integrations"],
@@ -136,6 +143,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "clients",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     terminology: {
@@ -165,6 +173,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "resources",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     hiddenModules: ["integrations"],
@@ -177,6 +186,7 @@ export const BUSINESS_TEMPLATES: BusinessTemplate[] = [
       "resources",
       "promotions",
       "tasks",
+      "reports",
       "analytics"
     ],
     terminology: {

@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { buildDefaultCompanyModules } from "@/config/navigation";
+import { buildDefaultCompanyModules, normalizeCompanyModules } from "@/config/navigation";
 import { PRODUCT_NAME, STORAGE_KEY } from "@/config/product";
 import { getBusinessTemplate } from "@/config/templates";
 import { createDemoData } from "@/data/demo-data";
@@ -17,6 +17,8 @@ import {
   syncInventoryMovement,
   syncProduct,
   syncPromotion,
+  syncReportSnapshot,
+  deleteReportSnapshot,
   syncTask
 } from "@/lib/backend/sync";
 import { createId } from "@/lib/utils";
@@ -33,6 +35,7 @@ import type {
   Product,
   Promotion,
   QuickCreateType,
+  ReportSnapshot,
   Role,
   Task,
   ThemeMode,
@@ -114,6 +117,8 @@ interface AppStore {
   updateProduct: (id: string, product: Partial<Product>) => void;
   addInventoryMovement: (movement: Omit<InventoryMovement, "id">) => void;
   addFinancialOperation: (operation: Omit<FinancialOperation, "id">) => void;
+  saveReportSnapshot: (snapshot: ReportSnapshot) => void;
+  deleteReportSnapshot: (id: string) => void;
   addTask: (task: Omit<Task, "id">) => void;
   updateTask: (id: string, task: Partial<Task>) => void;
   toggleTaskChecklistItem: (taskId: string, itemIndex: number, done: boolean) => void;
@@ -200,7 +205,10 @@ export const useAppStore = create<AppStore>()(
             role: user.role,
             sessionMode: "registered",
             company: nextCompany,
-            companyModules: companyModules?.length ? companyModules : buildDefaultCompanyModules(nextCompany.businessTemplateId),
+            companyModules: normalizeCompanyModules(
+              companyModules?.length ? companyModules : buildDefaultCompanyModules(nextCompany.businessTemplateId),
+              nextCompany.businessTemplateId
+            ),
             data: data ?? createInitialBusinessData(user, ownerEmployeeId),
             onboardingComplete
           };
@@ -252,7 +260,7 @@ export const useAppStore = create<AppStore>()(
         })),
       toggleModule: (code, enabled) =>
         set((state) => ({
-          companyModules: state.companyModules.map((module) => {
+          companyModules: normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
             if (module.code !== code || !module.availableOnTariff) {
               return module;
             }
@@ -265,7 +273,7 @@ export const useAppStore = create<AppStore>()(
         })),
       setModuleVisibility: (code, visible) =>
         set((state) => ({
-          companyModules: state.companyModules.map((module) => {
+          companyModules: normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
             if (module.code !== code || !module.availableOnTariff) {
               return module;
             }
@@ -278,7 +286,8 @@ export const useAppStore = create<AppStore>()(
         })),
       moveNavigationItem: (code, direction) =>
         set((state) => {
-          const visible = state.companyModules
+          const normalizedModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId);
+          const visible = normalizedModules
             .filter((module) => module.status !== "disabled" && module.status !== "unavailable")
             .sort((a, b) => a.order - b.order);
           const index = visible.findIndex((module) => module.code === code);
@@ -291,7 +300,7 @@ export const useAppStore = create<AppStore>()(
           const orderMap = new Map(swapped.map((module, orderIndex) => [module.code, orderIndex + 1]));
 
           return {
-            companyModules: state.companyModules.map((module) => ({
+            companyModules: normalizedModules.map((module) => ({
               ...module,
               order: orderMap.get(module.code) ?? module.order
             }))
@@ -299,7 +308,7 @@ export const useAppStore = create<AppStore>()(
         }),
       reorderNavigation: (orderedCodes) =>
         set((state) => ({
-          companyModules: state.companyModules.map((module) => ({
+          companyModules: normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => ({
             ...module,
             order:
               orderedCodes.indexOf(module.code) >= 0
@@ -609,6 +618,31 @@ export const useAppStore = create<AppStore>()(
                         : employee
                     )
                   : state.data.employees
+            }
+          };
+        }),
+      saveReportSnapshot: (snapshot) =>
+        set((state) => {
+          void syncReportSnapshot(state.company.id, snapshot);
+          const currentReports = state.data.reportSnapshots ?? [];
+          const existing = currentReports.some((report) => report.id === snapshot.id);
+
+          return {
+            data: {
+              ...state.data,
+              reportSnapshots: existing
+                ? currentReports.map((report) => report.id === snapshot.id ? snapshot : report)
+                : [snapshot, ...currentReports]
+            }
+          };
+        }),
+      deleteReportSnapshot: (id) =>
+        set((state) => {
+          void deleteReportSnapshot(state.company.id, id);
+          return {
+            data: {
+              ...state.data,
+              reportSnapshots: (state.data.reportSnapshots ?? []).filter((report) => report.id !== id)
             }
           };
         }),

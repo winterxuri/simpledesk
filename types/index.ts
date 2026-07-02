@@ -20,6 +20,7 @@ export type ModuleCode =
   | "resources"
   | "promotions"
   | "tasks"
+  | "reports"
   | "analytics"
   | "integrations";
 
@@ -242,6 +243,67 @@ export interface FinancialOperation {
   appointmentId?: string;
 }
 
+export interface ReportSummary {
+  income: number;
+  expenses: number;
+  profit: number;
+  averageCheck: number;
+  salesCount: number;
+  appointments: number;
+  completedAppointments: number;
+  paidAppointments: number;
+  clients: number;
+  newClients: number;
+  tasksOpen: number;
+  tasksDone: number;
+  lowStock: number;
+  inventoryWriteOff: number;
+}
+
+export interface ReportSnapshot {
+  id: string;
+  title: string;
+  periodStart: string;
+  periodEnd: string;
+  generatedAt: string;
+  summary: ReportSummary;
+  sections: {
+    financeByCategory: {
+      id: string;
+      category: string;
+      type: "income" | "expense";
+      amount: number;
+      count: number;
+    }[];
+    employees: {
+      id: string;
+      name: string;
+      revenue: number;
+      appointments: number;
+      load: number;
+    }[];
+    appointments: {
+      id: string;
+      date: string;
+      time: string;
+      title: string;
+      client: string;
+      employee: string;
+      price: number;
+      status: AppointmentStatus;
+      paid: boolean;
+    }[];
+    inventory: {
+      id: string;
+      name: string;
+      stock: number;
+      minStock: number;
+      status: ProductStatus;
+      supplier: string;
+    }[];
+  };
+}
+
 export interface Notification {
   id: string;
   title: string;
@@ -270,6 +332,7 @@ export interface DemoData {
   promotions: Promotion[];
   tasks: Task[];
   financialOperations: FinancialOperation[];
+  reportSnapshots: ReportSnapshot[];
   notifications: Notification[];
   dashboardWidgets: DashboardWidget[];
 }

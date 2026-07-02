@@ -33,7 +33,7 @@ export function buildNavigationItems(
   const template = getBusinessTemplate(templateId);
   const order = new Map(template.menuOrder.map((code, index) => [code, index + 1]));
 
-  const items = modules
+  const items = normalizeCompanyModules(modules, templateId)
     .filter((module) => module.status !== "disabled" && module.status !== "unavailable")
     .map((module) => {
       const definition = getModuleDefinition(module.code);
@@ -59,6 +59,15 @@ export function buildNavigationItems(
       order: 100
     }
   ];
+}
+
+export function normalizeCompanyModules(
+  modules: CompanyModule[],
+  templateId: string
+): CompanyModule[] {
+  const existing = new Set(modules.map((module) => module.code));
+  const missing = buildDefaultCompanyModules(templateId).filter((module) => !existing.has(module.code));
+  return [...modules, ...missing];
 }
 
 export function buildDefaultCompanyModules(

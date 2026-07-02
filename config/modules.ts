@@ -92,13 +92,23 @@ export const MODULES: ModuleDefinition[] = [
     plan: "basic"
   },
   {
+    code: "reports",
+    title: "Отчёты",
+    description: "Сводки за день и период, сохранение, импорт и экспорт файлов.",
+    icon: "ClipboardList",
+    route: "/reports",
+    dependencies: [],
+    defaultOrder: 10,
+    plan: "basic"
+  },
+  {
     code: "integrations",
     title: "Интеграции",
     description: "Telegram, WhatsApp, календарь, CSV, оплата, API и вебхуки.",
     icon: "Cable",
     route: "/settings/integrations",
     dependencies: [],
-    defaultOrder: 10,
+    defaultOrder: 11,
     plan: "pro"
   }
 ];

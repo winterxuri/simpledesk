@@ -27,6 +27,7 @@ export function createInitialBusinessData(owner: User | null, ownerEmployeeId?: 
     promotions: [],
     tasks: [],
     financialOperations: [],
+    reportSnapshots: [],
     notifications: [
       {
         id: "notification-welcome",

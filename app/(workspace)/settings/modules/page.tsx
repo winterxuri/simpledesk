@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { MODULES, getModuleDefinition } from "@/config/modules";
-import { getModuleTitle } from "@/config/navigation";
+import { getModuleTitle, normalizeCompanyModules } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/modules/page-header";
@@ -21,7 +21,7 @@ export default function SettingsModulesPage() {
 
   const enriched = useMemo(
     () =>
-      modules.map((module) => ({
+      normalizeCompanyModules(modules, company.businessTemplateId).map((module) => ({
         module,
         definition: getModuleDefinition(module.code) ?? MODULES[0],
         title: getModuleTitle(module.code, company.businessTemplateId)

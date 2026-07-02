@@ -486,6 +486,7 @@ export function createDemoData(templateId: string): DemoData {
     promotions: makePromotions(templateId),
     tasks: makeTasks(),
     financialOperations: makeFinance(),
+    reportSnapshots: [],
     notifications: makeNotifications(),
     dashboardWidgets: makeWidgets()
   };

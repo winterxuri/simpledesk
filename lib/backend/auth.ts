@@ -22,6 +22,7 @@ import type {
   ProductStatus,
   Promotion,
   PromotionStatus,
+  ReportSnapshot,
   Resource,
   ResourceStatus,
   Role,
@@ -325,6 +326,7 @@ async function loadCompanyData(
     promotions,
     tasks,
     financialOperations,
+    reportSnapshots,
     notifications
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
@@ -336,6 +338,7 @@ async function loadCompanyData(
     supabase.from("promotions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("financial_operations").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("report_snapshots").select("*").eq("company_id", companyId).order("generated_at", { ascending: false }),
     supabase.from("notifications").select("*").eq("company_id", companyId).order("created_at", { ascending: false })
   ]);
 
@@ -352,6 +355,7 @@ async function loadCompanyData(
     promotions: rows(promotions.data).map(mapPromotion),
     tasks: rows(tasks.data).map(mapTask),
     financialOperations: rows(financialOperations.data).map(mapFinancialOperation),
+    reportSnapshots: rows(reportSnapshots.data).map(mapReportSnapshot),
     notifications: rows(notifications.data).map(mapNotification).concat(
       rows(notifications.data).length ? [] : base.notifications
     )
@@ -380,6 +384,11 @@ function num(row: LooseRow, key: string, fallback = 0) {
 function bool(row: LooseRow, key: string, fallback = false) {
   const value = row[key];
   return typeof value === "boolean" ? value : fallback;
+}
+
+function jsonObject<T>(row: LooseRow, key: string, fallback: T): T {
+  const value = row[key];
+  return typeof value === "object" && value !== null ? value as T : fallback;
 }
 
 function mapClient(row: LooseRow): Client {
@@ -516,6 +525,38 @@ function mapFinancialOperation(row: LooseRow): FinancialOperation {
     clientId: nullableText(row, "client_id"),
     employeeId: nullableText(row, "employee_id"),
     appointmentId: nullableText(row, "appointment_id")
+  };
+}
+
+function mapReportSnapshot(row: LooseRow): ReportSnapshot {
+  return {
+    id: text(row, "id"),
+    title: text(row, "title", "Отчёт"),
+    periodStart: text(row, "period_start"),
+    periodEnd: text(row, "period_end"),
+    generatedAt: text(row, "generated_at", new Date().toISOString()),
+    summary: jsonObject(row, "summary", {
+      income: 0,
+      expenses: 0,
+      profit: 0,
+      averageCheck: 0,
+      salesCount: 0,
+      appointments: 0,
+      completedAppointments: 0,
+      paidAppointments: 0,
+      clients: 0,
+      newClients: 0,
+      tasksOpen: 0,
+      tasksDone: 0,
+      lowStock: 0,
+      inventoryWriteOff: 0
+    }),
+    sections: jsonObject(row, "sections", {
+      financeByCategory: [],
+      employees: [],
+      appointments: [],
+      inventory: []
+    })
   };
 }
 
