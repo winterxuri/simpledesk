@@ -1,0 +1,222 @@
+"use client";
+
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type {
+  Appointment,
+  Client,
+  Company,
+  Employee,
+  FinancialOperation,
+  InventoryMovement,
+  Product,
+  Promotion,
+  Task
+} from "@/types";
+
+export function canSync(companyId: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(companyId);
+}
+
+export async function syncCompany(company: Company) {
+  if (!canSync(company.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient()
+      .from("companies")
+      .update({
+        name: company.name,
+        business_template_id: company.businessTemplateId,
+        industry: company.industry,
+        address: company.address,
+        phone: company.phone,
+        email: company.email,
+        timezone: company.timezone,
+        currency: company.currency,
+        work_days: company.workDays,
+        work_hours: company.workHours,
+        terminology: company.terminology
+      })
+      .eq("id", company.id)
+  );
+}
+
+export async function syncClient(companyId: string, client: Client) {
+  if (!canSync(companyId) || !canSync(client.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("clients").upsert({
+      id: client.id,
+      company_id: companyId,
+      name: client.name,
+      phone: client.phone,
+      email: client.email,
+      status: client.status,
+      responsible_employee_id: canSync(client.responsibleId) ? client.responsibleId : null,
+      total_spent: client.totalSpent,
+      visits: client.visits,
+      last_visit: client.lastVisit,
+      next_appointment: client.nextAppointment ?? null,
+      source: client.source,
+      notes: client.notes
+    })
+  );
+}
+
+export async function syncAppointment(companyId: string, appointment: Appointment) {
+  if (!canSync(companyId) || !canSync(appointment.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("appointments").upsert({
+      id: appointment.id,
+      company_id: companyId,
+      client_id: canSync(appointment.clientId) ? appointment.clientId : null,
+      employee_id: canSync(appointment.employeeId) ? appointment.employeeId : null,
+      resource_id: appointment.resourceId && canSync(appointment.resourceId) ? appointment.resourceId : null,
+      title: appointment.title,
+      date: appointment.date,
+      time: appointment.time,
+      duration_minutes: appointment.duration,
+      price: appointment.price,
+      status: toDbAppointmentStatus(appointment.status),
+      paid: appointment.paid,
+      comment: appointment.comment ?? null
+    })
+  );
+}
+
+export async function syncEmployee(companyId: string, employee: Employee) {
+  if (!canSync(companyId) || !canSync(employee.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("employees").upsert({
+      id: employee.id,
+      company_id: companyId,
+      name: employee.name,
+      position: employee.position,
+      status: employee.status,
+      schedule: employee.schedule,
+      role: employee.role,
+      load_percent: employee.loadPercent,
+      revenue: employee.revenue,
+      appointments_count: employee.appointmentsCount,
+      rating: employee.rating,
+      compensation_type: employee.compensationType ?? "fixed",
+      base_salary: employee.baseSalary ?? 0,
+      commission_percent: employee.commissionPercent ?? 0,
+      dismissed_at: employee.dismissedAt ?? null
+    })
+  );
+}
+
+export async function syncProduct(companyId: string, product: Product) {
+  if (!canSync(companyId) || !canSync(product.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("products").upsert({
+      id: product.id,
+      company_id: companyId,
+      name: product.name,
+      type: product.type,
+      category: product.category,
+      current_stock: product.currentStock,
+      min_stock: product.minStock,
+      purchase_price: product.purchasePrice,
+      sale_price: product.salePrice,
+      supplier: product.supplier,
+      status: product.status
+    })
+  );
+}
+
+export async function syncInventoryMovement(companyId: string, movement: InventoryMovement) {
+  if (!canSync(companyId) || !canSync(movement.id) || !canSync(movement.productId)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("inventory_movements").upsert({
+      id: movement.id,
+      company_id: companyId,
+      product_id: movement.productId,
+      type: toDbMovementType(movement.type),
+      quantity: movement.quantity,
+      date: movement.date,
+      comment: movement.comment
+    })
+  );
+}
+
+export async function syncFinancialOperation(companyId: string, operation: FinancialOperation) {
+  if (!canSync(companyId) || !canSync(operation.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("financial_operations").upsert({
+      id: operation.id,
+      company_id: companyId,
+      type: operation.type,
+      category: operation.category,
+      amount: operation.amount,
+      date: operation.date,
+      comment: operation.comment,
+      client_id: operation.clientId && canSync(operation.clientId) ? operation.clientId : null,
+      employee_id: operation.employeeId && canSync(operation.employeeId) ? operation.employeeId : null,
+      appointment_id: operation.appointmentId && canSync(operation.appointmentId) ? operation.appointmentId : null
+    })
+  );
+}
+
+export async function syncPromotion(companyId: string, promotion: Promotion) {
+  if (!canSync(companyId) || !canSync(promotion.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("promotions").upsert({
+      id: promotion.id,
+      company_id: companyId,
+      name: promotion.name,
+      period: promotion.period,
+      status: promotion.status,
+      conditions: promotion.conditions,
+      usage_count: promotion.usageCount,
+      revenue: promotion.revenue,
+      new_clients: promotion.newClients,
+      efficiency: promotion.efficiency,
+      description: promotion.description
+    })
+  );
+}
+
+export async function syncTask(companyId: string, task: Task) {
+  if (!canSync(companyId) || !canSync(task.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("tasks").upsert({
+      id: task.id,
+      company_id: companyId,
+      title: task.title,
+      description: task.description,
+      responsible_employee_id: canSync(task.responsibleId) ? task.responsibleId : null,
+      due_date: task.dueDate,
+      priority: task.priority,
+      status: toDbTaskStatus(task.status),
+      client_id: task.clientId && canSync(task.clientId) ? task.clientId : null,
+      appointment_id: task.appointmentId && canSync(task.appointmentId) ? task.appointmentId : null,
+      product_id: task.productId && canSync(task.productId) ? task.productId : null
+    })
+  );
+}
+
+async function safeSync(action: () => PromiseLike<{ error: unknown }>) {
+  try {
+    const result = await action();
+    if (result.error) {
+      console.warn("Supabase sync failed", result.error);
+    }
+  } catch (error) {
+    console.warn("Supabase sync failed", error);
+  }
+}
+
+function toDbAppointmentStatus(status: Appointment["status"]) {
+  if (status === "inProgress") return "in_progress";
+  if (status === "noShow") return "no_show";
+  return status;
+}
+
+function toDbMovementType(type: InventoryMovement["type"]) {
+  if (type === "writeOff") return "write_off";
+  return type;
+}
+
+function toDbTaskStatus(status: Task["status"]) {
+  if (status === "inProgress") return "in_progress";
+  return status;
+}

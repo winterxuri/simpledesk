@@ -22,6 +22,7 @@ export function NotificationPanel() {
   const setOpen = useAppStore((state) => state.setNotificationPanelOpen);
   const notifications = useAppStore((state) => state.data.notifications);
   const markRead = useAppStore((state) => state.markNotificationRead);
+  const markAllRead = useAppStore((state) => state.markAllNotificationsRead);
   const [filter, setFilter] = useState("all");
 
   const filtered = useMemo(() => {
@@ -73,8 +74,8 @@ export function NotificationPanel() {
           </div>
         ) : null}
       </div>
-      <Button type="button" variant="outline" className="mt-5 w-full">
-        Настроить уведомления
+      <Button type="button" variant="outline" className="mt-5 w-full" onClick={markAllRead}>
+        Отметить все прочитанными
       </Button>
     </Drawer>
   );

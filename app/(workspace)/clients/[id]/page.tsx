@@ -55,6 +55,8 @@ export default function ClientDetailPage() {
   const data = useAppStore((state) => state.data);
   const company = useAppStore((state) => state.company);
   const updateClient = useAppStore((state) => state.updateClient);
+  const addTask = useAppStore((state) => state.addTask);
+  const addToast = useAppStore((state) => state.addToast);
   const client = data.clients.find((item) => item.id === params.id);
 
   if (!client) {
@@ -102,6 +104,41 @@ export default function ClientDetailPage() {
       notes: editForm.notes
     });
     setEditOpen(false);
+  }
+
+  function runRecommendedAction(action: string) {
+    if (action === "Напомнить о повторном визите") {
+      updateClient(currentClient.id, { status: "attention" });
+      addToast({
+        title: "Клиент помечен",
+        description: "Статус изменён на «требует внимания».",
+        variant: "success"
+      });
+      return;
+    }
+    if (action === "Назначить задачу") {
+      addTask({
+        title: `Связаться с ${currentClient.name}`,
+        description: "Уточнить повторный визит и предложить удобное время.",
+        responsibleId: currentClient.responsibleId || data.employees[0]?.id || "employee-1",
+        dueDate: new Date().toISOString().slice(0, 10),
+        priority: "medium",
+        status: "new",
+        clientId: currentClient.id,
+        checklist: [{ title: "Позвонить или написать клиенту", done: false }]
+      });
+      addToast({
+        title: "Задача создана",
+        description: "Задача добавлена в раздел задач.",
+        variant: "success"
+      });
+      return;
+    }
+    addToast({
+      title: action,
+      description: "Действие зафиксировано в текущем рабочем пространстве.",
+      variant: "info"
+    });
   }
 
   return (
@@ -208,7 +245,7 @@ export default function ClientDetailPage() {
             </p>
             <div className="mt-4 grid gap-2">
               {["Напомнить о повторном визите", "Предложить акцию", "Связаться", "Назначить задачу"].map((action) => (
-                <Button key={action} type="button" variant="outline">
+                <Button key={action} type="button" variant="outline" onClick={() => runRecommendedAction(action)}>
                   {action}
                 </Button>
               ))}

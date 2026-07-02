@@ -129,13 +129,17 @@ export interface Employee {
   id: string;
   name: string;
   position: string;
-  status: "working" | "dayOff" | "vacation";
+  status: "working" | "dayOff" | "vacation" | "dismissed";
   schedule: string;
   loadPercent: number;
   revenue: number;
   appointmentsCount: number;
   rating: number;
   role: Role;
+  compensationType?: "fixed" | "commission" | "mixed";
+  baseSalary?: number;
+  commissionPercent?: number;
+  dismissedAt?: string;
 }
 
 export interface Appointment {
@@ -223,6 +227,9 @@ export interface FinancialOperation {
   amount: number;
   date: string;
   comment: string;
+  clientId?: string;
+  employeeId?: string;
+  appointmentId?: string;
 }
 
 export interface Notification {

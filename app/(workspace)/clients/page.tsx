@@ -36,6 +36,7 @@ export default function ClientsPage() {
   const company = useAppStore((state) => state.company);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [segment, setSegment] = useState("Все");
   const [sort, setSort] = useState("total");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<string[]>([]);
@@ -64,6 +65,21 @@ export default function ClientsPage() {
         )
       )
       .filter((client) => status === "all" || client.status === status)
+      .filter((client) => {
+        if (segment === "VIP") {
+          return client.totalSpent >= 50000 || client.status === "loyal";
+        }
+        if (segment === "Повторные") {
+          return client.visits > 1 || client.status === "active" || client.status === "loyal";
+        }
+        if (segment === "Без визита 45 дней") {
+          return client.status === "inactive";
+        }
+        if (segment === "Из акции") {
+          return client.source.toLowerCase().includes("акц");
+        }
+        return true;
+      })
       .sort((a, b) =>
         sort === "name"
           ? a.name.localeCompare(b.name, "ru")
@@ -71,14 +87,14 @@ export default function ClientsPage() {
             ? b.lastVisit.localeCompare(a.lastVisit)
             : b.totalSpent - a.totalSpent
       );
-  }, [clients, search, sort, status]);
+  }, [clients, search, segment, sort, status]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   useEffect(() => {
     setPage(1);
-  }, [search, sort, status]);
+  }, [search, segment, sort, status]);
 
   const columns: DataTableColumn<Client>[] = [
     {
@@ -199,9 +215,15 @@ export default function ClientsPage() {
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {["Все", "VIP", "Повторные", "Без визита 45 дней", "Из акции"].map((segment) => (
-          <Button key={segment} type="button" variant="outline" size="sm">
-            {segment}
+        {["Все", "VIP", "Повторные", "Без визита 45 дней", "Из акции"].map((segmentName) => (
+          <Button
+            key={segmentName}
+            type="button"
+            variant={segment === segmentName ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSegment(segmentName)}
+          >
+            {segmentName}
           </Button>
         ))}
       </div>
@@ -309,7 +331,7 @@ export default function ClientsPage() {
         open={open}
         onOpenChange={setOpen}
         title="Добавить клиента"
-        description="Клиент сохранится в localStorage как демонстрационная запись."
+        description="Клиент сохранится в рабочем пространстве и синхронизируется с Supabase для зарегистрированных компаний."
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>

@@ -6,6 +6,18 @@ import { buildDefaultCompanyModules } from "@/config/navigation";
 import { PRODUCT_NAME, STORAGE_KEY } from "@/config/product";
 import { getBusinessTemplate } from "@/config/templates";
 import { createDemoData } from "@/data/demo-data";
+import { createInitialBusinessData } from "@/data/initial-data";
+import {
+  syncAppointment,
+  syncClient,
+  syncCompany,
+  syncEmployee,
+  syncFinancialOperation,
+  syncInventoryMovement,
+  syncProduct,
+  syncPromotion,
+  syncTask
+} from "@/lib/backend/sync";
 import { createId } from "@/lib/utils";
 import type {
   Appointment,
@@ -14,6 +26,7 @@ import type {
   CompanyModule,
   DemoData,
   Employee,
+  FinancialOperation,
   InventoryMovement,
   ModuleCode,
   Product,
@@ -68,7 +81,15 @@ interface AppStore {
   setTheme: (theme: ThemeMode) => void;
   setRole: (role: Role) => void;
   startDemoSession: () => void;
-  registerUser: (payload: { name: string; email: string; companyName: string }) => void;
+  registerUser: (payload: { name: string; email: string; companyName: string; companyId?: string; ownerEmployeeId?: string }) => void;
+  hydrateBackendWorkspace: (payload: {
+    user: User;
+    company: Partial<Company> & { id: string; name: string };
+    onboardingComplete: boolean;
+    ownerEmployeeId?: string;
+    companyModules?: CompanyModule[];
+    data?: DemoData;
+  }) => void;
   completeOnboarding: (templateId: string, selectedModules: ModuleCode[]) => void;
   updateCompany: (company: Partial<Company>) => void;
   updateTerminology: (key: string, value: string) => void;
@@ -82,9 +103,13 @@ interface AppStore {
   bulkUpdateClients: (ids: string[], client: Partial<Client>) => void;
   addAppointment: (appointment: Omit<Appointment, "id">) => void;
   updateAppointment: (id: string, appointment: Partial<Appointment>) => void;
+  addEmployee: (employee: Omit<Employee, "id">) => void;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
+  dismissEmployee: (id: string) => void;
+  addProduct: (product: Omit<Product, "id">) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
   addInventoryMovement: (movement: Omit<InventoryMovement, "id">) => void;
+  addFinancialOperation: (operation: Omit<FinancialOperation, "id">) => void;
   addTask: (task: Omit<Task, "id">) => void;
   updateTask: (id: string, task: Partial<Task>) => void;
   toggleTaskChecklistItem: (taskId: string, itemIndex: number, done: boolean) => void;
@@ -95,6 +120,7 @@ interface AppStore {
   setSidebarCollapsed: (collapsed: boolean) => void;
   addToast: (toast: Omit<ToastMessage, "id">) => void;
   removeToast: (id: string) => void;
+  markAllNotificationsRead: () => void;
 }
 
 export const useAppStore = create<AppStore>()(
@@ -125,7 +151,7 @@ export const useAppStore = create<AppStore>()(
           role: state.user?.role ?? "owner",
           sessionMode: "demo"
         })),
-      registerUser: ({ name, email, companyName }) =>
+      registerUser: ({ name, email, companyName, companyId, ownerEmployeeId }) =>
         set((state) => ({
           user: {
             id: createId("user"),
@@ -137,11 +163,41 @@ export const useAppStore = create<AppStore>()(
           sessionMode: "registered",
           company: {
             ...state.company,
-            id: createId("company"),
+            id: companyId ?? createId("company"),
             name: companyName
           },
+          data: createInitialBusinessData({ id: "owner", name, email, role: "owner" }, ownerEmployeeId),
           onboardingComplete: false
         })),
+      hydrateBackendWorkspace: ({ user, company, onboardingComplete, ownerEmployeeId, companyModules, data }) =>
+        set((state) => {
+          const nextCompany = {
+            ...state.company,
+            ...company,
+            businessTemplateId: company.businessTemplateId ?? state.company.businessTemplateId,
+            industry: company.industry ?? state.company.industry,
+            address: company.address ?? "",
+            phone: company.phone ?? "",
+            email: company.email ?? "",
+            timezone: company.timezone ?? state.company.timezone,
+            currency: company.currency ?? state.company.currency,
+            workDays: company.workDays ?? state.company.workDays,
+            workHours: company.workHours ?? state.company.workHours,
+            terminology:
+              company.terminology ??
+              getBusinessTemplate(company.businessTemplateId ?? state.company.businessTemplateId).terminology
+          };
+
+          return {
+            user,
+            role: user.role,
+            sessionMode: "registered",
+            company: nextCompany,
+            companyModules: companyModules?.length ? companyModules : buildDefaultCompanyModules(nextCompany.businessTemplateId),
+            data: data ?? createInitialBusinessData(user, ownerEmployeeId),
+            onboardingComplete
+          };
+        }),
       completeOnboarding: (templateId, selectedModules) => {
         const template = getBusinessTemplate(templateId);
         set((state) => ({
@@ -152,7 +208,10 @@ export const useAppStore = create<AppStore>()(
             terminology: template.terminology
           },
           companyModules: buildDefaultCompanyModules(template.id, selectedModules),
-          data: createDemoData(template.id),
+          data:
+            state.sessionMode === "registered"
+              ? createInitialBusinessData(state.user, state.data.employees[0]?.id)
+              : createDemoData(template.id),
           onboardingComplete: true
         }));
         const sessionMode = get().sessionMode;
@@ -166,12 +225,14 @@ export const useAppStore = create<AppStore>()(
         });
       },
       updateCompany: (company) =>
-        set((state) => ({
-          company: {
+        set((state) => {
+          const nextCompany = {
             ...state.company,
             ...company
-          }
-        })),
+          };
+          void syncCompany(nextCompany);
+          return { company: nextCompany };
+        }),
       updateTerminology: (key, value) =>
         set((state) => ({
           company: {
@@ -249,99 +310,263 @@ export const useAppStore = create<AppStore>()(
           )
         })),
       addClient: (client) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            clients: [
-              {
-                ...client,
-                id: createId("client"),
-                totalSpent: 0,
-                visits: 0,
-                lastVisit: new Date().toISOString().slice(0, 10)
-              },
-              ...state.data.clients
-            ]
-          }
-        })),
+        set((state) => {
+          const nextClient = {
+            ...client,
+            id: createId("client"),
+            totalSpent: 0,
+            visits: 0,
+            lastVisit: new Date().toISOString().slice(0, 10)
+          };
+          void syncClient(state.company.id, nextClient);
+          return {
+            data: {
+              ...state.data,
+              clients: [nextClient, ...state.data.clients]
+            }
+          };
+        }),
       updateClient: (id, client) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            clients: state.data.clients.map((item) =>
-              item.id === id ? { ...item, ...client } : item
-            )
+        set((state) => {
+          let changedClient: Client | undefined;
+          const clients = state.data.clients.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedClient = { ...item, ...client };
+            return changedClient;
+          });
+          if (changedClient) {
+            void syncClient(state.company.id, changedClient);
           }
-        })),
+          return {
+            data: {
+              ...state.data,
+              clients
+            }
+          };
+        }),
       bulkUpdateClients: (ids, client) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            clients: state.data.clients.map((item) =>
-              ids.includes(item.id) ? { ...item, ...client } : item
-            )
-          }
-        })),
+        set((state) => {
+          const changedClients: Client[] = [];
+          const clients = state.data.clients.map((item) => {
+            if (!ids.includes(item.id)) {
+              return item;
+            }
+            const changedClient = { ...item, ...client };
+            changedClients.push(changedClient);
+            return changedClient;
+          });
+          changedClients.forEach((changedClient) => {
+            void syncClient(state.company.id, changedClient);
+          });
+          return {
+            data: {
+              ...state.data,
+              clients
+            }
+          };
+        }),
       addAppointment: (appointment) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            appointments: [{ ...appointment, id: createId("appointment") }, ...state.data.appointments]
-          }
-        })),
+        set((state) => {
+          const nextAppointment = { ...appointment, id: createId("appointment") };
+          void syncAppointment(state.company.id, nextAppointment);
+          return {
+            data: {
+              ...state.data,
+              appointments: [nextAppointment, ...state.data.appointments]
+            }
+          };
+        }),
       updateAppointment: (id, appointment) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            appointments: state.data.appointments.map((item) =>
-              item.id === id ? { ...item, ...appointment } : item
-            )
+        set((state) => {
+          let changedAppointment: Appointment | undefined;
+          const appointments = state.data.appointments.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedAppointment = { ...item, ...appointment };
+            return changedAppointment;
+          });
+          if (changedAppointment) {
+            void syncAppointment(state.company.id, changedAppointment);
           }
-        })),
+          return {
+            data: {
+              ...state.data,
+              appointments
+            }
+          };
+        }),
+      addEmployee: (employee) =>
+        set((state) => {
+          const nextEmployee = { ...employee, id: createId("employee") };
+          void syncEmployee(state.company.id, nextEmployee);
+          return {
+            data: {
+              ...state.data,
+              employees: [nextEmployee, ...state.data.employees]
+            }
+          };
+        }),
       updateEmployee: (id, employee) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            employees: state.data.employees.map((item) =>
-              item.id === id ? { ...item, ...employee } : item
-            )
+        set((state) => {
+          let changedEmployee: Employee | undefined;
+          const employees = state.data.employees.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedEmployee = { ...item, ...employee };
+            return changedEmployee;
+          });
+          if (changedEmployee) {
+            void syncEmployee(state.company.id, changedEmployee);
           }
-        })),
+          return {
+            data: {
+              ...state.data,
+              employees
+            }
+          };
+        }),
+      dismissEmployee: (id) =>
+        set((state) => {
+          let changedEmployee: Employee | undefined;
+          const employees = state.data.employees.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedEmployee = {
+              ...item,
+              status: "dismissed",
+              dismissedAt: new Date().toISOString().slice(0, 10)
+            };
+            return changedEmployee;
+          });
+          if (changedEmployee) {
+            void syncEmployee(state.company.id, changedEmployee);
+          }
+          return {
+            data: {
+              ...state.data,
+              employees
+            }
+          };
+        }),
+      addProduct: (product) =>
+        set((state) => {
+          const nextProduct = { ...product, id: createId("product") };
+          void syncProduct(state.company.id, nextProduct);
+          return {
+            data: {
+              ...state.data,
+              products: [nextProduct, ...state.data.products]
+            }
+          };
+        }),
       updateProduct: (id, product) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            products: state.data.products.map((item) =>
-              item.id === id ? { ...item, ...product } : item
-            )
+        set((state) => {
+          let changedProduct: Product | undefined;
+          const products = state.data.products.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedProduct = { ...item, ...product };
+            return changedProduct;
+          });
+          if (changedProduct) {
+            void syncProduct(state.company.id, changedProduct);
           }
-        })),
+          return {
+            data: {
+              ...state.data,
+              products
+            }
+          };
+        }),
       addInventoryMovement: (movement) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            inventoryMovements: [
-              { ...movement, id: createId("movement") },
-              ...state.data.inventoryMovements
-            ]
-          }
-        })),
+        set((state) => {
+          const nextMovement = { ...movement, id: createId("movement") };
+          void syncInventoryMovement(state.company.id, nextMovement);
+          return {
+            data: {
+              ...state.data,
+              inventoryMovements: [
+                nextMovement,
+                ...state.data.inventoryMovements
+              ]
+            }
+          };
+        }),
       addTask: (task) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            tasks: [{ ...task, id: createId("task") }, ...state.data.tasks]
-          }
-        })),
+        set((state) => {
+          const nextTask = { ...task, id: createId("task") };
+          void syncTask(state.company.id, nextTask);
+          return {
+            data: {
+              ...state.data,
+              tasks: [nextTask, ...state.data.tasks]
+            }
+          };
+        }),
       updateTask: (id, task) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            tasks: state.data.tasks.map((item) =>
-              item.id === id ? { ...item, ...task } : item
-            )
+        set((state) => {
+          let changedTask: Task | undefined;
+          const tasks = state.data.tasks.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedTask = { ...item, ...task };
+            return changedTask;
+          });
+          if (changedTask) {
+            void syncTask(state.company.id, changedTask);
           }
-        })),
+          return {
+            data: {
+              ...state.data,
+              tasks
+            }
+          };
+        }),
+      addFinancialOperation: (operation) =>
+        set((state) => {
+          const nextOperation = { ...operation, id: createId("operation") };
+          void syncFinancialOperation(state.company.id, nextOperation);
+          return {
+            data: {
+              ...state.data,
+              financialOperations: [
+                nextOperation,
+                ...state.data.financialOperations
+              ],
+              clients:
+                operation.type === "income" && operation.clientId
+                  ? state.data.clients.map((client) =>
+                      client.id === operation.clientId
+                        ? {
+                            ...client,
+                            totalSpent: client.totalSpent + operation.amount,
+                            visits: client.visits + 1,
+                            lastVisit: operation.date
+                          }
+                        : client
+                    )
+                  : state.data.clients,
+              employees:
+                operation.type === "income" && operation.employeeId
+                  ? state.data.employees.map((employee) =>
+                      employee.id === operation.employeeId
+                        ? {
+                            ...employee,
+                            revenue: employee.revenue + operation.amount
+                          }
+                        : employee
+                    )
+                  : state.data.employees
+            }
+          };
+        }),
       toggleTaskChecklistItem: (taskId, itemIndex, done) =>
         set((state) => ({
           data: {
@@ -359,22 +584,23 @@ export const useAppStore = create<AppStore>()(
           }
         })),
       addPromotion: (promotion) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            promotions: [
-              {
-                ...promotion,
-                id: createId("promotion"),
-                usageCount: 0,
-                revenue: 0,
-                newClients: 0,
-                efficiency: 0
-              },
-              ...state.data.promotions
-            ]
-          }
-        })),
+        set((state) => {
+          const nextPromotion = {
+            ...promotion,
+            id: createId("promotion"),
+            usageCount: 0,
+            revenue: 0,
+            newClients: 0,
+            efficiency: 0
+          };
+          void syncPromotion(state.company.id, nextPromotion);
+          return {
+            data: {
+              ...state.data,
+              promotions: [nextPromotion, ...state.data.promotions]
+            }
+          };
+        }),
       markNotificationRead: (id) =>
         set((state) => ({
           data: {
@@ -401,6 +627,16 @@ export const useAppStore = create<AppStore>()(
       removeToast: (id) =>
         set((state) => ({
           toasts: state.toasts.filter((toast) => toast.id !== id)
+        })),
+      markAllNotificationsRead: () =>
+        set((state) => ({
+          data: {
+            ...state.data,
+            notifications: state.data.notifications.map((notification) => ({
+              ...notification,
+              read: true
+            }))
+          }
         }))
     }),
     {

@@ -11,11 +11,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PRODUCT_NAME } from "@/config/product";
+import { signInUser } from "@/lib/backend/auth";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/store/app-store";
 
 const schema = z.object({
   email: z.string().email("Введите корректный email"),
-  password: z.string().min(4, "Минимум 4 символа"),
+  password: z.string().min(6, "Минимум 6 символов"),
   remember: z.boolean().optional()
 });
 
@@ -24,21 +26,52 @@ type FormValues = z.infer<typeof schema>;
 export default function LoginPage() {
   const router = useRouter();
   const startDemoSession = useAppStore((state) => state.startDemoSession);
+  const hydrateBackendWorkspace = useAppStore((state) => state.hydrateBackendWorkspace);
   const addToast = useAppStore((state) => state.addToast);
   const {
     register,
     handleSubmit,
+    getValues,
     formState: { errors, isSubmitting }
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      email: "alexey@example.ru",
-      password: "demo",
+      email: "",
+      password: "",
       remember: true
     }
   });
 
-  function submit() {
+  async function submit(values: FormValues) {
+    try {
+      const workspace = await signInUser(values.email, values.password);
+      if (!workspace) {
+        addToast({
+          title: "Аккаунт найден, но компания не настроена",
+          description: "Завершите регистрацию или проверьте подтверждение email в Supabase.",
+          variant: "warning"
+        });
+        return;
+      }
+
+      hydrateBackendWorkspace(workspace);
+      addToast({
+        title: "Вход выполнен",
+        description: "Открыто рабочее пространство SimpleDesk.",
+        variant: "success"
+      });
+      router.push(workspace.onboardingComplete ? "/dashboard" : "/onboarding");
+    } catch (error) {
+      addToast({
+        title: "Не удалось войти",
+        description:
+          error instanceof Error ? error.message : "Проверьте email и пароль.",
+        variant: "error"
+      });
+    }
+  }
+
+  function openDemo() {
     startDemoSession();
     addToast({
       title: "Вход выполнен",
@@ -46,6 +79,35 @@ export default function LoginPage() {
       variant: "success"
     });
     router.push("/dashboard");
+  }
+
+  async function restorePassword() {
+    const email = getValues("email");
+    if (!email) {
+      addToast({
+        title: "Введите email",
+        description: "Укажите почту в поле выше, чтобы получить ссылку восстановления.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    const { error } = await createSupabaseBrowserClient().auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login`
+    });
+    addToast(
+      error
+        ? {
+            title: "Не удалось отправить письмо",
+            description: error.message,
+            variant: "error"
+          }
+        : {
+            title: "Письмо отправлено",
+            description: "Проверьте почту и перейдите по ссылке восстановления.",
+            variant: "success"
+          }
+    );
   }
 
   return (
@@ -80,7 +142,7 @@ export default function LoginPage() {
               <input type="checkbox" className="h-4 w-4 accent-primary" {...register("remember")} />
               Запомнить меня
             </label>
-            <button type="button" className="text-primary">
+            <button type="button" className="text-primary" onClick={restorePassword}>
               Восстановить пароль
             </button>
           </div>
@@ -91,7 +153,7 @@ export default function LoginPage() {
             type="button"
             variant="outline"
             className="w-full"
-            onClick={submit}
+            onClick={openDemo}
           >
             Войти в демо-режиме
           </Button>

@@ -60,11 +60,6 @@ do $$ begin
 exception when duplicate_object then null;
 end $$;
 
-do $$ begin
-  create type public.ai_message_role as enum ('user', 'assistant');
-exception when duplicate_object then null;
-end $$;
-
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
@@ -130,8 +125,26 @@ create table if not exists public.employees (
   revenue numeric(14, 2) not null default 0,
   appointments_count integer not null default 0,
   rating numeric(3, 2) not null default 0,
+  compensation_type text not null default 'fixed',
+  base_salary numeric(14, 2) not null default 0,
+  commission_percent numeric(5, 2) not null default 0,
+  dismissed_at date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.employee_invites (
+  id uuid primary key default gen_random_uuid(),
+  company_id uuid not null references public.companies(id) on delete cascade,
+  employee_id uuid references public.employees(id) on delete cascade,
+  email text not null,
+  role public.company_role not null default 'employee',
+  token uuid not null default gen_random_uuid(),
+  status text not null default 'pending',
+  expires_at timestamptz not null default now() + interval '7 days',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (company_id, email)
 );
 
 create table if not exists public.clients (
@@ -265,6 +278,9 @@ create table if not exists public.financial_operations (
   amount numeric(14, 2) not null,
   date date not null default current_date,
   comment text,
+  client_id uuid references public.clients(id) on delete set null,
+  employee_id uuid references public.employees(id) on delete set null,
+  appointment_id uuid references public.appointments(id) on delete set null,
   created_at timestamptz not null default now()
 );
 
@@ -280,20 +296,9 @@ create table if not exists public.notifications (
   created_at timestamptz not null default now()
 );
 
-create table if not exists public.ai_messages (
-  id uuid primary key default gen_random_uuid(),
-  company_id uuid not null references public.companies(id) on delete cascade,
-  user_id uuid references auth.users(id) on delete set null,
-  role public.ai_message_role not null,
-  content text not null,
-  metrics text[] not null default '{}',
-  recommendations text[] not null default '{}',
-  actions text[] not null default '{}',
-  created_at timestamptz not null default now()
-);
-
 create index if not exists companies_slug_idx on public.companies(slug);
 create index if not exists company_members_user_idx on public.company_members(user_id);
+create index if not exists employee_invites_company_status_idx on public.employee_invites(company_id, status);
 create index if not exists clients_company_status_idx on public.clients(company_id, status);
 create index if not exists clients_company_name_idx on public.clients(company_id, name);
 create index if not exists appointments_company_date_idx on public.appointments(company_id, date);
@@ -319,6 +324,11 @@ for each row execute function public.set_updated_at();
 drop trigger if exists set_employees_updated_at on public.employees;
 create trigger set_employees_updated_at
 before update on public.employees
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_employee_invites_updated_at on public.employee_invites;
+create trigger set_employee_invites_updated_at
+before update on public.employee_invites
 for each row execute function public.set_updated_at();
 
 drop trigger if exists set_clients_updated_at on public.clients;
@@ -408,6 +418,7 @@ alter table public.companies enable row level security;
 alter table public.company_members enable row level security;
 alter table public.company_modules enable row level security;
 alter table public.employees enable row level security;
+alter table public.employee_invites enable row level security;
 alter table public.clients enable row level security;
 alter table public.resources enable row level security;
 alter table public.appointments enable row level security;
@@ -418,7 +429,6 @@ alter table public.tasks enable row level security;
 alter table public.task_checklist_items enable row level security;
 alter table public.financial_operations enable row level security;
 alter table public.notifications enable row level security;
-alter table public.ai_messages enable row level security;
 
 drop policy if exists "companies_select_member" on public.companies;
 create policy "companies_select_member"
@@ -483,6 +493,17 @@ using (public.is_company_member(company_id));
 drop policy if exists "employees_write_admin" on public.employees;
 create policy "employees_write_admin"
 on public.employees for all
+using (public.has_company_role(company_id, array['owner', 'admin']::public.company_role[]))
+with check (public.has_company_role(company_id, array['owner', 'admin']::public.company_role[]));
+
+drop policy if exists "employee_invites_select_admin" on public.employee_invites;
+create policy "employee_invites_select_admin"
+on public.employee_invites for select
+using (public.has_company_role(company_id, array['owner', 'admin']::public.company_role[]));
+
+drop policy if exists "employee_invites_write_admin" on public.employee_invites;
+create policy "employee_invites_write_admin"
+on public.employee_invites for all
 using (public.has_company_role(company_id, array['owner', 'admin']::public.company_role[]))
 with check (public.has_company_role(company_id, array['owner', 'admin']::public.company_role[]));
 
@@ -595,13 +616,3 @@ create policy "notifications_write_member"
 on public.notifications for all
 using (public.is_company_member(company_id))
 with check (public.is_company_member(company_id));
-
-drop policy if exists "ai_messages_select_member" on public.ai_messages;
-create policy "ai_messages_select_member"
-on public.ai_messages for select
-using (public.is_company_member(company_id));
-
-drop policy if exists "ai_messages_insert_member" on public.ai_messages;
-create policy "ai_messages_insert_member"
-on public.ai_messages for insert
-with check (public.is_company_member(company_id) and user_id = auth.uid());

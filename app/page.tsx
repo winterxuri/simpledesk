@@ -37,7 +37,9 @@ export default function LandingPage() {
                   <p className="text-sm text-muted-foreground">Рабочий день</p>
                   <p className="text-xl font-semibold">Панель владельца</p>
                 </div>
-                <Button size="sm">Создать</Button>
+                <span className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
+                  Создать
+                </span>
               </div>
               <div className="grid gap-3 sm:grid-cols-3">
                 {["78 400 ₽", "18 записей", "6 задач"].map((value) => (
@@ -56,10 +58,12 @@ export default function LandingPage() {
                 записались повторно. Запланируйте повторный контакт.
               </p>
               <div className="mt-4 flex gap-2">
-                <Button size="sm">Создать задачу</Button>
-                <Button size="sm" variant="outline">
+                <span className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
+                  Создать задачу
+                </span>
+                <span className="inline-flex h-8 items-center rounded-md border border-border px-3 text-sm font-medium">
                   Скрыть
-                </Button>
+                </span>
               </div>
             </div>
           </div>

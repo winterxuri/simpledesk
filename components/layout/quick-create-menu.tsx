@@ -15,6 +15,7 @@ const createItems = [
   { type: "client", label: "Клиент", icon: "UsersRound" },
   { type: "appointment", label: "Запись", icon: "CalendarDays" },
   { type: "task", label: "Задача", icon: "ListTodo" },
+  { type: "sale", label: "Продажа", icon: "CreditCard" },
   { type: "product", label: "Товар", icon: "Boxes" },
   { type: "material", label: "Расходник", icon: "PackagePlus" },
   { type: "promotion", label: "Акция", icon: "BadgePercent" },
@@ -33,6 +34,9 @@ export function QuickCreateMenu() {
   const addTask = useAppStore((state) => state.addTask);
   const addAppointment = useAppStore((state) => state.addAppointment);
   const addPromotion = useAppStore((state) => state.addPromotion);
+  const addEmployee = useAppStore((state) => state.addEmployee);
+  const addProduct = useAppStore((state) => state.addProduct);
+  const addFinancialOperation = useAppStore((state) => state.addFinancialOperation);
   const addToast = useAppStore((state) => state.addToast);
   const data = useAppStore((state) => state.data);
 
@@ -65,7 +69,7 @@ export function QuickCreateMenu() {
       addTask({
         title: name || "Новая задача",
         description: comment || "Задача создана через быстрое меню.",
-        responsibleId: data.employees[0]?.id ?? "employee-1",
+        responsibleId: secondary || data.employees[0]?.id || "employee-1",
         dueDate: new Date().toISOString().slice(0, 10),
         priority: "medium",
         status: "new",
@@ -88,15 +92,52 @@ export function QuickCreateMenu() {
     } else if (drawerType === "promotion") {
       addPromotion({
         name: name || "Новая акция",
-        period: "период не указан",
+        period: secondary || "период нужно уточнить",
         status: "draft",
-        conditions: secondary || "Условия нужно заполнить",
+        conditions: comment || "Условия нужно заполнить",
         description: comment || "Черновик акции."
+      });
+    } else if (drawerType === "employee") {
+      addEmployee({
+        name: name || "Новый сотрудник",
+        position: secondary || "Сотрудник",
+        status: "working",
+        schedule: "09:00-18:00",
+        role: "employee",
+        loadPercent: 0,
+        revenue: 0,
+        appointmentsCount: 0,
+        rating: 0,
+        compensationType: "fixed",
+        baseSalary: 0,
+        commissionPercent: 0
+      });
+    } else if (drawerType === "product" || drawerType === "material") {
+      addProduct({
+        name: name || (drawerType === "product" ? "Новый товар" : "Новый расходник"),
+        type: drawerType === "product" ? "product" : "material",
+        category: drawerType === "product" ? "Товар" : "Расходники",
+        currentStock: 0,
+        minStock: 1,
+        purchasePrice: Number(secondary) || 0,
+        salePrice: drawerType === "product" ? Number(secondary) || 0 : 0,
+        supplier: comment || "Поставщик не указан",
+        status: "low"
+      });
+    } else if (drawerType === "sale") {
+      addFinancialOperation({
+        type: "income",
+        category: "Продажа",
+        amount: Number(secondary) || 0,
+        date: new Date().toISOString().slice(0, 10),
+        comment: comment || name || "Продажа через быстрое создание",
+        clientId: data.clients[0]?.id,
+        employeeId: data.employees[0]?.id
       });
     } else {
       addToast({
-        title: "Форма сохранена локально",
-        description: `${item?.label ?? "Объект"} можно подключить к backend позже.`,
+        title: "Действие не настроено",
+        description: `${item?.label ?? "Объект"} пока не поддерживается быстрым созданием.`,
         variant: "success"
       });
     }
@@ -159,8 +200,14 @@ export function QuickCreateMenu() {
                 : drawerType === "appointment"
                   ? "Время"
                   : drawerType === "promotion"
-                    ? "Условия"
-                    : "Ответственный"}
+                    ? "Период акции"
+                    : drawerType === "employee"
+                      ? "Должность"
+                      : drawerType === "sale"
+                        ? "Сумма"
+                        : drawerType === "product" || drawerType === "material"
+                          ? "Цена закупки"
+                          : "Ответственный"}
             </Label>
             {drawerType === "task" ? (
               <Select value={secondary} onChange={(event) => setSecondary(event.target.value)}>

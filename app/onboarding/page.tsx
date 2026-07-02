@@ -16,6 +16,7 @@ import {
 } from "@/config/templates";
 import { MODULES } from "@/config/modules";
 import { getModuleTitle } from "@/config/navigation";
+import { completeBackendOnboarding } from "@/lib/backend/auth";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
 import type { ModuleCode } from "@/types";
@@ -83,6 +84,13 @@ export default function OnboardingPage() {
   }
 
   function finish() {
+    void completeBackendOnboarding(
+      {
+        ...company,
+        businessTemplateId: templateId
+      },
+      selectedModules
+    );
     completeOnboarding(templateId, selectedModules);
     router.push("/dashboard");
   }

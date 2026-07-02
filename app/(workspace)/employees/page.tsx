@@ -21,39 +21,42 @@ const profileTabs = [
   { value: "appointments", label: "Записи" },
   { value: "tasks", label: "Задачи" },
   { value: "metrics", label: "Показатели" },
+  { value: "payroll", label: "Оплата" },
   { value: "access", label: "Права доступа" }
 ];
 
+function employeeToForm(employee?: Employee) {
+  return {
+    name: employee?.name ?? "",
+    position: employee?.position ?? "",
+    status: employee?.status ?? "working" as Employee["status"],
+    schedule: employee?.schedule ?? "09:00-18:00",
+    role: employee?.role ?? "employee" as Employee["role"],
+    loadPercent: String(employee?.loadPercent ?? 0),
+    revenue: String(employee?.revenue ?? 0),
+    appointmentsCount: String(employee?.appointmentsCount ?? 0),
+    rating: String(employee?.rating ?? 0),
+    compensationType: employee?.compensationType ?? "fixed" as NonNullable<Employee["compensationType"]>,
+    baseSalary: String(employee?.baseSalary ?? 0),
+    commissionPercent: String(employee?.commissionPercent ?? 0)
+  };
+}
+
 export default function EmployeesPage() {
   const data = useAppStore((state) => state.data);
+  const addEmployee = useAppStore((state) => state.addEmployee);
   const updateEmployee = useAppStore((state) => state.updateEmployee);
+  const dismissEmployee = useAppStore((state) => state.dismissEmployee);
+  const addToast = useAppStore((state) => state.addToast);
   const [selected, setSelected] = useState<Employee | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
   const [tab, setTab] = useState("info");
-  const [form, setForm] = useState({
-    name: "",
-    position: "",
-    status: "working" as Employee["status"],
-    schedule: "",
-    role: "employee" as Employee["role"],
-    loadPercent: "0",
-    revenue: "0",
-    appointmentsCount: "0",
-    rating: "4.5"
-  });
+  const [form, setForm] = useState(() => employeeToForm());
 
   function openEmployee(employee: Employee) {
     setSelected(employee);
-    setForm({
-      name: employee.name,
-      position: employee.position,
-      status: employee.status,
-      schedule: employee.schedule,
-      role: employee.role,
-      loadPercent: String(employee.loadPercent),
-      revenue: String(employee.revenue),
-      appointmentsCount: String(employee.appointmentsCount),
-      rating: String(employee.rating)
-    });
+    setCreateOpen(false);
+    setForm(employeeToForm(employee));
   }
 
   function saveEmployee() {
@@ -69,17 +72,81 @@ export default function EmployeesPage() {
       loadPercent: Number(form.loadPercent) || 0,
       revenue: Number(form.revenue) || 0,
       appointmentsCount: Number(form.appointmentsCount) || 0,
-      rating: Number(form.rating) || 0
+      rating: Number(form.rating) || 0,
+      compensationType: form.compensationType,
+      baseSalary: Number(form.baseSalary) || 0,
+      commissionPercent: Number(form.commissionPercent) || 0
     };
     updateEmployee(selected.id, patch);
     setSelected({ ...selected, ...patch });
+  }
+
+  function openCreate() {
+    setSelected(null);
+    setTab("info");
+    setForm(employeeToForm());
+    setCreateOpen(true);
+  }
+
+  function createEmployee() {
+    addEmployee({
+      name: form.name || "Новый сотрудник",
+      position: form.position || "Сотрудник",
+      status: form.status,
+      schedule: form.schedule || "09:00-18:00",
+      role: form.role,
+      loadPercent: Number(form.loadPercent) || 0,
+      revenue: Number(form.revenue) || 0,
+      appointmentsCount: Number(form.appointmentsCount) || 0,
+      rating: Number(form.rating) || 0,
+      compensationType: form.compensationType,
+      baseSalary: Number(form.baseSalary) || 0,
+      commissionPercent: Number(form.commissionPercent) || 0
+    });
+    addToast({
+      title: "Сотрудник добавлен",
+      description: "Карточка создана владельцем. Личный вход сотрудника можно будет подключить приглашением.",
+      variant: "success"
+    });
+    setCreateOpen(false);
+    setForm(employeeToForm());
+  }
+
+  function fireEmployee() {
+    if (!selected) {
+      return;
+    }
+    if (selected.role === "owner") {
+      addToast({
+        title: "Владельца нельзя уволить",
+        description: "Сначала назначьте другого владельца компании.",
+        variant: "warning"
+      });
+      return;
+    }
+    dismissEmployee(selected.id);
+    setSelected({
+      ...selected,
+      status: "dismissed",
+      dismissedAt: new Date().toISOString().slice(0, 10)
+    });
+    addToast({
+      title: "Сотрудник уволен",
+      description: "Карточка осталась в истории, новые записи лучше назначать другим сотрудникам.",
+      variant: "success"
+    });
   }
 
   return (
     <div>
       <PageHeader
         title="Сотрудники"
-        description="Карточки команды, загрузка, расписание, выручка и демонстрационные права доступа."
+        description="Карточки команды, загрузка, расписание, выручка, права доступа и базовые условия оплаты."
+        actions={
+          <Button type="button" onClick={openCreate}>
+            Добавить сотрудника
+          </Button>
+        }
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {data.employees.map((employee) => (
@@ -95,13 +162,14 @@ export default function EmployeesPage() {
                   <p className="font-semibold">{employee.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{employee.position}</p>
                 </div>
-                <StatusBadge status={employee.status === "working" ? "active" : employee.status === "dayOff" ? "waiting" : "paused"} />
+                <StatusBadge status={employee.status === "working" ? "active" : employee.status} />
               </div>
               <div className="mt-5 space-y-3 text-sm">
                 <Row label="Расписание" value={employee.schedule} />
                 <Row label="Выручка" value={formatCurrency(employee.revenue)} />
                 <Row label="Записей" value={String(employee.appointmentsCount)} />
                 <Row label="Рейтинг" value={employee.rating.toFixed(1)} />
+                <Row label="Оплата" value={getCompensationLabel(employee)} />
               </div>
               <div className="mt-5">
                 <div className="mb-2 flex justify-between text-sm">
@@ -114,6 +182,69 @@ export default function EmployeesPage() {
           </button>
         ))}
       </div>
+
+      <Drawer
+        open={createOpen}
+        onOpenChange={(open) => {
+          setCreateOpen(open);
+          if (!open) {
+            setForm(employeeToForm());
+          }
+        }}
+        title="Добавить сотрудника"
+        description="Владелец может завести карточку сотрудника без отдельной регистрации."
+      >
+        <div className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>ФИО</Label>
+              <Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Должность</Label>
+              <Input value={form.position} onChange={(event) => setForm({ ...form, position: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Роль</Label>
+              <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Employee["role"] })}>
+                <option value="admin">Администратор</option>
+                <option value="employee">Сотрудник</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>График</Label>
+              <Input value={form.schedule} onChange={(event) => setForm({ ...form, schedule: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Схема оплаты</Label>
+              <Select value={form.compensationType} onChange={(event) => setForm({ ...form, compensationType: event.target.value as NonNullable<Employee["compensationType"]> })}>
+                <option value="fixed">Фикс</option>
+                <option value="commission">Процент</option>
+                <option value="mixed">Фикс + процент</option>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Фикс, ₽</Label>
+              <Input type="number" value={form.baseSalary} onChange={(event) => setForm({ ...form, baseSalary: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Процент, %</Label>
+              <Input type="number" value={form.commissionPercent} onChange={(event) => setForm({ ...form, commissionPercent: event.target.value })} />
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Личный вход сотрудника лучше делать через приглашение по email. Пока карточка хранит расписание, роль, показатели и условия оплаты.
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              Отмена
+            </Button>
+            <Button type="button" onClick={createEmployee}>
+              Добавить
+            </Button>
+          </div>
+        </div>
+      </Drawer>
 
       <Drawer
         open={Boolean(selected)}
@@ -144,6 +275,7 @@ export default function EmployeesPage() {
                         <option value="working">Работает</option>
                         <option value="dayOff">Выходной</option>
                         <option value="vacation">Отпуск</option>
+                        <option value="dismissed">Уволен</option>
                       </Select>
                     </div>
                     <div className="space-y-2">
@@ -155,9 +287,14 @@ export default function EmployeesPage() {
                       </Select>
                     </div>
                   </div>
-                  <Button type="button" onClick={saveEmployee}>
-                    Сохранить профиль
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" onClick={saveEmployee}>
+                      Сохранить профиль
+                    </Button>
+                    <Button type="button" variant="outline" onClick={fireEmployee}>
+                      Уволить
+                    </Button>
+                  </div>
                 </>
               ) : null}
               {tab === "schedule" ? (
@@ -204,6 +341,38 @@ export default function EmployeesPage() {
                   <Button type="button" onClick={saveEmployee}>Сохранить показатели</Button>
                 </>
               ) : null}
+              {tab === "payroll" ? (
+                <>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Схема оплаты</Label>
+                      <Select value={form.compensationType} onChange={(event) => setForm({ ...form, compensationType: event.target.value as NonNullable<Employee["compensationType"]> })}>
+                        <option value="fixed">Фикс</option>
+                        <option value="commission">Процент</option>
+                        <option value="mixed">Фикс + процент</option>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Фикс, ₽</Label>
+                      <Input type="number" value={form.baseSalary} onChange={(event) => setForm({ ...form, baseSalary: event.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Процент, %</Label>
+                      <Input type="number" value={form.commissionPercent} onChange={(event) => setForm({ ...form, commissionPercent: event.target.value })} />
+                    </div>
+                    <div className="rounded-lg border border-border bg-background p-3 text-sm">
+                      <p className="text-muted-foreground">Расчёт за месяц по текущей выручке</p>
+                      <p className="mt-1 text-lg font-semibold">
+                        {formatCurrency(
+                          (Number(form.baseSalary) || 0) +
+                            (Number(form.revenue) || 0) * ((Number(form.commissionPercent) || 0) / 100)
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                  <Button type="button" onClick={saveEmployee}>Сохранить условия</Button>
+                </>
+              ) : null}
               {tab === "access" ? (
                 <>
                   <Row label="Финансы" value={selected.role === "employee" ? "ограничено" : "доступно"} />
@@ -225,4 +394,14 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="font-medium">{value}</span>
     </div>
   );
+}
+
+function getCompensationLabel(employee: Employee) {
+  if (employee.compensationType === "commission") {
+    return `${employee.commissionPercent ?? 0}%`;
+  }
+  if (employee.compensationType === "mixed") {
+    return `${formatCurrency(employee.baseSalary ?? 0)} + ${employee.commissionPercent ?? 0}%`;
+  }
+  return formatCurrency(employee.baseSalary ?? 0);
 }

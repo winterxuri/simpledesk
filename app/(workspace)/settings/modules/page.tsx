@@ -55,8 +55,8 @@ export default function SettingsModulesPage() {
             onVisibility={(visible) => setVisibility(module.code, visible)}
             onSettings={() =>
               addToast({
-                title: "Демо-настройка",
-                description: `Параметры модуля "${title}" будут доступны после подключения backend.`,
+                title: "Настройки модуля",
+                description: `Включение и видимость модуля "${title}" сохраняются автоматически.`,
                 variant: "info"
               })
             }
@@ -77,7 +77,9 @@ export default function SettingsModulesPage() {
         }}
       />
       <div className="mt-6 flex justify-end">
-        <Button type="button" variant="outline">Сохранено автоматически</Button>
+        <span className="inline-flex h-10 items-center rounded-lg border border-border bg-background px-4 text-sm text-muted-foreground">
+          Сохранено автоматически
+        </span>
       </div>
     </div>
   );

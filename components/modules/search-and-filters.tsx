@@ -1,7 +1,6 @@
 "use client";
 
-import { Filter, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
@@ -48,10 +47,6 @@ export function SearchAndFilters({
             ))}
           </Select>
         ))}
-        <Button type="button" variant="outline">
-          <Filter className="h-4 w-4" />
-          Фильтры
-        </Button>
         {actions}
       </div>
     </div>

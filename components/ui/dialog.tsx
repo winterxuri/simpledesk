@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,8 @@ export function Dialog({
   footer,
   className
 }: DialogProps) {
+  const titleId = useId();
+
   if (!open) {
     return null;
   }
@@ -36,6 +39,9 @@ export function Dialog({
         onClick={() => onOpenChange(false)}
       />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={cn(
           "relative max-h-[90vh] w-full max-w-lg overflow-auto rounded-lg border border-border bg-card shadow-2xl",
           className
@@ -43,7 +49,7 @@ export function Dialog({
       >
         <div className="flex items-start justify-between gap-4 border-b border-border p-5">
           <div>
-            <h2 className="text-lg font-semibold">{title}</h2>
+            <h2 id={titleId} className="text-lg font-semibold">{title}</h2>
             {description ? (
               <p className="mt-1 text-sm text-muted-foreground">{description}</p>
             ) : null}

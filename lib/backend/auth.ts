@@ -1,0 +1,522 @@
+"use client";
+
+import { buildDefaultCompanyModules } from "@/config/navigation";
+import { getBusinessTemplate } from "@/config/templates";
+import { createInitialBusinessData } from "@/data/initial-data";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import type {
+  Appointment,
+  AppointmentStatus,
+  Client,
+  ClientStatus,
+  Company,
+  CompanyModule,
+  DemoData,
+  Employee,
+  FinancialOperation,
+  InventoryMovement,
+  ModuleCode,
+  ModuleStatus,
+  Notification,
+  Product,
+  ProductStatus,
+  Promotion,
+  PromotionStatus,
+  Resource,
+  ResourceStatus,
+  Role,
+  Task,
+  TaskStatus
+} from "@/types";
+
+export interface OwnerSignupResult {
+  requiresEmailConfirmation: boolean;
+  companyId?: string;
+  ownerEmployeeId?: string;
+}
+
+export interface BackendWorkspace {
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    role: Role;
+  };
+  company: Partial<Company> & { id: string; name: string };
+  ownerEmployeeId?: string;
+  onboardingComplete: boolean;
+  companyModules?: CompanyModule[];
+  data?: DemoData;
+}
+
+export async function signUpOwner({
+  companyName,
+  email,
+  name,
+  password
+}: {
+  name: string;
+  email: string;
+  password: string;
+  companyName: string;
+}): Promise<OwnerSignupResult> {
+  const supabase = createSupabaseBrowserClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        name,
+        company_name: companyName
+      }
+    }
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  if (!data.session || !data.user) {
+    return { requiresEmailConfirmation: true };
+  }
+
+  const { data: company, error: companyError } = await supabase
+    .from("companies")
+    .insert({
+      name: companyName,
+      business_template_id: "universal",
+      industry: "Универсальный бизнес",
+      email,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Moscow",
+      terminology: getBusinessTemplate("universal").terminology
+    })
+    .select("id")
+    .single();
+
+  if (companyError) {
+    throw companyError;
+  }
+
+  const companyId = company.id as string;
+
+  const { error: memberError } = await supabase.from("company_members").insert({
+    company_id: companyId,
+    user_id: data.user.id,
+    role: "owner",
+    display_name: name
+  });
+
+  if (memberError) {
+    throw memberError;
+  }
+
+  const { data: employee, error: employeeError } = await supabase
+    .from("employees")
+    .insert({
+      company_id: companyId,
+      user_id: data.user.id,
+      name,
+      position: "Владелец",
+      status: "working",
+      schedule: "09:00-18:00",
+      role: "owner",
+      rating: 5,
+      compensation_type: "mixed",
+      base_salary: 0,
+      commission_percent: 0
+    })
+    .select("id")
+    .single();
+
+  if (employeeError) {
+    throw employeeError;
+  }
+
+  await supabase.from("company_modules").insert(
+    buildDefaultCompanyModules("universal").map((module) => ({
+      company_id: companyId,
+      code: module.code,
+      status: module.status,
+      visible: module.visible,
+      sort_order: module.order,
+      available_on_tariff: module.availableOnTariff
+    }))
+  );
+
+  return {
+    requiresEmailConfirmation: false,
+    companyId,
+    ownerEmployeeId: employee.id as string
+  };
+}
+
+export async function signInUser(email: string, password: string) {
+  const supabase = createSupabaseBrowserClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    throw error;
+  }
+
+  return loadCurrentBackendWorkspace();
+}
+
+export async function loadCurrentBackendWorkspace(): Promise<BackendWorkspace | null> {
+  const supabase = createSupabaseBrowserClient();
+  const { data: userData } = await supabase.auth.getUser();
+
+  if (!userData.user) {
+    return null;
+  }
+
+  const { data: membership, error } = await supabase
+    .from("company_members")
+    .select("role, display_name, companies(*)")
+    .eq("user_id", userData.user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !membership?.companies) {
+    return null;
+  }
+
+  const company = Array.isArray(membership.companies)
+    ? membership.companies[0]
+    : membership.companies;
+
+  const { data: employee } = await supabase
+    .from("employees")
+    .select("id")
+    .eq("company_id", company.id)
+    .eq("user_id", userData.user.id)
+    .maybeSingle();
+
+  const backendUser = {
+    id: userData.user.id,
+    name:
+      membership.display_name ??
+      String(userData.user.user_metadata?.name ?? userData.user.email ?? "Пользователь"),
+    email: userData.user.email ?? "",
+    role: membership.role as Role
+  };
+  const [companyModules, companyData] = await Promise.all([
+    loadCompanyModules(company.id),
+    loadCompanyData(company.id, backendUser, employee?.id)
+  ]);
+
+  return {
+    user: backendUser,
+    company: {
+      id: company.id,
+      name: company.name,
+      businessTemplateId: company.business_template_id,
+      industry: company.industry,
+      address: company.address ?? "",
+      phone: company.phone ?? "",
+      email: company.email ?? "",
+      timezone: company.timezone,
+      currency: company.currency,
+      workDays: company.work_days,
+      workHours: company.work_hours,
+      terminology: company.terminology
+    },
+    ownerEmployeeId: employee?.id,
+    onboardingComplete: Boolean(company.onboarding_complete),
+    companyModules,
+    data: companyData
+  };
+}
+
+export async function completeBackendOnboarding(company: Company, selectedModules: ModuleCode[]) {
+  if (!isUuid(company.id)) {
+    return;
+  }
+
+  const supabase = createSupabaseBrowserClient();
+  const template = getBusinessTemplate(company.businessTemplateId);
+
+  await supabase
+    .from("companies")
+    .update({
+      business_template_id: template.id,
+      industry: template.title,
+      terminology: template.terminology,
+      onboarding_complete: true
+    })
+    .eq("id", company.id);
+
+  await supabase.from("company_modules").upsert(
+    buildDefaultCompanyModules(template.id, selectedModules).map((module) => ({
+      company_id: company.id,
+      code: module.code,
+      status: module.status,
+      visible: module.visible,
+      sort_order: module.order,
+      available_on_tariff: module.availableOnTariff
+    })),
+    { onConflict: "company_id,code" }
+  );
+}
+
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+type LooseRow = Record<string, unknown>;
+
+async function loadCompanyModules(companyId: string): Promise<CompanyModule[]> {
+  const { data } = await createSupabaseBrowserClient()
+    .from("company_modules")
+    .select("code, status, visible, sort_order, available_on_tariff")
+    .eq("company_id", companyId)
+    .order("sort_order");
+
+  const modules = (data as LooseRow[] | null)?.map((row) => ({
+    code: text(row, "code") as ModuleCode,
+    status: text(row, "status", "enabled") as ModuleStatus,
+    visible: bool(row, "visible", true),
+    order: num(row, "sort_order", 100),
+    availableOnTariff: bool(row, "available_on_tariff", true)
+  })) ?? [];
+
+  return modules.length ? modules : buildDefaultCompanyModules("universal");
+}
+
+async function loadCompanyData(
+  companyId: string,
+  user: BackendWorkspace["user"],
+  ownerEmployeeId?: string
+): Promise<DemoData> {
+  const base = createInitialBusinessData(user, ownerEmployeeId);
+  const supabase = createSupabaseBrowserClient();
+  const [
+    clients,
+    employees,
+    appointments,
+    products,
+    movements,
+    resources,
+    promotions,
+    tasks,
+    financialOperations,
+    notifications
+  ] = await Promise.all([
+    supabase.from("clients").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("employees").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("appointments").select("*").eq("company_id", companyId).order("date", { ascending: false }),
+    supabase.from("products").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("inventory_movements").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("resources").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("promotions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("financial_operations").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("notifications").select("*").eq("company_id", companyId).order("created_at", { ascending: false })
+  ]);
+
+  return {
+    ...base,
+    clients: rows(clients.data).map(mapClient),
+    employees: rows(employees.data).map(mapEmployee).concat(
+      rows(employees.data).length ? [] : base.employees
+    ),
+    appointments: rows(appointments.data).map(mapAppointment),
+    products: rows(products.data).map(mapProduct),
+    inventoryMovements: rows(movements.data).map(mapInventoryMovement),
+    resources: rows(resources.data).map(mapResource),
+    promotions: rows(promotions.data).map(mapPromotion),
+    tasks: rows(tasks.data).map(mapTask),
+    financialOperations: rows(financialOperations.data).map(mapFinancialOperation),
+    notifications: rows(notifications.data).map(mapNotification).concat(
+      rows(notifications.data).length ? [] : base.notifications
+    )
+  };
+}
+
+function rows(data: unknown): LooseRow[] {
+  return Array.isArray(data) ? data as LooseRow[] : [];
+}
+
+function text(row: LooseRow, key: string, fallback = "") {
+  const value = row[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+function nullableText(row: LooseRow, key: string) {
+  const value = row[key];
+  return typeof value === "string" ? value : undefined;
+}
+
+function num(row: LooseRow, key: string, fallback = 0) {
+  const value = row[key];
+  return typeof value === "number" ? value : Number(value ?? fallback) || fallback;
+}
+
+function bool(row: LooseRow, key: string, fallback = false) {
+  const value = row[key];
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function mapClient(row: LooseRow): Client {
+  return {
+    id: text(row, "id"),
+    name: text(row, "name", "Клиент"),
+    phone: text(row, "phone"),
+    email: text(row, "email"),
+    status: text(row, "status", "new") as ClientStatus,
+    responsibleId: text(row, "responsible_employee_id"),
+    totalSpent: num(row, "total_spent"),
+    visits: num(row, "visits"),
+    lastVisit: text(row, "last_visit", new Date().toISOString().slice(0, 10)),
+    nextAppointment: nullableText(row, "next_appointment"),
+    source: text(row, "source"),
+    notes: text(row, "notes")
+  };
+}
+
+function mapEmployee(row: LooseRow): Employee {
+  return {
+    id: text(row, "id"),
+    name: text(row, "name", "Сотрудник"),
+    position: text(row, "position", "Сотрудник"),
+    status: text(row, "status", "working") as Employee["status"],
+    schedule: text(row, "schedule", "09:00-18:00"),
+    role: text(row, "role", "employee") as Role,
+    loadPercent: num(row, "load_percent"),
+    revenue: num(row, "revenue"),
+    appointmentsCount: num(row, "appointments_count"),
+    rating: num(row, "rating"),
+    compensationType: text(row, "compensation_type", "fixed") as Employee["compensationType"],
+    baseSalary: num(row, "base_salary"),
+    commissionPercent: num(row, "commission_percent"),
+    dismissedAt: nullableText(row, "dismissed_at")
+  };
+}
+
+function mapAppointment(row: LooseRow): Appointment {
+  return {
+    id: text(row, "id"),
+    clientId: text(row, "client_id"),
+    employeeId: text(row, "employee_id"),
+    resourceId: nullableText(row, "resource_id"),
+    title: text(row, "title", "Запись"),
+    date: text(row, "date"),
+    time: text(row, "time").slice(0, 5),
+    duration: num(row, "duration_minutes", 60),
+    price: num(row, "price"),
+    status: fromDbAppointmentStatus(text(row, "status", "planned")),
+    paid: bool(row, "paid"),
+    comment: nullableText(row, "comment")
+  };
+}
+
+function mapProduct(row: LooseRow): Product {
+  return {
+    id: text(row, "id"),
+    name: text(row, "name", "Товар"),
+    type: text(row, "type", "product") as Product["type"],
+    category: text(row, "category"),
+    currentStock: num(row, "current_stock"),
+    minStock: num(row, "min_stock"),
+    purchasePrice: num(row, "purchase_price"),
+    salePrice: num(row, "sale_price"),
+    supplier: text(row, "supplier"),
+    status: text(row, "status", "ok") as ProductStatus
+  };
+}
+
+function mapInventoryMovement(row: LooseRow): InventoryMovement {
+  return {
+    id: text(row, "id"),
+    productId: text(row, "product_id"),
+    type: fromDbMovementType(text(row, "type", "adjustment")),
+    quantity: num(row, "quantity"),
+    date: text(row, "date"),
+    comment: text(row, "comment")
+  };
+}
+
+function mapResource(row: LooseRow): Resource {
+  return {
+    id: text(row, "id"),
+    name: text(row, "name", "Ресурс"),
+    type: text(row, "type", "ресурс"),
+    status: text(row, "status", "free") as ResourceStatus,
+    loadPercent: num(row, "load_percent"),
+    futureBookings: num(row, "future_bookings"),
+    condition: text(row, "resource_condition"),
+    comment: text(row, "comment")
+  };
+}
+
+function mapPromotion(row: LooseRow): Promotion {
+  return {
+    id: text(row, "id"),
+    name: text(row, "name", "Акция"),
+    period: text(row, "period"),
+    status: text(row, "status", "draft") as PromotionStatus,
+    conditions: text(row, "conditions"),
+    usageCount: num(row, "usage_count"),
+    revenue: num(row, "revenue"),
+    newClients: num(row, "new_clients"),
+    efficiency: num(row, "efficiency"),
+    description: text(row, "description")
+  };
+}
+
+function mapTask(row: LooseRow): Task {
+  return {
+    id: text(row, "id"),
+    title: text(row, "title", "Задача"),
+    description: text(row, "description"),
+    responsibleId: text(row, "responsible_employee_id"),
+    dueDate: text(row, "due_date"),
+    priority: text(row, "priority", "medium") as Task["priority"],
+    status: fromDbTaskStatus(text(row, "status", "new")),
+    clientId: nullableText(row, "client_id"),
+    appointmentId: nullableText(row, "appointment_id"),
+    productId: nullableText(row, "product_id"),
+    checklist: []
+  };
+}
+
+function mapFinancialOperation(row: LooseRow): FinancialOperation {
+  return {
+    id: text(row, "id"),
+    type: text(row, "type", "income") as FinancialOperation["type"],
+    category: text(row, "category", "Операция"),
+    amount: num(row, "amount"),
+    date: text(row, "date"),
+    comment: text(row, "comment"),
+    clientId: nullableText(row, "client_id"),
+    employeeId: nullableText(row, "employee_id"),
+    appointmentId: nullableText(row, "appointment_id")
+  };
+}
+
+function mapNotification(row: LooseRow): Notification {
+  return {
+    id: text(row, "id"),
+    title: text(row, "title", "Уведомление"),
+    description: text(row, "description"),
+    category: text(row, "category", "system") as Notification["category"],
+    important: bool(row, "important"),
+    date: text(row, "date", new Date().toISOString().slice(0, 10)),
+    read: bool(row, "read")
+  };
+}
+
+function fromDbAppointmentStatus(status: string): AppointmentStatus {
+  if (status === "in_progress") return "inProgress";
+  if (status === "no_show") return "noShow";
+  return status as AppointmentStatus;
+}
+
+function fromDbMovementType(type: string): InventoryMovement["type"] {
+  if (type === "write_off") return "writeOff";
+  return type as InventoryMovement["type"];
+}
+
+function fromDbTaskStatus(status: string): TaskStatus {
+  if (status === "in_progress") return "inProgress";
+  return status as TaskStatus;
+}

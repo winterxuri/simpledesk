@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Area,
   AreaChart,
@@ -20,8 +21,10 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default function DashboardPage() {
   const company = useAppStore((state) => state.company);
+  const user = useAppStore((state) => state.user);
   const data = useAppStore((state) => state.data);
   const addToast = useAppStore((state) => state.addToast);
+  const [recommendationVisible, setRecommendationVisible] = useState(true);
   const appointmentTerm = company.terminology.appointment;
   const today = new Date().toISOString().slice(0, 10);
   const todayAppointments = data.appointments
@@ -48,7 +51,7 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title="Доброе утро, Алексей"
+        title={`Доброе утро, ${user?.name?.split(" ")[0] ?? "владелец"}`}
         description="Вот что происходит в вашем бизнесе сегодня."
         actions={
           <Button type="button" onClick={() => addToast({
@@ -185,6 +188,7 @@ export default function DashboardPage() {
         </DashboardWidget>
       </div>
 
+      {recommendationVisible ? (
       <div className="mt-6">
         <DashboardWidget title="Рекомендация по клиентам">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -205,13 +209,14 @@ export default function DashboardPage() {
               })}>
                 Создать задачу
               </Button>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" onClick={() => setRecommendationVisible(false)}>
                 Скрыть
               </Button>
             </div>
           </div>
         </DashboardWidget>
       </div>
+      ) : null}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PRODUCT_NAME } from "@/config/product";
+import { signUpOwner } from "@/lib/backend/auth";
 import { useAppStore } from "@/store/app-store";
 
 const schema = z.object({
@@ -25,6 +26,7 @@ type FormValues = z.infer<typeof schema>;
 export default function RegisterPage() {
   const router = useRouter();
   const registerUser = useAppStore((state) => state.registerUser);
+  const addToast = useAppStore((state) => state.addToast);
   const {
     register,
     handleSubmit,
@@ -40,13 +42,41 @@ export default function RegisterPage() {
     }
   });
 
-  function submit(values: FormValues) {
-    registerUser({
-      name: values.name,
-      email: values.email,
-      companyName: values.companyName
-    });
-    router.push("/onboarding");
+  async function submit(values: FormValues) {
+    try {
+      const result = await signUpOwner(values);
+
+      registerUser({
+        name: values.name,
+        email: values.email,
+        companyName: values.companyName,
+        companyId: result.companyId,
+        ownerEmployeeId: result.ownerEmployeeId
+      });
+
+      addToast(
+        result.requiresEmailConfirmation
+          ? {
+              title: "Проверьте email",
+              description:
+                "Supabase требует подтверждение почты. После подтверждения войдите снова, а пока настройки сохранятся локально.",
+              variant: "warning"
+            }
+          : {
+              title: "Аккаунт создан",
+              description: "Компания создана в Supabase, осталось пройти настройку.",
+              variant: "success"
+            }
+      );
+      router.push("/onboarding");
+    } catch (error) {
+      addToast({
+        title: "Не удалось зарегистрироваться",
+        description:
+          error instanceof Error ? error.message : "Проверьте настройки Supabase и попробуйте снова.",
+        variant: "error"
+      });
+    }
   }
 
   return (

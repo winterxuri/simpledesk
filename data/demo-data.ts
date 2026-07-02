@@ -200,7 +200,10 @@ function makeEmployees(templateId: string): Employee[] {
     revenue: 54000 + index * 15300,
     appointmentsCount: 12 + index * 3,
     rating: 4.4 + (index % 5) * 0.1,
-    role: index === 0 ? "owner" : index === 4 ? "admin" : "employee"
+    role: index === 0 ? "owner" : index === 4 ? "admin" : "employee",
+    compensationType: index === 0 ? "mixed" : index % 2 === 0 ? "fixed" : "commission",
+    baseSalary: index === 0 ? 80000 : index % 2 === 0 ? 45000 : 0,
+    commissionPercent: index === 0 ? 10 : index % 2 === 0 ? 0 : 30
   }));
 }
 
