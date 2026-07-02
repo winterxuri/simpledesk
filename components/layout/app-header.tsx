@@ -1,11 +1,13 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Bell, Menu, Moon, Search, Sun } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Bell, LogOut, Menu, Moon, Search, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { QuickCreateMenu } from "@/components/layout/quick-create-menu";
+import { signOutUser } from "@/lib/backend/auth";
 import { useAppStore } from "@/store/app-store";
 
 const titles: Record<string, string> = {
@@ -40,6 +42,7 @@ function getTitle(pathname: string) {
 
 export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   const pathname = usePathname();
+  const router = useRouter();
   const theme = useAppStore((state) => state.theme);
   const setTheme = useAppStore((state) => state.setTheme);
   const role = useAppStore((state) => state.role);
@@ -47,10 +50,28 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   const company = useAppStore((state) => state.company);
   const sessionMode = useAppStore((state) => state.sessionMode);
   const notifications = useAppStore((state) => state.data.notifications);
+  const logout = useAppStore((state) => state.logout);
+  const addToast = useAppStore((state) => state.addToast);
   const setNotificationPanelOpen = useAppStore(
     (state) => state.setNotificationPanelOpen
   );
   const unread = notifications.filter((notification) => !notification.read).length;
+
+  async function handleLogout() {
+    try {
+      if (sessionMode === "registered") {
+        await signOutUser();
+      }
+      logout();
+      router.push("/login");
+    } catch (error) {
+      addToast({
+        title: "Не удалось выйти",
+        description: error instanceof Error ? error.message : "Попробуйте ещё раз.",
+        variant: "error"
+      });
+    }
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/92 px-4 backdrop-blur lg:px-6">
@@ -117,6 +138,16 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
           {roleLabels[role]}
         </span>
       )}
+      <Button
+        type="button"
+        variant="outline"
+        size="icon"
+        onClick={handleLogout}
+        aria-label="Выйти из аккаунта"
+        title="Выйти"
+      >
+        <LogOut className="h-4 w-4" />
+      </Button>
     </header>
   );
 }

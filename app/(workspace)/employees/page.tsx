@@ -47,6 +47,7 @@ export default function EmployeesPage() {
   const addEmployee = useAppStore((state) => state.addEmployee);
   const updateEmployee = useAppStore((state) => state.updateEmployee);
   const dismissEmployee = useAppStore((state) => state.dismissEmployee);
+  const deleteDismissedEmployee = useAppStore((state) => state.deleteDismissedEmployee);
   const addToast = useAppStore((state) => state.addToast);
   const [selected, setSelected] = useState<Employee | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -135,6 +136,43 @@ export default function EmployeesPage() {
       description: "Карточка осталась в истории, новые записи лучше назначать другим сотрудникам.",
       variant: "success"
     });
+  }
+
+  function deleteEmployeeCard() {
+    if (!selected) {
+      return;
+    }
+    if (selected.status !== "dismissed") {
+      addToast({
+        title: "Сначала увольте сотрудника",
+        description: "Удаление доступно только после перевода сотрудника в статус «уволен».",
+        variant: "warning"
+      });
+      return;
+    }
+    if (selected.role === "owner") {
+      addToast({
+        title: "Владельца нельзя удалить",
+        description: "Сначала передайте роль владельца другому пользователю.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Удалить карточку сотрудника "${selected.name}"? История записей и продаж останется, но сотрудник исчезнет из списка.`
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    deleteDismissedEmployee(selected.id);
+    addToast({
+      title: "Сотрудник удалён",
+      description: "Карточка удалена из команды. Связанные исторические данные сохранены.",
+      variant: "success"
+    });
+    setSelected(null);
   }
 
   return (
@@ -291,9 +329,15 @@ export default function EmployeesPage() {
                     <Button type="button" onClick={saveEmployee}>
                       Сохранить профиль
                     </Button>
-                    <Button type="button" variant="outline" onClick={fireEmployee}>
-                      Уволить
-                    </Button>
+                    {selected.status !== "dismissed" ? (
+                      <Button type="button" variant="outline" onClick={fireEmployee}>
+                        Уволить
+                      </Button>
+                    ) : (
+                      <Button type="button" variant="destructive" onClick={deleteEmployeeCard}>
+                        Удалить карточку
+                      </Button>
+                    )}
                   </div>
                 </>
               ) : null}

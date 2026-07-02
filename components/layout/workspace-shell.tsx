@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { NotificationPanel } from "@/components/layout/notification-panel";
@@ -8,15 +9,19 @@ import { Drawer } from "@/components/ui/drawer";
 import { useAppStore } from "@/store/app-store";
 
 export function WorkspaceShell({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const user = useAppStore((state) => state.user);
-  const startDemoSession = useAppStore((state) => state.startDemoSession);
 
   useEffect(() => {
     if (!user) {
-      startDemoSession();
+      router.replace("/login");
     }
-  }, [startDemoSession, user]);
+  }, [router, user]);
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background lg:flex">

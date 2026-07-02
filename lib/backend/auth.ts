@@ -164,6 +164,13 @@ export async function signInUser(email: string, password: string) {
   return loadCurrentBackendWorkspace();
 }
 
+export async function signOutUser() {
+  const { error } = await createSupabaseBrowserClient().auth.signOut();
+  if (error) {
+    throwSupabaseError("Auth signout", error);
+  }
+}
+
 export async function loadCurrentBackendWorkspace(): Promise<BackendWorkspace | null> {
   const supabase = createSupabaseBrowserClient();
   const { data: userData } = await supabase.auth.getUser();

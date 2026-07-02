@@ -8,6 +8,7 @@ import { getBusinessTemplate } from "@/config/templates";
 import { createDemoData } from "@/data/demo-data";
 import { createInitialBusinessData } from "@/data/initial-data";
 import {
+  deleteEmployee,
   syncAppointment,
   syncClient,
   syncCompany,
@@ -108,6 +109,7 @@ interface AppStore {
   addEmployee: (employee: Omit<Employee, "id">) => void;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
   dismissEmployee: (id: string) => void;
+  deleteDismissedEmployee: (id: string) => void;
   addProduct: (product: Omit<Product, "id">) => void;
   updateProduct: (id: string, product: Partial<Product>) => void;
   addInventoryMovement: (movement: Omit<InventoryMovement, "id">) => void;
@@ -117,6 +119,7 @@ interface AppStore {
   toggleTaskChecklistItem: (taskId: string, itemIndex: number, done: boolean) => void;
   addPromotion: (promotion: Omit<Promotion, "id" | "usageCount" | "revenue" | "newClients" | "efficiency">) => void;
   markNotificationRead: (id: string) => void;
+  logout: () => void;
   openQuickCreate: (type: QuickCreateType) => void;
   setQuickCreateOpen: (open: boolean) => void;
   setNotificationPanelOpen: (open: boolean) => void;
@@ -457,6 +460,44 @@ export const useAppStore = create<AppStore>()(
             }
           };
         }),
+      deleteDismissedEmployee: (id) =>
+        set((state) => {
+          const target = state.data.employees.find((employee) => employee.id === id);
+          if (!target || target.status !== "dismissed" || target.role === "owner") {
+            return state;
+          }
+
+          const employees = state.data.employees.filter((employee) => employee.id !== id);
+          const fallbackEmployeeId = employees[0]?.id ?? "";
+          void deleteEmployee(state.company.id, id);
+
+          return {
+            data: {
+              ...state.data,
+              employees,
+              clients: state.data.clients.map((client) =>
+                client.responsibleId === id
+                  ? { ...client, responsibleId: fallbackEmployeeId }
+                  : client
+              ),
+              appointments: state.data.appointments.map((appointment) =>
+                appointment.employeeId === id
+                  ? { ...appointment, employeeId: fallbackEmployeeId }
+                  : appointment
+              ),
+              tasks: state.data.tasks.map((task) =>
+                task.responsibleId === id
+                  ? { ...task, responsibleId: fallbackEmployeeId }
+                  : task
+              ),
+              financialOperations: state.data.financialOperations.map((operation) =>
+                operation.employeeId === id
+                  ? { ...operation, employeeId: undefined }
+                  : operation
+              )
+            }
+          };
+        }),
       addProduct: (product) =>
         set((state) => {
           const nextProduct = { ...product, id: createId("product") };
@@ -614,6 +655,16 @@ export const useAppStore = create<AppStore>()(
             )
           }
         })),
+      logout: () =>
+        set({
+          user: null,
+          role: "owner",
+          sessionMode: "registered",
+          onboardingComplete: false,
+          quickCreateOpen: false,
+          quickCreateType: null,
+          notificationPanelOpen: false
+        }),
       openQuickCreate: (quickCreateType) => set({ quickCreateType, quickCreateOpen: true }),
       setQuickCreateOpen: (quickCreateOpen) =>
         set((state) => ({

@@ -104,6 +104,17 @@ export async function syncEmployee(companyId: string, employee: Employee) {
   );
 }
 
+export async function deleteEmployee(companyId: string, employeeId: string) {
+  if (!canSync(companyId) || !canSync(employeeId)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient()
+      .from("employees")
+      .delete()
+      .eq("company_id", companyId)
+      .eq("id", employeeId)
+  );
+}
+
 export async function syncProduct(companyId: string, product: Product) {
   if (!canSync(companyId) || !canSync(product.id)) return;
   await safeSync(() =>
