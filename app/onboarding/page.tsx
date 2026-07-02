@@ -11,7 +11,6 @@ import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { PRODUCT_NAME } from "@/config/product";
 import {
-  BUSINESS_TEMPLATES,
   ONBOARDING_BUSINESS_OPTIONS,
   getBusinessTemplate
 } from "@/config/templates";
@@ -41,11 +40,24 @@ const accountingOptions = [
   "автомобили или другие объекты клиента"
 ];
 
+function getInitialBusinessOptionId(templateId: string, industry: string) {
+  return (
+    ONBOARDING_BUSINESS_OPTIONS.find(
+      (option) => option.templateId === templateId && option.title === industry
+    )?.id ??
+    ONBOARDING_BUSINESS_OPTIONS.find((option) => option.templateId === templateId)?.id ??
+    ONBOARDING_BUSINESS_OPTIONS[0].id
+  );
+}
+
 export default function OnboardingPage() {
   const router = useRouter();
   const company = useAppStore((state) => state.company);
   const completeOnboarding = useAppStore((state) => state.completeOnboarding);
   const [step, setStep] = useState(1);
+  const [businessOptionId, setBusinessOptionId] = useState(() =>
+    getInitialBusinessOptionId(company.businessTemplateId, company.industry)
+  );
   const [templateId, setTemplateId] = useState(company.businessTemplateId);
   const [work, setWork] = useState<string[]>([]);
   const [accounting, setAccounting] = useState<string[]>([]);
@@ -105,11 +117,15 @@ export default function OnboardingPage() {
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {ONBOARDING_BUSINESS_OPTIONS.map((option, index) => (
                   <button
-                    key={`${option.title}-${index}`}
+                    key={option.id}
                     type="button"
-                    onClick={() => setTemplateId(option.id)}
+                    aria-pressed={businessOptionId === option.id}
+                    onClick={() => {
+                      setBusinessOptionId(option.id);
+                      setTemplateId(option.templateId);
+                    }}
                     className={`rounded-lg border p-4 text-left transition-colors ${
-                      templateId === option.id
+                      businessOptionId === option.id
                         ? "border-primary bg-accent"
                         : "border-border bg-background hover:bg-muted/50"
                     }`}

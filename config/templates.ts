@@ -213,49 +213,57 @@ export function getBusinessTemplate(id: string) {
 
 export const ONBOARDING_BUSINESS_OPTIONS = [
   {
-    id: "beauty",
+    id: "beauty-salon",
+    templateId: "beauty",
     title: "Салон красоты",
     description: "Записи, мастера, услуги и расходники.",
     icon: "Scissors"
   },
   {
-    id: "beauty",
+    id: "barbershop",
+    templateId: "beauty",
     title: "Барбершоп",
     description: "Мастера, кресла, повторные визиты и акции.",
     icon: "Scissors"
   },
   {
     id: "auto",
+    templateId: "auto",
     title: "Автосервис",
     description: "Посты, механики, автомобили и запчасти.",
     icon: "CarFront"
   },
   {
     id: "cafe",
+    templateId: "cafe",
     title: "Кофейня",
     description: "Продажи, гости, ингредиенты и акции.",
     icon: "Coffee"
   },
   {
     id: "shop",
+    templateId: "shop",
     title: "Небольшой магазин",
     description: "Товары, остатки, клиенты и поставщики.",
     icon: "Store"
   },
   {
-    id: "universal",
+    id: "repair-workshop",
+    templateId: "universal",
     title: "Ремонтная мастерская",
     description: "Заказы, материалы, задачи и клиенты.",
     icon: "Hammer"
   },
   {
-    id: "universal",
+    id: "education-center",
+    templateId: "universal",
     title: "Образовательный центр",
     description: "Группы, расписание, клиенты и сотрудники.",
     icon: "GraduationCap"
   },
   {
-    id: "universal",
+    id: "other-business",
+    templateId: "universal",
     title: "Другой бизнес",
     description: "Гибкий набор модулей без лишних разделов.",
     icon: "Building2"
