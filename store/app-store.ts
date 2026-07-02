@@ -31,6 +31,7 @@ import type {
   ModuleCode,
   Product,
   Promotion,
+  QuickCreateType,
   Role,
   Task,
   ThemeMode,
@@ -76,6 +77,7 @@ interface AppStore {
   data: DemoData;
   toasts: ToastMessage[];
   quickCreateOpen: boolean;
+  quickCreateType: QuickCreateType | null;
   notificationPanelOpen: boolean;
   sidebarCollapsed: boolean;
   setTheme: (theme: ThemeMode) => void;
@@ -115,6 +117,7 @@ interface AppStore {
   toggleTaskChecklistItem: (taskId: string, itemIndex: number, done: boolean) => void;
   addPromotion: (promotion: Omit<Promotion, "id" | "usageCount" | "revenue" | "newClients" | "efficiency">) => void;
   markNotificationRead: (id: string) => void;
+  openQuickCreate: (type: QuickCreateType) => void;
   setQuickCreateOpen: (open: boolean) => void;
   setNotificationPanelOpen: (open: boolean) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -136,6 +139,7 @@ export const useAppStore = create<AppStore>()(
       data: createDemoData(defaultTemplateId),
       toasts: [],
       quickCreateOpen: false,
+      quickCreateType: null,
       notificationPanelOpen: false,
       sidebarCollapsed: false,
       setTheme: (theme) => set({ theme }),
@@ -610,7 +614,12 @@ export const useAppStore = create<AppStore>()(
             )
           }
         })),
-      setQuickCreateOpen: (quickCreateOpen) => set({ quickCreateOpen }),
+      openQuickCreate: (quickCreateType) => set({ quickCreateType, quickCreateOpen: true }),
+      setQuickCreateOpen: (quickCreateOpen) =>
+        set((state) => ({
+          quickCreateOpen,
+          quickCreateType: quickCreateOpen ? state.quickCreateType : null
+        })),
       setNotificationPanelOpen: (notificationPanelOpen) =>
         set({ notificationPanelOpen }),
       setSidebarCollapsed: (sidebarCollapsed) => set({ sidebarCollapsed }),

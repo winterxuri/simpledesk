@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,11 +25,17 @@ export function Drawer({
   side = "right",
   className
 }: DrawerProps) {
-  if (!open) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!open || !mounted) {
     return null;
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] p-3 sm:p-4">
       <button
         type="button"
@@ -61,6 +69,7 @@ export function Drawer({
         </div>
         <div className="p-5">{children}</div>
       </aside>
-    </div>
+    </div>,
+    document.body
   );
 }

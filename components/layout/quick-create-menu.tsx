@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormDrawer } from "@/components/modules/form-drawer";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
+import type { QuickCreateType } from "@/types";
 
 const createItems = [
   { type: "client", label: "Клиент", icon: "UsersRound" },
@@ -20,16 +21,17 @@ const createItems = [
   { type: "material", label: "Расходник", icon: "PackagePlus" },
   { type: "promotion", label: "Акция", icon: "BadgePercent" },
   { type: "employee", label: "Сотрудник", icon: "UserRoundCog" }
-] as const;
-
-type CreateType = (typeof createItems)[number]["type"];
+] as const satisfies { type: QuickCreateType; label: string; icon: string }[];
 
 export function QuickCreateMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [drawerType, setDrawerType] = useState<CreateType | null>(null);
   const [name, setName] = useState("");
   const [secondary, setSecondary] = useState("");
   const [comment, setComment] = useState("");
+  const quickCreateOpen = useAppStore((state) => state.quickCreateOpen);
+  const drawerType = useAppStore((state) => state.quickCreateType);
+  const openQuickCreate = useAppStore((state) => state.openQuickCreate);
+  const setQuickCreateOpen = useAppStore((state) => state.setQuickCreateOpen);
   const addClient = useAppStore((state) => state.addClient);
   const addTask = useAppStore((state) => state.addTask);
   const addAppointment = useAppStore((state) => state.addAppointment);
@@ -46,7 +48,7 @@ export function QuickCreateMenu() {
     setName("");
     setSecondary("");
     setComment("");
-    setDrawerType(null);
+    setQuickCreateOpen(false);
   }
 
   function save() {
@@ -164,7 +166,7 @@ export function QuickCreateMenu() {
               type="button"
               className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
               onClick={() => {
-                setDrawerType(entry.type);
+                openQuickCreate(entry.type);
                 setMenuOpen(false);
               }}
             >
@@ -175,14 +177,14 @@ export function QuickCreateMenu() {
         </div>
       ) : null}
       <FormDrawer
-        open={Boolean(drawerType)}
+        open={quickCreateOpen && Boolean(drawerType)}
         onOpenChange={(open) => {
           if (!open) {
             reset();
           }
         }}
         title={item ? `Создать: ${item.label.toLowerCase()}` : "Создать"}
-        description="Форма сохраняет данные локально в браузере до подключения backend."
+        description="Для зарегистрированной компании данные сохраняются в Supabase, в демо-режиме - локально."
       >
         <div className="space-y-4">
           <div className="space-y-2">

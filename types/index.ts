@@ -1,6 +1,16 @@
 export type Role = "owner" | "admin" | "employee";
 export type ThemeMode = "light" | "dark";
 
+export type QuickCreateType =
+  | "client"
+  | "appointment"
+  | "task"
+  | "sale"
+  | "product"
+  | "material"
+  | "promotion"
+  | "employee";
+
 export type ModuleCode =
   | "dashboard"
   | "calendar"

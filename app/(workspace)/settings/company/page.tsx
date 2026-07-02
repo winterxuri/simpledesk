@@ -20,6 +20,29 @@ const terminologyKeys = [
   ["material", "Расходник / ингредиент"]
 ] as const;
 
+const timezoneOptions = [
+  { value: "Europe/Moscow", label: "Москва UTC+3" },
+  { value: "Asia/Yekaterinburg", label: "Екатеринбург UTC+5" },
+  { value: "Asia/Novosibirsk", label: "Новосибирск UTC+7" },
+  { value: "Asia/Krasnoyarsk", label: "Красноярск UTC+7" },
+  { value: "Asia/Irkutsk", label: "Иркутск UTC+8" },
+  { value: "Asia/Vladivostok", label: "Владивосток UTC+10" }
+];
+
+const currencyOptions = [
+  { value: "RUB", label: "RUB - российский рубль" },
+  { value: "KZT", label: "KZT - казахстанский тенге" },
+  { value: "USD", label: "USD - доллар США" },
+  { value: "EUR", label: "EUR - евро" }
+];
+
+const workDayOptions = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const timeOptions = Array.from({ length: 48 }, (_, index) => {
+  const hours = String(Math.floor(index / 2)).padStart(2, "0");
+  const minutes = index % 2 === 0 ? "00" : "30";
+  return `${hours}:${minutes}`;
+});
+
 export default function SettingsCompanyPage() {
   const company = useAppStore((state) => state.company);
   const updateCompany = useAppStore((state) => state.updateCompany);
@@ -31,6 +54,15 @@ export default function SettingsCompanyPage() {
     const { terminology, ...companyDraft } = draft;
     updateCompany(companyDraft);
     addToast({ title: "Настройки компании сохранены", variant: "success" });
+  }
+
+  function toggleWorkDay(day: string) {
+    setDraft((current) => ({
+      ...current,
+      workDays: current.workDays.includes(day)
+        ? current.workDays.filter((item) => item !== day)
+        : [...current.workDays, day]
+    }));
   }
 
   return (
@@ -50,12 +82,47 @@ export default function SettingsCompanyPage() {
             <Field label="Адрес" value={draft.address} onChange={(value) => setDraft({ ...draft, address: value })} />
             <Field label="Телефон" value={draft.phone} onChange={(value) => setDraft({ ...draft, phone: value })} />
             <Field label="Email" value={draft.email} onChange={(value) => setDraft({ ...draft, email: value })} />
-            <Field label="Часовой пояс" value={draft.timezone} onChange={(value) => setDraft({ ...draft, timezone: value })} />
-            <Field label="Валюта" value={draft.currency} onChange={(value) => setDraft({ ...draft, currency: value })} />
-            <Field label="Рабочие дни" value={draft.workDays.join(", ")} onChange={(value) => setDraft({ ...draft, workDays: value.split(",").map((item) => item.trim()) })} />
+            <SelectField
+              label="Часовой пояс"
+              value={draft.timezone}
+              options={timezoneOptions}
+              onChange={(value) => setDraft({ ...draft, timezone: value })}
+            />
+            <SelectField
+              label="Валюта"
+              value={draft.currency}
+              options={currencyOptions}
+              onChange={(value) => setDraft({ ...draft, currency: value })}
+            />
+            <div className="space-y-2 md:col-span-2">
+              <Label>Рабочие дни</Label>
+              <div className="flex flex-wrap gap-2">
+                {workDayOptions.map((day) => (
+                  <Button
+                    key={day}
+                    type="button"
+                    variant={draft.workDays.includes(day) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleWorkDay(day)}
+                  >
+                    {day}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="С" value={draft.workHours.start} onChange={(value) => setDraft({ ...draft, workHours: { ...draft.workHours, start: value } })} />
-              <Field label="До" value={draft.workHours.end} onChange={(value) => setDraft({ ...draft, workHours: { ...draft.workHours, end: value } })} />
+              <SelectField
+                label="С"
+                value={draft.workHours.start}
+                options={timeOptions.map((time) => ({ value: time, label: time }))}
+                onChange={(value) => setDraft({ ...draft, workHours: { ...draft.workHours, start: value } })}
+              />
+              <SelectField
+                label="До"
+                value={draft.workHours.end}
+                options={timeOptions.map((time) => ({ value: time, label: time }))}
+                onChange={(value) => setDraft({ ...draft, workHours: { ...draft.workHours, end: value } })}
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Выбранный шаблон</Label>
@@ -107,6 +174,31 @@ function Field({
     <div className="space-y-2">
       <Label>{label}</Label>
       <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>{label}</Label>
+      <Select value={value} onChange={(event) => onChange(event.target.value)}>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </Select>
     </div>
   );
 }
