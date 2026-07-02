@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -27,8 +27,9 @@ export default function DashboardPage() {
   const addToast = useAppStore((state) => state.addToast);
   const openQuickCreate = useAppStore((state) => state.openQuickCreate);
   const [recommendationVisible, setRecommendationVisible] = useState(true);
+  const [greeting, setGreeting] = useState("Здравствуйте");
   const appointmentTerm = company.terminology.appointment;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateKey(new Date());
   const hasBusinessData = Boolean(
     data.clients.length ||
     data.appointments.length ||
@@ -70,12 +71,17 @@ export default function DashboardPage() {
       .reduce((sum, operation) => sum + operation.amount, 0)
   }));
   const chartHasData = chartData.some((item) => item.value > 0);
+  const userFirstName = user?.name?.split(" ")[0] ?? "владелец";
+
+  useEffect(() => {
+    setGreeting(getGreetingByHour(new Date().getHours()));
+  }, []);
 
   if (!hasBusinessData) {
     return (
       <div>
         <PageHeader
-          title={`Доброе утро, ${user?.name?.split(" ")[0] ?? "владелец"}`}
+          title={`${greeting}, ${userFirstName}`}
           description="Рабочее пространство пока пустое. Добавьте первые данные, чтобы здесь появились показатели за день."
         />
         <DashboardWidget title="Сегодня">
@@ -100,7 +106,7 @@ export default function DashboardPage() {
   return (
     <div>
       <PageHeader
-        title={`Доброе утро, ${user?.name?.split(" ")[0] ?? "владелец"}`}
+        title={`${greeting}, ${userFirstName}`}
         description="Вот что происходит в вашем бизнесе сегодня."
         actions={
           <Button type="button" onClick={() => addToast({
@@ -311,10 +317,24 @@ function getLastSevenDays() {
     const date = new Date();
     date.setDate(date.getDate() - (6 - index));
     return {
-      date: date.toISOString().slice(0, 10),
+      date: getLocalDateKey(date),
       label: formatter.format(date)
     };
   });
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getGreetingByHour(hour: number) {
+  if (hour >= 5 && hour < 12) return "Доброе утро";
+  if (hour >= 12 && hour < 18) return "Добрый день";
+  if (hour >= 18 && hour < 23) return "Добрый вечер";
+  return "Доброй ночи";
 }
 
 function plural(value: number, forms: [string, string, string]) {

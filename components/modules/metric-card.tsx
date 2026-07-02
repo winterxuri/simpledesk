@@ -38,7 +38,11 @@ export function MetricCard({
       </div>
       <div className="mt-4 flex items-center justify-between gap-2 text-sm">
         {hint ? <span className="text-muted-foreground">{hint}</span> : <span />}
-        {delta ? <span className="font-medium text-emerald-600">{delta}</span> : null}
+        {delta ? (
+          <span className={cn("font-medium", delta.startsWith("-") ? "text-red-600" : "text-emerald-600")}>
+            {delta}
+          </span>
+        ) : null}
       </div>
     </Card>
   );
