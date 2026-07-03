@@ -18,7 +18,7 @@ import { useAppStore } from "@/store/app-store";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
 import { formatDate, getLocalDateKey } from "@/lib/utils";
-import type { TaskStatus } from "@/types";
+import type { Task, TaskStatus } from "@/types";
 
 const views = [
   { value: "list", label: "Список" },
@@ -33,7 +33,7 @@ const columns = [
   ["overdue", "Просрочена"]
 ] as const;
 
-const statusActions: Partial<Record<TaskStatus, { label: string; status: TaskStatus }[]>> = {
+const managerStatusActions: Partial<Record<TaskStatus, { label: string; status: TaskStatus }[]>> = {
   new: [{ label: "Взять в работу", status: "inProgress" }],
   inProgress: [
     { label: "Ожидание", status: "waiting" },
@@ -48,6 +48,19 @@ const statusActions: Partial<Record<TaskStatus, { label: string; status: TaskSta
     { label: "Закрыть", status: "done" }
   ],
   done: [{ label: "Переоткрыть", status: "inProgress" }]
+};
+
+const employeeStatusActions: Partial<Record<TaskStatus, { label: string; status: TaskStatus }[]>> = {
+  new: [{ label: "Взять в работу", status: "inProgress" }],
+  inProgress: [
+    { label: "Ожидание", status: "waiting" },
+    { label: "Отметить выполненной", status: "done" }
+  ],
+  waiting: [{ label: "Вернуть в работу", status: "inProgress" }],
+  overdue: [
+    { label: "В работу", status: "inProgress" },
+    { label: "Отметить выполненной", status: "done" }
+  ]
 };
 
 export default function TasksPage() {
@@ -110,6 +123,53 @@ export default function TasksPage() {
           description: "После выполнения переведите задачу в статус «выполнена»."
         }
       ];
+
+  function getTaskStatusActions(task: Task) {
+    if (canManageTasks) {
+      return managerStatusActions[task.status] ?? [];
+    }
+
+    if (!canUpdateTaskProgress) {
+      return [];
+    }
+
+    return employeeStatusActions[task.status] ?? [];
+  }
+
+  function canEditTaskChecklist(task: Task) {
+    return canManageTasks || (canUpdateTaskProgress && task.status !== "done");
+  }
+
+  function changeTaskStatus(task: Task, status: TaskStatus) {
+    const allowed = getTaskStatusActions(task).some((action) => action.status === status);
+
+    if (!allowed) {
+      addToast({
+        title: "Статус нельзя изменить",
+        description:
+          task.status === "done"
+            ? "Завершённую задачу может переоткрыть владелец или администратор."
+            : "Для этой роли и текущего состояния задачи такой переход недоступен.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    updateTask(task.id, { status });
+  }
+
+  function updateChecklistItem(task: Task, itemIndex: number, done: boolean) {
+    if (!canEditTaskChecklist(task)) {
+      addToast({
+        title: "Чек-лист заблокирован",
+        description: "Завершённую задачу сначала должен переоткрыть владелец или администратор.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    toggleTaskChecklistItem(task.id, itemIndex, done);
+  }
 
   function save() {
     const title = form.title.trim();
@@ -216,35 +276,40 @@ export default function TasksPage() {
                   <p className="mt-2 text-sm text-muted-foreground">{task.description}</p>
                   <p className="mt-2 text-xs text-muted-foreground">Срок: {formatDate(task.dueDate)}</p>
                   <div className="mt-3 space-y-2">
-                    {task.checklist.map((item, index) => (
-                      <label key={`${task.id}-${item.title}-${index}`} className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 accent-primary"
-                          checked={item.done}
-                          disabled={!canUpdateTaskProgress}
-                          onChange={(event) =>
-                            toggleTaskChecklistItem(task.id, index, event.target.checked)
-                          }
-                        />
-                        <span className={item.done ? "text-muted-foreground line-through" : ""}>
-                          {item.title}
-                        </span>
-                      </label>
-                    ))}
+                    {task.checklist.map((item, index) => {
+                      const checklistEditable = canEditTaskChecklist(task);
+                      return (
+                        <label
+                          key={`${task.id}-${item.title}-${index}`}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-primary"
+                            checked={item.done}
+                            disabled={!checklistEditable}
+                            onChange={(event) =>
+                              updateChecklistItem(task, index, event.target.checked)
+                            }
+                          />
+                          <span className={item.done ? "text-muted-foreground line-through" : ""}>
+                            {item.title}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
                 <div className="flex min-w-48 flex-col gap-3 text-sm text-muted-foreground">
                   <span>{employees.find((employee) => employee.id === task.responsibleId)?.name}</span>
                   <div className="flex flex-wrap gap-2 md:justify-end">
-                    {(statusActions[task.status] ?? []).map((action) => (
+                    {getTaskStatusActions(task).map((action) => (
                       <Button
                         key={action.status}
                         type="button"
                         size="sm"
                         variant={action.status === "done" ? "default" : "outline"}
-                        disabled={!canUpdateTaskProgress}
-                        onClick={() => updateTask(task.id, { status: action.status })}
+                        onClick={() => changeTaskStatus(task, action.status)}
                       >
                         {action.label}
                       </Button>
@@ -269,14 +334,13 @@ export default function TasksPage() {
                       {task.checklist.filter((item) => item.done).length}/{task.checklist.length} проверок
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {(statusActions[task.status] ?? []).slice(0, 2).map((action) => (
+                      {getTaskStatusActions(task).slice(0, 2).map((action) => (
                         <Button
                           key={action.status}
                           type="button"
                           size="sm"
                           variant={action.status === "done" ? "default" : "outline"}
-                          disabled={!canUpdateTaskProgress}
-                          onClick={() => updateTask(task.id, { status: action.status })}
+                          onClick={() => changeTaskStatus(task, action.status)}
                         >
                           {action.label}
                         </Button>

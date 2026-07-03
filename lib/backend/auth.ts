@@ -459,6 +459,7 @@ async function loadCompanyData(
     resources,
     promotions,
     tasks,
+    taskChecklistItems,
     financialOperations,
     reportSnapshots,
     notifications
@@ -471,10 +472,23 @@ async function loadCompanyData(
     supabase.from("resources").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("promotions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("task_checklist_items").select("*").eq("company_id", companyId).order("sort_order", { ascending: true }),
     supabase.from("financial_operations").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("report_snapshots").select("*").eq("company_id", companyId).order("generated_at", { ascending: false }),
     supabase.from("notifications").select("*").eq("company_id", companyId).order("created_at", { ascending: false })
   ]);
+
+  const checklistByTaskId = new Map<string, Task["checklist"]>();
+  rows(taskChecklistItems.data).forEach((item) => {
+    const taskId = text(item, "task_id");
+    if (!taskId) {
+      return;
+    }
+    checklistByTaskId.set(taskId, [
+      ...(checklistByTaskId.get(taskId) ?? []),
+      mapTaskChecklistItem(item)
+    ]);
+  });
 
   const mappedData: DemoData = {
     ...base,
@@ -487,7 +501,7 @@ async function loadCompanyData(
     inventoryMovements: rows(movements.data).map(mapInventoryMovement),
     resources: rows(resources.data).map(mapResource),
     promotions: rows(promotions.data).map(mapPromotion),
-    tasks: rows(tasks.data).map(mapTask),
+    tasks: rows(tasks.data).map((task) => mapTask(task, checklistByTaskId.get(text(task, "id")) ?? [])),
     financialOperations: rows(financialOperations.data).map(mapFinancialOperation),
     reportSnapshots: rows(reportSnapshots.data).map(mapReportSnapshot),
     notifications: rows(notifications.data).map(mapNotification).concat(
@@ -666,7 +680,7 @@ function mapPromotion(row: LooseRow): Promotion {
   };
 }
 
-function mapTask(row: LooseRow): Task {
+function mapTask(row: LooseRow, checklist: Task["checklist"] = []): Task {
   return {
     id: text(row, "id"),
     title: text(row, "title", "Задача"),
@@ -678,7 +692,14 @@ function mapTask(row: LooseRow): Task {
     clientId: nullableText(row, "client_id"),
     appointmentId: nullableText(row, "appointment_id"),
     productId: nullableText(row, "product_id"),
-    checklist: []
+    checklist
+  };
+}
+
+function mapTaskChecklistItem(row: LooseRow): Task["checklist"][number] {
+  return {
+    title: text(row, "title", "Пункт чек-листа"),
+    done: bool(row, "done")
   };
 }
 

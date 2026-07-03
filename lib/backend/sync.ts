@@ -245,8 +245,10 @@ export async function deleteReportSnapshot(companyId: string, reportId: string) 
 
 export async function syncTask(companyId: string, task: Task) {
   if (!canSync(companyId) || !canSync(task.id)) return;
+  const supabase = createSupabaseBrowserClient();
+
   await safeSync(() =>
-    createSupabaseBrowserClient().from("tasks").upsert({
+    supabase.from("tasks").upsert({
       id: task.id,
       company_id: companyId,
       title: task.title,
@@ -259,6 +261,30 @@ export async function syncTask(companyId: string, task: Task) {
       appointment_id: task.appointmentId && canSync(task.appointmentId) ? task.appointmentId : null,
       product_id: task.productId && canSync(task.productId) ? task.productId : null
     })
+  );
+
+  await safeSync(() =>
+    supabase
+      .from("task_checklist_items")
+      .delete()
+      .eq("company_id", companyId)
+      .eq("task_id", task.id)
+  );
+
+  if (!task.checklist.length) {
+    return;
+  }
+
+  await safeSync(() =>
+    supabase.from("task_checklist_items").insert(
+      task.checklist.map((item, index) => ({
+        company_id: companyId,
+        task_id: task.id,
+        title: item.title,
+        done: item.done,
+        sort_order: index + 1
+      }))
+    )
   );
 }
 

@@ -711,21 +711,34 @@ export const useAppStore = create<AppStore>()(
           };
         }),
       toggleTaskChecklistItem: (taskId, itemIndex, done) =>
-        set((state) => ({
-          data: {
-            ...state.data,
-            tasks: state.data.tasks.map((task) =>
-              task.id === taskId
-                ? {
-                    ...task,
-                    checklist: task.checklist.map((item, index) =>
-                      index === itemIndex ? { ...item, done } : item
-                    )
-                  }
-                : task
-            )
+        set((state) => {
+          let changedTask: Task | undefined;
+          const tasks = state.data.tasks.map((task) => {
+            if (task.id !== taskId) {
+              return task;
+            }
+
+            changedTask = {
+              ...task,
+              checklist: task.checklist.map((item, index) =>
+                index === itemIndex ? { ...item, done } : item
+              )
+            };
+            return changedTask;
+          });
+
+          if (changedTask) {
+            const taskToSync = changedTask;
+            runBackendSync(get, () => syncTask(state.company.id, taskToSync));
           }
-        })),
+
+          return {
+            data: {
+              ...state.data,
+              tasks
+            }
+          };
+        }),
       addPromotion: (promotion) =>
         set((state) => {
           const nextPromotion = {
