@@ -247,7 +247,7 @@ export async function completeBackendOnboarding(company: Company, selectedModule
   const supabase = createSupabaseBrowserClient();
   const template = getBusinessTemplate(company.businessTemplateId);
 
-  await supabase
+  const { error: companyError } = await supabase
     .from("companies")
     .update({
       business_template_id: template.id,
@@ -257,7 +257,11 @@ export async function completeBackendOnboarding(company: Company, selectedModule
     })
     .eq("id", company.id);
 
-  await supabase.from("company_modules").upsert(
+  if (companyError) {
+    throwSupabaseError("Complete onboarding company", companyError);
+  }
+
+  const { error: modulesError } = await supabase.from("company_modules").upsert(
     buildDefaultCompanyModules(template.id, selectedModules).map((module) => ({
       company_id: company.id,
       code: module.code,
@@ -268,6 +272,10 @@ export async function completeBackendOnboarding(company: Company, selectedModule
     })),
     { onConflict: "company_id,code" }
   );
+
+  if (modulesError) {
+    throwSupabaseError("Complete onboarding modules", modulesError);
+  }
 }
 
 function isUuid(value: string) {

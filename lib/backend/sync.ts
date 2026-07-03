@@ -5,6 +5,7 @@ import type {
   Appointment,
   Client,
   Company,
+  CompanyModule,
   Employee,
   FinancialOperation,
   InventoryMovement,
@@ -13,6 +14,13 @@ import type {
   ReportSnapshot,
   Task
 } from "@/types";
+
+export class SupabaseSyncError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SupabaseSyncError";
+  }
+}
 
 export function canSync(companyId: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(companyId);
@@ -37,6 +45,23 @@ export async function syncCompany(company: Company) {
         terminology: company.terminology
       })
       .eq("id", company.id)
+  );
+}
+
+export async function syncCompanyModules(companyId: string, modules: CompanyModule[]) {
+  if (!canSync(companyId)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("company_modules").upsert(
+      modules.map((module) => ({
+        company_id: companyId,
+        code: module.code,
+        status: module.status,
+        visible: module.visible,
+        sort_order: module.order,
+        available_on_tariff: module.availableOnTariff
+      })),
+      { onConflict: "company_id,code" }
+    )
   );
 }
 
@@ -237,11 +262,23 @@ async function safeSync(action: () => PromiseLike<{ error: unknown }>) {
   try {
     const result = await action();
     if (result.error) {
-      console.warn("Supabase sync failed", result.error);
+      throw new SupabaseSyncError(formatSupabaseError(result.error));
     }
   } catch (error) {
-    console.warn("Supabase sync failed", error);
+    if (error instanceof SupabaseSyncError) {
+      throw error;
+    }
+    throw new SupabaseSyncError(formatSupabaseError(error));
   }
+}
+
+function formatSupabaseError(error: unknown) {
+  const record = typeof error === "object" && error !== null ? error as Record<string, unknown> : {};
+  const message = typeof record.message === "string" ? record.message : String(error);
+  const details = typeof record.details === "string" ? record.details : "";
+  const hint = typeof record.hint === "string" ? record.hint : "";
+  const code = typeof record.code === "string" ? record.code : "";
+  return [message, code ? `code: ${code}` : "", details, hint].filter(Boolean).join(" | ");
 }
 
 function toDbAppointmentStatus(status: Appointment["status"]) {

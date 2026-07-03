@@ -12,6 +12,7 @@ import {
   syncAppointment,
   syncClient,
   syncCompany,
+  syncCompanyModules,
   syncEmployee,
   syncFinancialOperation,
   syncInventoryMovement,
@@ -157,6 +158,24 @@ interface AppStore {
   markAllNotificationsRead: () => void;
 }
 
+function runBackendSync(get: () => AppStore, action: () => Promise<void>) {
+  if (get().sessionMode !== "registered") {
+    return;
+  }
+
+  void action().catch((error) => {
+    console.error("Supabase sync failed", error);
+    get().addToast({
+      title: "Не удалось сохранить в Supabase",
+      description:
+        error instanceof Error
+          ? `Изменение осталось локально. ${error.message}`
+          : "Изменение осталось локально. Проверьте соединение и повторите действие.",
+      variant: "error"
+    });
+  });
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
@@ -270,45 +289,51 @@ export const useAppStore = create<AppStore>()(
             ...state.company,
             ...company
           };
-          void syncCompany(nextCompany);
+          runBackendSync(get, () => syncCompany(nextCompany));
           return { company: nextCompany };
         }),
       updateTerminology: (key, value) =>
-        set((state) => ({
-          company: {
+        set((state) => {
+          const nextCompany = {
             ...state.company,
             terminology: {
               ...state.company.terminology,
               [key]: value
             }
-          }
-        })),
+          };
+          runBackendSync(get, () => syncCompany(nextCompany));
+          return { company: nextCompany };
+        }),
       toggleModule: (code, enabled) =>
-        set((state) => ({
-          companyModules: normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
+        set((state) => {
+          const companyModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
             if (module.code !== code || !module.availableOnTariff) {
               return module;
             }
             return {
               ...module,
-              status: enabled ? "enabled" : "disabled",
+              status: enabled ? "enabled" as const : "disabled" as const,
               visible: enabled
             };
-          })
-        })),
+          });
+          runBackendSync(get, () => syncCompanyModules(state.company.id, companyModules));
+          return { companyModules };
+        }),
       setModuleVisibility: (code, visible) =>
-        set((state) => ({
-          companyModules: normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
+        set((state) => {
+          const companyModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
             if (module.code !== code || !module.availableOnTariff) {
               return module;
             }
             return {
               ...module,
-              status: visible ? "enabled" : "hidden",
+              status: visible ? "enabled" as const : "hidden" as const,
               visible
             };
-          })
-        })),
+          });
+          runBackendSync(get, () => syncCompanyModules(state.company.id, companyModules));
+          return { companyModules };
+        }),
       moveNavigationItem: (code, direction) =>
         set((state) => {
           const normalizedModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId);
@@ -324,32 +349,36 @@ export const useAppStore = create<AppStore>()(
           [swapped[index], swapped[targetIndex]] = [swapped[targetIndex], swapped[index]];
           const orderMap = new Map(swapped.map((module, orderIndex) => [module.code, orderIndex + 1]));
 
-          return {
-            companyModules: normalizedModules.map((module) => ({
+          const companyModules = normalizedModules.map((module) => ({
               ...module,
               order: orderMap.get(module.code) ?? module.order
-            }))
-          };
+            }));
+          runBackendSync(get, () => syncCompanyModules(state.company.id, companyModules));
+          return { companyModules };
         }),
       reorderNavigation: (orderedCodes) =>
-        set((state) => ({
-          companyModules: normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => ({
+        set((state) => {
+          const companyModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => ({
             ...module,
             order:
               orderedCodes.indexOf(module.code) >= 0
                 ? orderedCodes.indexOf(module.code) + 1
                 : module.order
-          }))
-        })),
+          }));
+          runBackendSync(get, () => syncCompanyModules(state.company.id, companyModules));
+          return { companyModules };
+        }),
       restoreRecommendedNavigation: () =>
-        set((state) => ({
-          companyModules: buildDefaultCompanyModules(
+        set((state) => {
+          const companyModules = buildDefaultCompanyModules(
             state.company.businessTemplateId,
             state.companyModules
               .filter((module) => module.status !== "disabled" && module.status !== "unavailable")
               .map((module) => module.code)
-          )
-        })),
+          );
+          runBackendSync(get, () => syncCompanyModules(state.company.id, companyModules));
+          return { companyModules };
+        }),
       addClient: (client) =>
         set((state) => {
           const nextClient = {
@@ -359,7 +388,7 @@ export const useAppStore = create<AppStore>()(
             visits: 0,
             lastVisit: getLocalDateKey()
           };
-          void syncClient(state.company.id, nextClient);
+          runBackendSync(get, () => syncClient(state.company.id, nextClient));
           return {
             data: {
               ...state.data,
@@ -378,7 +407,8 @@ export const useAppStore = create<AppStore>()(
             return changedClient;
           });
           if (changedClient) {
-            void syncClient(state.company.id, changedClient);
+            const clientToSync = changedClient;
+            runBackendSync(get, () => syncClient(state.company.id, clientToSync));
           }
           return {
             data: {
@@ -399,7 +429,7 @@ export const useAppStore = create<AppStore>()(
             return changedClient;
           });
           changedClients.forEach((changedClient) => {
-            void syncClient(state.company.id, changedClient);
+            runBackendSync(get, () => syncClient(state.company.id, changedClient));
           });
           return {
             data: {
@@ -411,7 +441,7 @@ export const useAppStore = create<AppStore>()(
       addAppointment: (appointment) =>
         set((state) => {
           const nextAppointment = { ...appointment, id: createId("appointment") };
-          void syncAppointment(state.company.id, nextAppointment);
+          runBackendSync(get, () => syncAppointment(state.company.id, nextAppointment));
           return {
             data: {
               ...state.data,
@@ -430,7 +460,8 @@ export const useAppStore = create<AppStore>()(
             return changedAppointment;
           });
           if (changedAppointment) {
-            void syncAppointment(state.company.id, changedAppointment);
+            const appointmentToSync = changedAppointment;
+            runBackendSync(get, () => syncAppointment(state.company.id, appointmentToSync));
           }
           return {
             data: {
@@ -442,7 +473,7 @@ export const useAppStore = create<AppStore>()(
       addEmployee: (employee) =>
         set((state) => {
           const nextEmployee = { ...employee, id: createId("employee") };
-          void syncEmployee(state.company.id, nextEmployee);
+          runBackendSync(get, () => syncEmployee(state.company.id, nextEmployee));
           return {
             data: {
               ...state.data,
@@ -461,7 +492,8 @@ export const useAppStore = create<AppStore>()(
             return changedEmployee;
           });
           if (changedEmployee) {
-            void syncEmployee(state.company.id, changedEmployee);
+            const employeeToSync = changedEmployee;
+            runBackendSync(get, () => syncEmployee(state.company.id, employeeToSync));
           }
           return {
             data: {
@@ -485,7 +517,8 @@ export const useAppStore = create<AppStore>()(
             return changedEmployee;
           });
           if (changedEmployee) {
-            void syncEmployee(state.company.id, changedEmployee);
+            const employeeToSync = changedEmployee;
+            runBackendSync(get, () => syncEmployee(state.company.id, employeeToSync));
           }
           return {
             data: {
@@ -503,7 +536,7 @@ export const useAppStore = create<AppStore>()(
 
           const employees = state.data.employees.filter((employee) => employee.id !== id);
           const fallbackEmployeeId = employees[0]?.id ?? "";
-          void deleteEmployee(state.company.id, id);
+          runBackendSync(get, () => deleteEmployee(state.company.id, id));
 
           return {
             data: {
@@ -535,7 +568,7 @@ export const useAppStore = create<AppStore>()(
       addProduct: (product) =>
         set((state) => {
           const nextProduct = { ...product, id: createId("product") };
-          void syncProduct(state.company.id, nextProduct);
+          runBackendSync(get, () => syncProduct(state.company.id, nextProduct));
           return {
             data: {
               ...state.data,
@@ -554,7 +587,8 @@ export const useAppStore = create<AppStore>()(
             return changedProduct;
           });
           if (changedProduct) {
-            void syncProduct(state.company.id, changedProduct);
+            const productToSync = changedProduct;
+            runBackendSync(get, () => syncProduct(state.company.id, productToSync));
           }
           return {
             data: {
@@ -566,7 +600,7 @@ export const useAppStore = create<AppStore>()(
       addInventoryMovement: (movement) =>
         set((state) => {
           const nextMovement = { ...movement, id: createId("movement") };
-          void syncInventoryMovement(state.company.id, nextMovement);
+          runBackendSync(get, () => syncInventoryMovement(state.company.id, nextMovement));
           return {
             data: {
               ...state.data,
@@ -580,7 +614,7 @@ export const useAppStore = create<AppStore>()(
       addTask: (task) =>
         set((state) => {
           const nextTask = { ...task, id: createId("task") };
-          void syncTask(state.company.id, nextTask);
+          runBackendSync(get, () => syncTask(state.company.id, nextTask));
           return {
             data: {
               ...state.data,
@@ -599,7 +633,8 @@ export const useAppStore = create<AppStore>()(
             return changedTask;
           });
           if (changedTask) {
-            void syncTask(state.company.id, changedTask);
+            const taskToSync = changedTask;
+            runBackendSync(get, () => syncTask(state.company.id, taskToSync));
           }
           return {
             data: {
@@ -611,7 +646,7 @@ export const useAppStore = create<AppStore>()(
       addFinancialOperation: (operation) =>
         set((state) => {
           const nextOperation = { ...operation, id: createId("operation") };
-          void syncFinancialOperation(state.company.id, nextOperation);
+          runBackendSync(get, () => syncFinancialOperation(state.company.id, nextOperation));
           return {
             data: {
               ...state.data,
@@ -648,7 +683,7 @@ export const useAppStore = create<AppStore>()(
         }),
       saveReportSnapshot: (snapshot) =>
         set((state) => {
-          void syncReportSnapshot(state.company.id, snapshot);
+          runBackendSync(get, () => syncReportSnapshot(state.company.id, snapshot));
           const currentReports = state.data.reportSnapshots ?? [];
           const existing = currentReports.some((report) => report.id === snapshot.id);
 
@@ -663,7 +698,7 @@ export const useAppStore = create<AppStore>()(
         }),
       deleteReportSnapshot: (id) =>
         set((state) => {
-          void deleteReportSnapshot(state.company.id, id);
+          runBackendSync(get, () => deleteReportSnapshot(state.company.id, id));
           return {
             data: {
               ...state.data,
@@ -697,7 +732,7 @@ export const useAppStore = create<AppStore>()(
             newClients: 0,
             efficiency: 0
           };
-          void syncPromotion(state.company.id, nextPromotion);
+          runBackendSync(get, () => syncPromotion(state.company.id, nextPromotion));
           return {
             data: {
               ...state.data,

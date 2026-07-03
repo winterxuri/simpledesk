@@ -59,7 +59,9 @@ export default function OnboardingPage() {
   const company = useAppStore((state) => state.company);
   const sessionMode = useAppStore((state) => state.sessionMode);
   const completeOnboarding = useAppStore((state) => state.completeOnboarding);
+  const addToast = useAppStore((state) => state.addToast);
   const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
   const [businessOptionId, setBusinessOptionId] = useState(() =>
     getInitialBusinessOptionId(company.businessTemplateId, company.industry)
   );
@@ -97,18 +99,36 @@ export default function OnboardingPage() {
     setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
   }
 
-  function finish() {
-    if (sessionMode === "registered") {
-      void completeBackendOnboarding(
-        {
-          ...company,
-          businessTemplateId: templateId
-        },
-        selectedModules
-      );
+  async function finish() {
+    if (isSaving) {
+      return;
     }
-    completeOnboarding(templateId, selectedModules);
-    router.push("/dashboard");
+
+    setIsSaving(true);
+    try {
+      if (sessionMode === "registered") {
+        await completeBackendOnboarding(
+          {
+            ...company,
+            businessTemplateId: templateId
+          },
+          selectedModules
+        );
+      }
+      completeOnboarding(templateId, selectedModules);
+      router.push("/dashboard");
+    } catch (error) {
+      addToast({
+        title: "Не удалось сохранить настройку",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Проверьте соединение с Supabase и попробуйте снова.",
+        variant: "error"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   if (!hasHydrated || !user || sessionMode === "none") {
@@ -348,7 +368,7 @@ export default function OnboardingPage() {
             <Button
               type="button"
               variant="outline"
-              disabled={step === 1}
+              disabled={step === 1 || isSaving}
               onClick={() => setStep((current) => Math.max(1, current - 1))}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -357,15 +377,15 @@ export default function OnboardingPage() {
             <div className="flex gap-2">
               {step === 6 ? (
                 <>
-                  <Button type="button" variant="outline" onClick={() => setStep(5)}>
+                  <Button type="button" variant="outline" disabled={isSaving} onClick={() => setStep(5)}>
                     Изменить настройки
                   </Button>
-                  <Button type="button" onClick={finish}>
-                    Запустить рабочее пространство
+                  <Button type="button" disabled={isSaving} onClick={finish}>
+                    {isSaving ? "Сохраняем..." : "Запустить рабочее пространство"}
                   </Button>
                 </>
               ) : (
-                <Button type="button" onClick={() => setStep((current) => current + 1)}>
+                <Button type="button" disabled={isSaving} onClick={() => setStep((current) => current + 1)}>
                   Далее
                   <ArrowRight className="h-4 w-4" />
                 </Button>
