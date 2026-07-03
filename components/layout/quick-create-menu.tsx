@@ -10,18 +10,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormDrawer } from "@/components/modules/form-drawer";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
+import { canPerformAction, type PermissionAction } from "@/lib/permissions";
 import { getLocalDateKey } from "@/lib/utils";
-import type { QuickCreateType, Role } from "@/types";
+import type { QuickCreateType } from "@/types";
 
-const createItems: { type: QuickCreateType; label: string; icon: string; roles: Role[] }[] = [
-  { type: "client", label: "Клиент", icon: "UsersRound", roles: ["owner", "admin", "employee"] },
-  { type: "appointment", label: "Запись", icon: "CalendarDays", roles: ["owner", "admin", "employee"] },
-  { type: "task", label: "Задача", icon: "ListTodo", roles: ["owner", "admin", "employee"] },
-  { type: "sale", label: "Продажа", icon: "CreditCard", roles: ["owner", "admin"] },
-  { type: "product", label: "Товар", icon: "Boxes", roles: ["owner", "admin"] },
-  { type: "material", label: "Расходник", icon: "PackagePlus", roles: ["owner", "admin"] },
-  { type: "promotion", label: "Акция", icon: "BadgePercent", roles: ["owner", "admin"] },
-  { type: "employee", label: "Сотрудник", icon: "UserRoundCog", roles: ["owner", "admin"] }
+const createItems: { type: QuickCreateType; label: string; icon: string; action: PermissionAction }[] = [
+  { type: "client", label: "Клиент", icon: "UsersRound", action: "manageClients" },
+  { type: "appointment", label: "Запись", icon: "CalendarDays", action: "manageAppointments" },
+  { type: "task", label: "Задача", icon: "ListTodo", action: "manageTasks" },
+  { type: "sale", label: "Продажа", icon: "CreditCard", action: "manageInventory" },
+  { type: "product", label: "Товар", icon: "Boxes", action: "manageInventory" },
+  { type: "material", label: "Расходник", icon: "PackagePlus", action: "manageInventory" },
+  { type: "employee", label: "Сотрудник", icon: "UserRoundCog", action: "manageEmployees" }
 ];
 
 export function QuickCreateMenu() {
@@ -36,7 +36,6 @@ export function QuickCreateMenu() {
   const addClient = useAppStore((state) => state.addClient);
   const addTask = useAppStore((state) => state.addTask);
   const addAppointment = useAppStore((state) => state.addAppointment);
-  const addPromotion = useAppStore((state) => state.addPromotion);
   const addEmployee = useAppStore((state) => state.addEmployee);
   const addProduct = useAppStore((state) => state.addProduct);
   const addFinancialOperation = useAppStore((state) => state.addFinancialOperation);
@@ -45,7 +44,7 @@ export function QuickCreateMenu() {
   const role = useAppStore((state) => state.role);
 
   const item = createItems.find((entry) => entry.type === drawerType);
-  const availableItems = createItems.filter((entry) => entry.roles.includes(role));
+  const availableItems = createItems.filter((entry) => canPerformAction(role, entry.action));
 
   function reset() {
     setName("");
@@ -59,53 +58,85 @@ export function QuickCreateMenu() {
       return;
     }
 
+    const title = name.trim();
+    const secondaryValue = secondary.trim();
+    const commentValue = comment.trim();
+
     if (drawerType === "client") {
+      if (!title || !secondaryValue) {
+        addToast({
+          title: "Заполните клиента",
+          description: "Для быстрого создания клиента нужны ФИО и телефон.",
+          variant: "warning"
+        });
+        return;
+      }
+
       addClient({
-        name: name || "Новый клиент",
-        phone: secondary || "+7 900 000-00-00",
-        email: "client@example.ru",
+        name: title,
+        phone: secondaryValue,
+        email: "",
         status: "new",
         responsibleId: data.employees[0]?.id ?? "employee-1",
         nextAppointment: undefined,
         source: "Ручное добавление",
-        notes: comment || "Клиент добавлен через быстрое создание."
+        notes: commentValue
       });
     } else if (drawerType === "task") {
+      if (!title || !secondaryValue) {
+        addToast({
+          title: "Заполните задачу",
+          description: "Для задачи нужны название и ответственный.",
+          variant: "warning"
+        });
+        return;
+      }
+
       addTask({
-        title: name || "Новая задача",
-        description: comment || "Задача создана через быстрое меню.",
-        responsibleId: secondary || data.employees[0]?.id || "employee-1",
+        title,
+        description: commentValue,
+        responsibleId: secondaryValue,
         dueDate: getLocalDateKey(),
         priority: "medium",
         status: "new",
         checklist: [{ title: "Уточнить детали", done: false }]
       });
     } else if (drawerType === "appointment") {
+      if (!title || !secondaryValue || !data.clients.length || !data.employees.length) {
+        addToast({
+          title: "Запись нельзя создать быстро",
+          description: "Нужны услуга, время, хотя бы один клиент и сотрудник.",
+          variant: "warning"
+        });
+        return;
+      }
+
       addAppointment({
-        clientId: data.clients[0]?.id ?? "client-1",
-        employeeId: data.employees[0]?.id ?? "employee-1",
+        clientId: data.clients[0].id,
+        employeeId: data.employees[0].id,
         resourceId: data.resources[0]?.id,
-        title: name || "Новая запись",
+        title,
         date: getLocalDateKey(),
-        time: secondary || "12:00",
+        time: secondaryValue,
         duration: 60,
-        price: 2500,
+        price: 0,
         status: "planned",
         paid: false,
-        comment
-      });
-    } else if (drawerType === "promotion") {
-      addPromotion({
-        name: name || "Новая акция",
-        period: secondary || "период нужно уточнить",
-        status: "draft",
-        conditions: comment || "Условия нужно заполнить",
-        description: comment || "Черновик акции."
+        comment: commentValue
       });
     } else if (drawerType === "employee") {
+      if (!title || !secondaryValue) {
+        addToast({
+          title: "Заполните сотрудника",
+          description: "Для карточки сотрудника нужны ФИО и должность.",
+          variant: "warning"
+        });
+        return;
+      }
+
       addEmployee({
-        name: name || "Новый сотрудник",
-        position: secondary || "Сотрудник",
+        name: title,
+        position: secondaryValue,
         status: "working",
         schedule: "09:00-18:00",
         role: "employee",
@@ -118,24 +149,43 @@ export function QuickCreateMenu() {
         commissionPercent: 0
       });
     } else if (drawerType === "product" || drawerType === "material") {
+      if (!title) {
+        addToast({
+          title: drawerType === "product" ? "Укажите товар" : "Укажите расходник",
+          description: "Название обязательно для складского учета.",
+          variant: "warning"
+        });
+        return;
+      }
+
       addProduct({
-        name: name || (drawerType === "product" ? "Новый товар" : "Новый расходник"),
+        name: title,
         type: drawerType === "product" ? "product" : "material",
         category: drawerType === "product" ? "Товар" : "Расходники",
         currentStock: 0,
         minStock: 1,
-        purchasePrice: Number(secondary) || 0,
-        salePrice: drawerType === "product" ? Number(secondary) || 0 : 0,
-        supplier: comment || "Поставщик не указан",
+        purchasePrice: Number(secondaryValue) || 0,
+        salePrice: drawerType === "product" ? Number(secondaryValue) || 0 : 0,
+        supplier: commentValue,
         status: "low"
       });
     } else if (drawerType === "sale") {
+      const amount = Number(secondaryValue);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        addToast({
+          title: "Укажите сумму продажи",
+          description: "Сумма должна быть больше нуля.",
+          variant: "warning"
+        });
+        return;
+      }
+
       addFinancialOperation({
         type: "income",
         category: "Продажа",
-        amount: Number(secondary) || 0,
+        amount,
         date: getLocalDateKey(),
-        comment: comment || name || "Продажа через быстрое создание",
+        comment: commentValue || title || "Продажа через быстрое создание",
         clientId: data.clients[0]?.id,
         employeeId: data.employees[0]?.id
       });
@@ -149,10 +199,14 @@ export function QuickCreateMenu() {
 
     addToast({
       title: "Сохранено",
-      description: `${item?.label ?? "Объект"} добавлен в локальные данные.`,
+      description: `${item?.label ?? "Объект"} добавлен в рабочее пространство.`,
       variant: "success"
     });
     reset();
+  }
+
+  if (!availableItems.length) {
+    return null;
   }
 
   return (

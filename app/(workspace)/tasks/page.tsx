@@ -14,6 +14,7 @@ import { PageHeader } from "@/components/modules/page-header";
 import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import { canPerformAction } from "@/lib/permissions";
 import { formatDate, getLocalDateKey } from "@/lib/utils";
 import type { TaskStatus } from "@/types";
 
@@ -49,9 +50,11 @@ const statusActions: Partial<Record<TaskStatus, { label: string; status: TaskSta
 
 export default function TasksPage() {
   const data = useAppStore((state) => state.data);
+  const role = useAppStore((state) => state.role);
   const addTask = useAppStore((state) => state.addTask);
   const updateTask = useAppStore((state) => state.updateTask);
   const toggleTaskChecklistItem = useAppStore((state) => state.toggleTaskChecklistItem);
+  const addToast = useAppStore((state) => state.addToast);
   const [view, setView] = useState("list");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
@@ -62,6 +65,8 @@ export default function TasksPage() {
     priority: "medium",
     dueDate: getLocalDateKey()
   });
+  const canManageTasks = canPerformAction(role, "manageTasks");
+  const canUpdateTaskProgress = canPerformAction(role, "updateTaskProgress");
 
   const tasks = useMemo(
     () => data.tasks.filter((task) => task.title.toLowerCase().includes(search.toLowerCase())),
@@ -69,9 +74,38 @@ export default function TasksPage() {
   );
 
   function save() {
+    const title = form.title.trim();
+
+    if (!title) {
+      addToast({
+        title: "Укажите название задачи",
+        description: "Задача без названия не поможет ответственному понять, что нужно сделать.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!form.responsibleId) {
+      addToast({
+        title: "Выберите ответственного",
+        description: "У задачи должен быть конкретный исполнитель.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!form.dueDate) {
+      addToast({
+        title: "Укажите срок выполнения",
+        description: "Срок нужен для контроля просрочек и рабочего дня сотрудника.",
+        variant: "warning"
+      });
+      return;
+    }
+
     addTask({
-      title: form.title || "Новая задача",
-      description: form.description,
+      title,
+      description: form.description.trim(),
       responsibleId: form.responsibleId,
       dueDate: form.dueDate || getLocalDateKey(),
       priority: form.priority as "low" | "medium" | "high",
@@ -99,10 +133,12 @@ export default function TasksPage() {
         actions={
           <div className="flex gap-2">
             <Tabs items={views} value={view} onValueChange={setView} />
+            {canManageTasks ? (
             <Button type="button" onClick={() => setOpen(true)}>
               <Plus className="h-4 w-4" />
               Создать задачу
             </Button>
+            ) : null}
           </div>
         }
       />
@@ -141,6 +177,7 @@ export default function TasksPage() {
                           type="checkbox"
                           className="h-4 w-4 accent-primary"
                           checked={item.done}
+                          disabled={!canUpdateTaskProgress}
                           onChange={(event) =>
                             toggleTaskChecklistItem(task.id, index, event.target.checked)
                           }
@@ -161,6 +198,7 @@ export default function TasksPage() {
                         type="button"
                         size="sm"
                         variant={action.status === "done" ? "default" : "outline"}
+                        disabled={!canUpdateTaskProgress}
                         onClick={() => updateTask(task.id, { status: action.status })}
                       >
                         {action.label}
@@ -192,6 +230,7 @@ export default function TasksPage() {
                           type="button"
                           size="sm"
                           variant={action.status === "done" ? "default" : "outline"}
+                          disabled={!canUpdateTaskProgress}
                           onClick={() => updateTask(task.id, { status: action.status })}
                         >
                           {action.label}
@@ -234,9 +273,10 @@ export default function TasksPage() {
           </div>
           <div className="space-y-2">
             <Label>Срок выполнения</Label>
-            <Input
-              type="date"
-              value={form.dueDate}
+              <Input
+                type="date"
+                min={getLocalDateKey()}
+                value={form.dueDate}
               onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
             />
           </div>

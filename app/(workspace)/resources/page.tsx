@@ -32,7 +32,7 @@ export default function ResourcesPage() {
             </div>
             <div className="mt-5">
               <div className="mb-2 flex justify-between text-sm">
-                <span className="text-muted-foreground">Текущая загрузка</span>
+                <span className="text-muted-foreground">Текущее использование</span>
                 <span>{resource.loadPercent}%</span>
               </div>
               <Progress value={resource.loadPercent} />

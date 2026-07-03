@@ -12,6 +12,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import { canPerformAction } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Appointment } from "@/types";
 
@@ -74,13 +75,16 @@ function pluralRecords(count: number) {
 export default function CalendarPage() {
   const data = useAppStore((state) => state.data);
   const company = useAppStore((state) => state.company);
+  const role = useAppStore((state) => state.role);
   const addAppointment = useAppStore((state) => state.addAppointment);
   const updateAppointment = useAppStore((state) => state.updateAppointment);
+  const addToast = useAppStore((state) => state.addToast);
   const [view, setView] = useState("day");
   const [dialogOpen, setDialogOpen] = useState(false);
   const today = isoDate();
   const employees = data.employees.slice(0, 5);
   const [form, setForm] = useState<AppointmentForm>(() => createEmptyForm(data, today, employees[0]?.id));
+  const canManageAppointments = canPerformAction(role, "manageAppointments");
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, index) => isoDate(index)),
@@ -108,11 +112,24 @@ export default function CalendarPage() {
   }, [data.appointments, today]);
 
   function openCreate(slot?: { time: string; employeeId: string; date?: string }) {
+    if (!canManageAppointments) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Создание и перенос записей доступны владельцу или администратору.",
+        variant: "warning"
+      });
+      return;
+    }
+
     setForm(createEmptyForm(data, slot?.date ?? today, slot?.employeeId ?? employees[0]?.id, slot?.time));
     setDialogOpen(true);
   }
 
   function openEdit(appointment: Appointment) {
+    if (!canManageAppointments) {
+      return;
+    }
+
     setForm({
       id: appointment.id,
       clientId: appointment.clientId,
@@ -130,15 +147,73 @@ export default function CalendarPage() {
   }
 
   function saveAppointment() {
+    const title = form.title.trim();
+    const duration = Number(form.duration);
+    const price = Number(form.price);
+
+    if (!form.clientId) {
+      addToast({
+        title: "Выберите клиента",
+        description: "Сначала добавьте клиента или выберите существующего из списка.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!form.employeeId) {
+      addToast({
+        title: "Выберите сотрудника",
+        description: "Запись должна быть назначена на конкретного сотрудника.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!title) {
+      addToast({
+        title: "Укажите услугу или работу",
+        description: "Название нужно для календаря, карточки клиента и отчётов.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!form.date || !form.time) {
+      addToast({
+        title: "Укажите дату и время",
+        description: "Без даты и времени запись нельзя поставить в расписание.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      addToast({
+        title: "Длительность некорректна",
+        description: "Введите длительность в минутах больше нуля.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!Number.isFinite(price) || price < 0) {
+      addToast({
+        title: "Стоимость некорректна",
+        description: "Стоимость не может быть отрицательной.",
+        variant: "warning"
+      });
+      return;
+    }
+
     const payload = {
       clientId: form.clientId,
       employeeId: form.employeeId,
       resourceId: data.resources[0]?.id,
-      title: form.title || `Новая ${company.terminology.appointment}`,
+      title,
       date: form.date,
       time: form.time,
-      duration: Number(form.duration) || 60,
-      price: Number(form.price) || 0,
+      duration,
+      price,
       status: form.status,
       paid: form.paid,
       comment: form.comment
@@ -160,10 +235,12 @@ export default function CalendarPage() {
         actions={
           <div className="flex gap-2">
             <Tabs items={viewTabs} value={view} onValueChange={setView} />
+            {canManageAppointments ? (
             <Button type="button" onClick={() => openCreate({ time: "12:00", employeeId: employees[0]?.id ?? "employee-1" })}>
               <Plus className="h-4 w-4" />
               Создать запись
             </Button>
+            ) : null}
           </div>
         }
       />
@@ -176,8 +253,9 @@ export default function CalendarPage() {
               <button
                 key={date}
                 type="button"
+                disabled={!canManageAppointments}
                 onClick={() => openCreate({ date, time: "12:00", employeeId: employees[0]?.id ?? "employee-1" })}
-                className="min-h-28 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted/35"
+                className="min-h-28 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted/35 disabled:cursor-default disabled:hover:bg-card"
               >
                 <p className="text-sm font-medium">{formatDate(date, "d MMMM")}</p>
                 <p className="mt-2 text-xs text-muted-foreground">{pluralRecords(dayAppointments.length)}</p>
@@ -205,9 +283,11 @@ export default function CalendarPage() {
                     <p className="font-medium">{formatDate(date, "EEEEEE")}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(date, "d MMMM")}</p>
                   </div>
+                  {canManageAppointments ? (
                   <Button type="button" size="sm" variant="outline" onClick={() => openCreate({ date, time: "12:00", employeeId: employees[0]?.id ?? "employee-1" })}>
                     <Plus className="h-4 w-4" />
                   </Button>
+                  ) : null}
                 </div>
                 <p className="mt-3 text-xs text-muted-foreground">{pluralRecords(dayAppointments.length)}</p>
                 <div className="mt-3 space-y-2">
@@ -253,19 +333,31 @@ export default function CalendarPage() {
                       key={`${employee.id}-${time}`}
                       type="button"
                       onClick={() => appointment ? openEdit(appointment) : openCreate({ time, employeeId: employee.id })}
-                      onDragOver={(event) => event.preventDefault()}
+                      disabled={!canManageAppointments}
+                      onDragOver={(event) => {
+                        if (canManageAppointments) {
+                          event.preventDefault();
+                        }
+                      }}
                       onDrop={(event) => {
+                        if (!canManageAppointments) {
+                          return;
+                        }
                         const id = event.dataTransfer.getData("appointment-id");
                         if (id) {
                           updateAppointment(id, { time, employeeId: employee.id, date: today });
                         }
                       }}
-                      className="min-h-24 border-l border-border p-2 text-left transition-colors hover:bg-muted/40"
+                      className="min-h-24 border-l border-border p-2 text-left transition-colors hover:bg-muted/40 disabled:cursor-default disabled:hover:bg-transparent"
                     >
                       {appointment ? (
                         <div
                           draggable
-                          onDragStart={(event) => event.dataTransfer.setData("appointment-id", appointment.id)}
+                          onDragStart={(event) => {
+                            if (canManageAppointments) {
+                              event.dataTransfer.setData("appointment-id", appointment.id);
+                            }
+                          }}
                           className="rounded-lg border border-primary/20 bg-accent p-3 text-accent-foreground"
                         >
                           <p className="font-medium">{appointment.title}</p>
@@ -336,15 +428,15 @@ export default function CalendarPage() {
             </div>
             <div className="space-y-2">
               <Label>Время</Label>
-              <Input value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })} />
+              <Input type="time" value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Длительность, мин</Label>
-              <Input value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} />
+              <Input type="number" min="1" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Стоимость</Label>
-              <Input value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
+              <Input type="number" min="0" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

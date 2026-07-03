@@ -1,5 +1,15 @@
 import type { ModuleCode, Role } from "@/types";
 
+export type PermissionAction =
+  | "manageClients"
+  | "manageAppointments"
+  | "manageTasks"
+  | "updateTaskProgress"
+  | "manageEmployees"
+  | "manageInventory"
+  | "managePromotions"
+  | "manageSettings";
+
 const roleModuleAccess: Record<Role, Array<ModuleCode | "settings">> = {
   owner: [
     "dashboard",
@@ -54,4 +64,16 @@ export function canAccessWorkspacePath(role: Role, pathname: string) {
 
 export function getDefaultPathForRole(role: Role) {
   return role === "employee" ? "/dashboard" : "/dashboard";
+}
+
+export function canPerformAction(role: Role, action: PermissionAction) {
+  if (role === "owner") {
+    return true;
+  }
+
+  if (role === "admin") {
+    return action !== "manageSettings";
+  }
+
+  return action === "updateTaskProgress";
 }

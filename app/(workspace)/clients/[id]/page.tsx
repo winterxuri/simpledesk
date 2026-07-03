@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { EmptyState } from "@/components/modules/empty-state";
 import { useAppStore } from "@/store/app-store";
+import { canPerformAction } from "@/lib/permissions";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { ClientStatus } from "@/types";
 
@@ -54,6 +55,7 @@ export default function ClientDetailPage() {
   });
   const data = useAppStore((state) => state.data);
   const company = useAppStore((state) => state.company);
+  const role = useAppStore((state) => state.role);
   const updateClient = useAppStore((state) => state.updateClient);
   const addTask = useAppStore((state) => state.addTask);
   const addToast = useAppStore((state) => state.addToast);
@@ -73,6 +75,8 @@ export default function ClientDetailPage() {
   const currentClient = client;
   const responsible = data.employees.find((employee) => employee.id === currentClient.responsibleId);
   const appointments = data.appointments.filter((appointment) => appointment.clientId === currentClient.id);
+  const canManageClients = canPerformAction(role, "manageClients");
+  const contactDescription = [client.phone, client.email].filter(Boolean).join(" · ") || "Контакты не указаны";
 
   function openEdit() {
     setEditForm({
@@ -91,10 +95,41 @@ export default function ClientDetailPage() {
   }
 
   function saveEdit() {
+    const name = editForm.name.trim();
+    const phone = editForm.phone.trim();
+    const email = editForm.email.trim();
+
+    if (!name) {
+      addToast({
+        title: "Укажите ФИО клиента",
+        description: "Карточка клиента не должна сохраняться без имени.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!phone && !email) {
+      addToast({
+        title: "Добавьте контакт клиента",
+        description: "Нужен телефон или email, чтобы связаться с клиентом.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      addToast({
+        title: "Email выглядит некорректно",
+        description: "Проверьте адрес или оставьте поле пустым.",
+        variant: "warning"
+      });
+      return;
+    }
+
     updateClient(currentClient.id, {
-      name: editForm.name,
-      phone: editForm.phone,
-      email: editForm.email,
+      name,
+      phone,
+      email,
       status: editForm.status,
       responsibleId: editForm.responsibleId,
       nextAppointment: editForm.nextAppointment || undefined,
@@ -107,6 +142,15 @@ export default function ClientDetailPage() {
   }
 
   function runRecommendedAction(action: string) {
+    if (!canManageClients) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Эти действия доступны владельцу или администратору.",
+        variant: "warning"
+      });
+      return;
+    }
+
     if (action === "Напомнить о повторном визите") {
       updateClient(currentClient.id, { status: "attention" });
       addToast({
@@ -145,12 +189,14 @@ export default function ClientDetailPage() {
     <div>
       <PageHeader
         title={client.name}
-        description={`${client.phone} · ${client.email}`}
+        description={contactDescription}
         actions={
           <div className="flex gap-2">
+            {canManageClients ? (
             <Button type="button" onClick={openEdit}>
               Редактировать
             </Button>
+            ) : null}
             <Button type="button" variant="outline" asChild>
               <Link href="/clients">
                 <ArrowLeft className="h-4 w-4" />
@@ -238,6 +284,7 @@ export default function ClientDetailPage() {
         </Card>
 
         <div className="space-y-6">
+          {canManageClients ? (
           <Card className="p-5">
             <h2 className="font-semibold">Рекомендуемое действие</h2>
             <p className="mt-3 text-sm text-muted-foreground">
@@ -251,6 +298,7 @@ export default function ClientDetailPage() {
               ))}
             </div>
           </Card>
+          ) : null}
           <Card className="p-5">
             <h2 className="font-semibold">Временная шкала</h2>
             <Timeline clientName={client.name} compact />
@@ -283,13 +331,13 @@ export default function ClientDetailPage() {
             </div>
             <div className="space-y-2">
               <Label>Телефон</Label>
-              <Input value={editForm.phone} onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })} />
+              <Input type="tel" value={editForm.phone} onChange={(event) => setEditForm({ ...editForm, phone: event.target.value })} />
             </div>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Email</Label>
-              <Input value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} />
+              <Input type="email" value={editForm.email} onChange={(event) => setEditForm({ ...editForm, email: event.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Источник</Label>
@@ -317,7 +365,7 @@ export default function ClientDetailPage() {
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Следующая {company.terminology.appointment}</Label>
-              <Input type="date" value={editForm.nextAppointment} onChange={(event) => setEditForm({ ...editForm, nextAppointment: event.target.value })} />
+              <Input type="date" min={getLocalDateKey()} value={editForm.nextAppointment} onChange={(event) => setEditForm({ ...editForm, nextAppointment: event.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Общая сумма</Label>

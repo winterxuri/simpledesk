@@ -205,6 +205,8 @@ export interface Promotion {
   id: string;
   name: string;
   period: string;
+  startDate?: string;
+  endDate?: string;
   status: PromotionStatus;
   conditions: string;
   usageCount: number;

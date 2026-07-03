@@ -147,6 +147,7 @@ interface AppStore {
   updateTask: (id: string, task: Partial<Task>) => void;
   toggleTaskChecklistItem: (taskId: string, itemIndex: number, done: boolean) => void;
   addPromotion: (promotion: Omit<Promotion, "id" | "usageCount" | "revenue" | "newClients" | "efficiency">) => void;
+  updatePromotion: (id: string, promotion: Partial<Promotion>) => void;
   markNotificationRead: (id: string) => void;
   logout: () => void;
   openQuickCreate: (type: QuickCreateType) => void;
@@ -737,6 +738,27 @@ export const useAppStore = create<AppStore>()(
             data: {
               ...state.data,
               promotions: [nextPromotion, ...state.data.promotions]
+            }
+          };
+        }),
+      updatePromotion: (id, promotion) =>
+        set((state) => {
+          let changedPromotion: Promotion | undefined;
+          const promotions = state.data.promotions.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedPromotion = { ...item, ...promotion };
+            return changedPromotion;
+          });
+          if (changedPromotion) {
+            const promotionToSync = changedPromotion;
+            runBackendSync(get, () => syncPromotion(state.company.id, promotionToSync));
+          }
+          return {
+            data: {
+              ...state.data,
+              promotions
             }
           };
         }),

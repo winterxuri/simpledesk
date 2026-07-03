@@ -97,7 +97,7 @@ export default function AnalyticsPage() {
     <div>
       <PageHeader
         title="Аналитика"
-        description="Выручка, расходы, прибыль, клиенты, загрузка сотрудников и эффективность акций."
+        description="Выручка, расходы, прибыль, клиенты, записи сотрудников и эффективность акций."
         actions={<DateRangeSelector value={range} onChange={setRange} />}
       />
       {role === "employee" ? (

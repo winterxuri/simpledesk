@@ -30,6 +30,7 @@ export default function InventoryPage() {
   const data = useAppStore((state) => state.data);
   const updateProduct = useAppStore((state) => state.updateProduct);
   const addInventoryMovement = useAppStore((state) => state.addInventoryMovement);
+  const addToast = useAppStore((state) => state.addToast);
   const [tab, setTab] = useState("products");
   const [search, setSearch] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -101,17 +102,39 @@ export default function InventoryPage() {
     if (!selectedProduct) {
       return;
     }
-    const currentStock = Number(productForm.currentStock) || 0;
-    const minStock = Number(productForm.minStock) || 0;
+    const name = productForm.name.trim();
+    const currentStock = Number(productForm.currentStock);
+    const minStock = Number(productForm.minStock);
+    const purchasePrice = Number(productForm.purchasePrice);
+    const salePrice = Number(productForm.salePrice);
+
+    if (!name) {
+      addToast({
+        title: "Укажите название позиции",
+        description: "Название обязательно для учета товаров и расходников.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (![currentStock, minStock, purchasePrice, salePrice].every((value) => Number.isFinite(value) && value >= 0)) {
+      addToast({
+        title: "Проверьте числовые поля",
+        description: "Остатки и цены не могут быть пустыми или отрицательными.",
+        variant: "warning"
+      });
+      return;
+    }
+
     updateProduct(selectedProduct.id, {
-      name: productForm.name,
+      name,
       type: productForm.type,
-      category: productForm.category,
+      category: productForm.category.trim(),
       currentStock,
       minStock,
-      purchasePrice: Number(productForm.purchasePrice) || 0,
-      salePrice: Number(productForm.salePrice) || 0,
-      supplier: productForm.supplier,
+      purchasePrice,
+      salePrice,
+      supplier: productForm.supplier.trim(),
       status: getProductStatus(currentStock, minStock)
     });
     setSelectedProduct(null);
@@ -132,7 +155,16 @@ export default function InventoryPage() {
     if (!product) {
       return;
     }
-    const quantity = Math.max(0, Number(movementForm.quantity) || 0);
+    const quantity = Number(movementForm.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      addToast({
+        title: "Укажите количество",
+        description: "Количество должно быть больше нуля.",
+        variant: "warning"
+      });
+      return;
+    }
+
     const nextStock =
       movementType === "income"
         ? product.currentStock + quantity
@@ -147,7 +179,7 @@ export default function InventoryPage() {
       type: movementType,
       quantity,
       date: getLocalDateKey(),
-      comment: movementForm.comment || movementLabel(movementType)
+      comment: movementForm.comment.trim() || movementLabel(movementType)
     });
     updateProduct(product.id, {
       currentStock: nextStock,
@@ -257,19 +289,19 @@ export default function InventoryPage() {
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="space-y-2">
               <Label>Остаток</Label>
-              <Input value={productForm.currentStock} onChange={(event) => setProductForm({ ...productForm, currentStock: event.target.value })} />
+              <Input type="number" min="0" value={productForm.currentStock} onChange={(event) => setProductForm({ ...productForm, currentStock: event.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Мин. остаток</Label>
-              <Input value={productForm.minStock} onChange={(event) => setProductForm({ ...productForm, minStock: event.target.value })} />
+              <Input type="number" min="0" value={productForm.minStock} onChange={(event) => setProductForm({ ...productForm, minStock: event.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Закупка</Label>
-              <Input value={productForm.purchasePrice} onChange={(event) => setProductForm({ ...productForm, purchasePrice: event.target.value })} />
+              <Input type="number" min="0" value={productForm.purchasePrice} onChange={(event) => setProductForm({ ...productForm, purchasePrice: event.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Продажа</Label>
-              <Input value={productForm.salePrice} onChange={(event) => setProductForm({ ...productForm, salePrice: event.target.value })} />
+              <Input type="number" min="0" value={productForm.salePrice} onChange={(event) => setProductForm({ ...productForm, salePrice: event.target.value })} />
             </div>
           </div>
         </div>
@@ -298,7 +330,7 @@ export default function InventoryPage() {
           </div>
           <div className="space-y-2">
             <Label>{movementType === "adjustment" ? "Новый остаток" : "Количество"}</Label>
-            <Input value={movementForm.quantity} onChange={(event) => setMovementForm({ ...movementForm, quantity: event.target.value })} />
+            <Input type="number" min="1" value={movementForm.quantity} onChange={(event) => setMovementForm({ ...movementForm, quantity: event.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Комментарий</Label>

@@ -201,6 +201,8 @@ export async function syncPromotion(companyId: string, promotion: Promotion) {
       company_id: companyId,
       name: promotion.name,
       period: promotion.period,
+      starts_at: promotion.startDate ?? null,
+      ends_at: promotion.endDate ?? null,
       status: promotion.status,
       conditions: promotion.conditions,
       usage_count: promotion.usageCount,

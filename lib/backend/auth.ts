@@ -497,6 +497,8 @@ function mapPromotion(row: LooseRow): Promotion {
     id: text(row, "id"),
     name: text(row, "name", "Акция"),
     period: text(row, "period"),
+    startDate: nullableText(row, "starts_at"),
+    endDate: nullableText(row, "ends_at"),
     status: text(row, "status", "draft") as PromotionStatus,
     conditions: text(row, "conditions"),
     usageCount: num(row, "usage_count"),

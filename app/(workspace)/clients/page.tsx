@@ -15,7 +15,8 @@ import { PageHeader } from "@/components/modules/page-header";
 import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { canPerformAction } from "@/lib/permissions";
+import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { Client, ClientStatus } from "@/types";
 
 const pageSize = 12;
@@ -34,6 +35,8 @@ export default function ClientsPage() {
   const addClient = useAppStore((state) => state.addClient);
   const bulkUpdateClients = useAppStore((state) => state.bulkUpdateClients);
   const company = useAppStore((state) => state.company);
+  const role = useAppStore((state) => state.role);
+  const addToast = useAppStore((state) => state.addToast);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [segment, setSegment] = useState("Все");
@@ -55,6 +58,7 @@ export default function ClientsPage() {
     responsibleId: "",
     nextAppointment: ""
   });
+  const canManageClients = canPerformAction(role, "manageClients");
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase();
@@ -136,10 +140,41 @@ export default function ClientsPage() {
   ];
 
   function saveClient() {
+    const name = form.name.trim();
+    const phone = form.phone.trim();
+    const email = form.email.trim();
+
+    if (!name) {
+      addToast({
+        title: "Укажите ФИО клиента",
+        description: "Без имени карточка клиента будет бесполезна в поиске, записи и отчётах.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!phone && !email) {
+      addToast({
+        title: "Добавьте контакт клиента",
+        description: "Нужен телефон или email, чтобы связаться с клиентом.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      addToast({
+        title: "Email выглядит некорректно",
+        description: "Проверьте адрес или оставьте поле пустым.",
+        variant: "warning"
+      });
+      return;
+    }
+
     addClient({
-      name: form.name || "Новый клиент",
-      phone: form.phone || "+7 900 000-00-00",
-      email: form.email || "client@example.ru",
+      name,
+      phone,
+      email,
       status: form.status,
       responsibleId: form.responsibleId || employees[0]?.id || "employee-1",
       nextAppointment: form.nextAppointment || undefined,
@@ -182,10 +217,12 @@ export default function ClientsPage() {
         title="Клиенты"
         description="Поиск, сегменты, история обращений и быстрые действия по базе клиентов."
         actions={
+          canManageClients ? (
           <Button type="button" onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
             Добавить клиента
           </Button>
+          ) : null
         }
       />
       <SearchAndFilters
@@ -228,7 +265,7 @@ export default function ClientsPage() {
         ))}
       </div>
 
-      {selected.length ? (
+      {canManageClients && selected.length ? (
         <div className="mb-4 grid gap-3 rounded-lg border border-border bg-card p-4 lg:grid-cols-[1fr_1fr_1fr_auto]">
           <div>
             <p className="text-sm font-medium">Выбрано клиентов: {selected.length}</p>
@@ -265,10 +302,13 @@ export default function ClientsPage() {
           rows={pageRows}
           columns={columns}
           selectedIds={selected}
-          onSelect={(id, checked) =>
-            setSelected((current) =>
-              checked ? [...current, id] : current.filter((item) => item !== id)
-            )
+          onSelect={
+            canManageClients
+              ? (id, checked) =>
+                  setSelected((current) =>
+                    checked ? [...current, id] : current.filter((item) => item !== id)
+                  )
+              : undefined
           }
           empty={
             <EmptyState
@@ -345,16 +385,16 @@ export default function ClientsPage() {
       >
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Имя</Label>
+            <Label>ФИО</Label>
             <Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Телефон</Label>
-            <Input value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+            <Input type="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Email</Label>
-            <Input value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+            <Input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
@@ -376,7 +416,7 @@ export default function ClientsPage() {
           </div>
           <div className="space-y-2">
             <Label>Следующая {company.terminology.appointment}</Label>
-            <Input type="date" value={form.nextAppointment} onChange={(event) => setForm({ ...form, nextAppointment: event.target.value })} />
+            <Input type="date" min={getLocalDateKey()} value={form.nextAppointment} onChange={(event) => setForm({ ...form, nextAppointment: event.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Заметка</Label>

@@ -63,9 +63,39 @@ export default function EmployeesPage() {
     if (!selected) {
       return;
     }
+    const name = form.name.trim();
+    const position = form.position.trim();
+
+    if (!name || !position) {
+      addToast({
+        title: "Заполните карточку сотрудника",
+        description: "ФИО и должность обязательны.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (selected.role === "owner" && form.role !== "owner") {
+      addToast({
+        title: "Роль владельца нельзя снять здесь",
+        description: "Передача прав владельца должна быть отдельным подтверждаемым действием.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (selected.role !== "owner" && form.role === "owner") {
+      addToast({
+        title: "Нельзя назначить владельца из карточки",
+        description: "Передача прав владельца требует отдельного безопасного сценария.",
+        variant: "warning"
+      });
+      return;
+    }
+
     const patch: Partial<Employee> = {
-      name: form.name,
-      position: form.position,
+      name,
+      position,
       status: form.status,
       schedule: form.schedule,
       role: form.role,
@@ -89,9 +119,21 @@ export default function EmployeesPage() {
   }
 
   function createEmployee() {
+    const name = form.name.trim();
+    const position = form.position.trim();
+
+    if (!name || !position) {
+      addToast({
+        title: "Заполните карточку сотрудника",
+        description: "Для создания сотрудника нужны ФИО и должность.",
+        variant: "warning"
+      });
+      return;
+    }
+
     addEmployee({
-      name: form.name || "Новый сотрудник",
-      position: form.position || "Сотрудник",
+      name,
+      position,
       status: form.status,
       schedule: form.schedule || "09:00-18:00",
       role: form.role,
@@ -178,7 +220,7 @@ export default function EmployeesPage() {
     <div>
       <PageHeader
         title="Сотрудники"
-        description="Карточки команды, загрузка, расписание, выручка, права доступа и базовые условия оплаты."
+        description="Карточки команды, расписание, выручка, права доступа и базовые условия оплаты."
         actions={
           <Button type="button" onClick={openCreate}>
             Добавить сотрудника
@@ -311,7 +353,7 @@ export default function EmployeesPage() {
                     <div className="space-y-2">
                       <Label>Роль</Label>
                       <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Employee["role"] })}>
-                        <option value="owner">Владелец</option>
+                        {selected.role === "owner" ? <option value="owner">Владелец</option> : null}
                         <option value="admin">Администратор</option>
                         <option value="employee">Сотрудник</option>
                       </Select>
