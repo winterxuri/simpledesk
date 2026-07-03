@@ -46,6 +46,17 @@ export default function RegisterPage() {
     try {
       const result = await signUpOwner(values);
 
+      if (result.requiresEmailConfirmation) {
+        addToast({
+          title: "Проверьте email",
+          description:
+            "Подтвердите почту по ссылке из письма, затем войдите в аккаунт.",
+          variant: "warning"
+        });
+        router.push("/login");
+        return;
+      }
+
       registerUser({
         name: values.name,
         email: values.email,
@@ -54,20 +65,11 @@ export default function RegisterPage() {
         ownerEmployeeId: result.ownerEmployeeId
       });
 
-      addToast(
-        result.requiresEmailConfirmation
-          ? {
-              title: "Проверьте email",
-              description:
-                "Supabase требует подтверждение почты. После подтверждения войдите снова, а пока настройки сохранятся локально.",
-              variant: "warning"
-            }
-          : {
-              title: "Аккаунт создан",
-              description: "Компания создана в Supabase, осталось пройти настройку.",
-              variant: "success"
-            }
-      );
+      addToast({
+        title: "Аккаунт создан",
+        description: "Компания создана в Supabase, осталось пройти настройку.",
+        variant: "success"
+      });
       router.push("/onboarding");
     } catch (error) {
       addToast({

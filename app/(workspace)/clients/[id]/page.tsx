@@ -16,7 +16,7 @@ import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { EmptyState } from "@/components/modules/empty-state";
 import { useAppStore } from "@/store/app-store";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { ClientStatus } from "@/types";
 
 const tabs = [
@@ -121,7 +121,7 @@ export default function ClientDetailPage() {
         title: `Связаться с ${currentClient.name}`,
         description: "Уточнить повторный визит и предложить удобное время.",
         responsibleId: currentClient.responsibleId || data.employees[0]?.id || "employee-1",
-        dueDate: new Date().toISOString().slice(0, 10),
+        dueDate: getLocalDateKey(),
         priority: "medium",
         status: "new",
         clientId: currentClient.id,

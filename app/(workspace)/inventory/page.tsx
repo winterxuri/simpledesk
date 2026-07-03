@@ -15,7 +15,7 @@ import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { DashboardWidget } from "@/components/modules/dashboard-widget";
 import { useAppStore } from "@/store/app-store";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getLocalDateKey } from "@/lib/utils";
 import type { InventoryMovement, Product, ProductStatus } from "@/types";
 
 const tabs = [
@@ -146,7 +146,7 @@ export default function InventoryPage() {
       productId: product.id,
       type: movementType,
       quantity,
-      date: new Date().toISOString().slice(0, 10),
+      date: getLocalDateKey(),
       comment: movementForm.comment || movementLabel(movementType)
     });
     updateProduct(product.id, {

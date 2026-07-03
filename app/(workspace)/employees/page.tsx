@@ -6,13 +6,12 @@ import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, getLocalDateKey } from "@/lib/utils";
 import type { Employee } from "@/types";
 
 const profileTabs = [
@@ -129,7 +128,7 @@ export default function EmployeesPage() {
     setSelected({
       ...selected,
       status: "dismissed",
-      dismissedAt: new Date().toISOString().slice(0, 10)
+      dismissedAt: getLocalDateKey()
     });
     addToast({
       title: "Сотрудник уволен",
@@ -208,13 +207,6 @@ export default function EmployeesPage() {
                 <Row label="Записей" value={String(employee.appointmentsCount)} />
                 <Row label="Рейтинг" value={employee.rating.toFixed(1)} />
                 <Row label="Оплата" value={getCompensationLabel(employee)} />
-              </div>
-              <div className="mt-5">
-                <div className="mb-2 flex justify-between text-sm">
-                  <span className="text-muted-foreground">Загрузка</span>
-                  <span>{employee.loadPercent}%</span>
-                </div>
-                <Progress value={employee.loadPercent} />
               </div>
             </Card>
           </button>
@@ -368,10 +360,6 @@ export default function EmployeesPage() {
                     <div className="space-y-2">
                       <Label>Выручка</Label>
                       <Input value={form.revenue} onChange={(event) => setForm({ ...form, revenue: event.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Загрузка, %</Label>
-                      <Input value={form.loadPercent} onChange={(event) => setForm({ ...form, loadPercent: event.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label>Записей</Label>

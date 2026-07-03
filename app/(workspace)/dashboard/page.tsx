@@ -44,10 +44,6 @@ export default function DashboardPage() {
     .filter((operation) => operation.type === "income" && operation.date === today)
     .reduce((sum, operation) => sum + operation.amount, 0);
   const newClientsToday = data.clients.filter((client) => client.lastVisit === today && client.visits === 0).length;
-  const workingEmployees = data.employees.filter((employee) => employee.status !== "dismissed");
-  const averageLoad = workingEmployees.length
-    ? Math.round(workingEmployees.reduce((sum, employee) => sum + employee.loadPercent, 0) / workingEmployees.length)
-    : 0;
   const activePromotions = data.promotions.filter((promotion) =>
     ["active", "scheduled", "ending"].includes(promotion.status)
   ).length;
@@ -118,7 +114,7 @@ export default function DashboardPage() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           title="Выручка за сегодня"
           value={formatCurrency(todayRevenue)}
@@ -133,12 +129,6 @@ export default function DashboardPage() {
           icon="CalendarDays"
         />
         <MetricCard title="Новые клиенты" value={String(newClientsToday)} hint={newClientsToday ? "добавлены сегодня" : "новых клиентов нет"} icon="UsersRound" />
-        <MetricCard
-          title="Загрузка сотрудников"
-          value={`${averageLoad}%`}
-          hint={workingEmployees.length ? `${workingEmployees.length} в команде` : "сотрудников нет"}
-          icon="UserRoundCog"
-        />
         <MetricCard
           title="Активные акции"
           value={String(activePromotions)}

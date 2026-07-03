@@ -21,7 +21,7 @@ import {
   deleteReportSnapshot,
   syncTask
 } from "@/lib/backend/sync";
-import { createId } from "@/lib/utils";
+import { createId, getLocalDateKey } from "@/lib/utils";
 import type {
   Appointment,
   Client,
@@ -70,12 +70,34 @@ const defaultCompany: Company = {
   terminology: getBusinessTemplate(defaultTemplateId).terminology
 };
 
+function createBlankRegisteredCompany(name: string, id?: string): Company {
+  const template = getBusinessTemplate("universal");
+  return {
+    id: id ?? createId("company"),
+    name,
+    businessTemplateId: template.id,
+    industry: template.title,
+    address: "",
+    phone: "",
+    email: "",
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Moscow",
+    currency: "RUB",
+    workDays: ["Пн", "Вт", "Ср", "Чт", "Пт"],
+    workHours: {
+      start: "09:00",
+      end: "18:00"
+    },
+    terminology: template.terminology
+  };
+}
+
 interface AppStore {
+  hasHydrated: boolean;
   user: User | null;
   company: Company;
   theme: ThemeMode;
   role: Role;
-  sessionMode: "demo" | "registered";
+  sessionMode: "none" | "demo" | "registered";
   onboardingComplete: boolean;
   companyModules: CompanyModule[];
   data: DemoData;
@@ -85,6 +107,7 @@ interface AppStore {
   notificationPanelOpen: boolean;
   sidebarCollapsed: boolean;
   setTheme: (theme: ThemeMode) => void;
+  setHasHydrated: (hasHydrated: boolean) => void;
   setRole: (role: Role) => void;
   startDemoSession: () => void;
   registerUser: (payload: { name: string; email: string; companyName: string; companyId?: string; ownerEmployeeId?: string }) => void;
@@ -137,19 +160,21 @@ interface AppStore {
 export const useAppStore = create<AppStore>()(
   persist(
     (set, get) => ({
-      user: defaultUser,
+      hasHydrated: false,
+      user: null,
       company: defaultCompany,
       theme: "light",
       role: "owner",
-      sessionMode: "demo",
+      sessionMode: "none",
       onboardingComplete: false,
       companyModules: buildDefaultCompanyModules(defaultTemplateId),
-      data: createDemoData(defaultTemplateId),
+      data: createInitialBusinessData(null),
       toasts: [],
       quickCreateOpen: false,
       quickCreateType: null,
       notificationPanelOpen: false,
       sidebarCollapsed: false,
+      setHasHydrated: (hasHydrated) => set({ hasHydrated }),
       setTheme: (theme) => set({ theme }),
       setRole: (role) =>
         set((state) => ({
@@ -157,14 +182,17 @@ export const useAppStore = create<AppStore>()(
           user: state.user ? { ...state.user, role } : state.user
         })),
       startDemoSession: () =>
-        set((state) => ({
-          user: state.user ?? defaultUser,
+        set(() => ({
+          user: defaultUser,
+          company: defaultCompany,
+          companyModules: buildDefaultCompanyModules(defaultTemplateId),
+          data: createDemoData(defaultTemplateId),
           onboardingComplete: true,
-          role: state.user?.role ?? "owner",
+          role: "owner",
           sessionMode: "demo"
         })),
       registerUser: ({ name, email, companyName, companyId, ownerEmployeeId }) =>
-        set((state) => ({
+        set(() => ({
           user: {
             id: createId("user"),
             name,
@@ -173,11 +201,8 @@ export const useAppStore = create<AppStore>()(
           },
           role: "owner",
           sessionMode: "registered",
-          company: {
-            ...state.company,
-            id: companyId ?? createId("company"),
-            name: companyName
-          },
+          company: createBlankRegisteredCompany(companyName, companyId),
+          companyModules: buildDefaultCompanyModules("universal"),
           data: createInitialBusinessData({ id: "owner", name, email, role: "owner" }, ownerEmployeeId),
           onboardingComplete: false
         })),
@@ -332,7 +357,7 @@ export const useAppStore = create<AppStore>()(
             id: createId("client"),
             totalSpent: 0,
             visits: 0,
-            lastVisit: new Date().toISOString().slice(0, 10)
+            lastVisit: getLocalDateKey()
           };
           void syncClient(state.company.id, nextClient);
           return {
@@ -455,7 +480,7 @@ export const useAppStore = create<AppStore>()(
             changedEmployee = {
               ...item,
               status: "dismissed",
-              dismissedAt: new Date().toISOString().slice(0, 10)
+              dismissedAt: getLocalDateKey()
             };
             return changedEmployee;
           });
@@ -693,8 +718,11 @@ export const useAppStore = create<AppStore>()(
         set({
           user: null,
           role: "owner",
-          sessionMode: "registered",
+          sessionMode: "none",
           onboardingComplete: false,
+          company: defaultCompany,
+          companyModules: buildDefaultCompanyModules(defaultTemplateId),
+          data: createInitialBusinessData(null),
           quickCreateOpen: false,
           quickCreateType: null,
           notificationPanelOpen: false
@@ -736,17 +764,62 @@ export const useAppStore = create<AppStore>()(
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({
-        user: state.user,
-        company: state.company,
-        theme: state.theme,
-        role: state.role,
-        sessionMode: state.sessionMode,
-        onboardingComplete: state.onboardingComplete,
-        companyModules: state.companyModules,
-        data: state.data,
-        sidebarCollapsed: state.sidebarCollapsed
-      })
+      version: 2,
+      migrate: (persisted) => {
+        if (!persisted || typeof persisted !== "object") {
+          return persisted;
+        }
+        const state = persisted as Partial<AppStore>;
+        if (state.sessionMode === "demo") {
+          return {
+            ...state,
+            user: null,
+            sessionMode: "none",
+            onboardingComplete: false,
+            company: defaultCompany,
+            companyModules: buildDefaultCompanyModules(defaultTemplateId),
+            data: createInitialBusinessData(null)
+          };
+        }
+        return persisted;
+      },
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
+      partialize: (state) => {
+        if (state.sessionMode === "none") {
+          return {
+            theme: state.theme,
+            sidebarCollapsed: state.sidebarCollapsed
+          };
+        }
+
+        if (state.sessionMode === "demo") {
+          return {
+            user: defaultUser,
+            company: defaultCompany,
+            theme: state.theme,
+            role: state.role,
+            sessionMode: "demo",
+            onboardingComplete: true,
+            companyModules: buildDefaultCompanyModules(defaultTemplateId),
+            data: createDemoData(defaultTemplateId),
+            sidebarCollapsed: state.sidebarCollapsed
+          };
+        }
+
+        return {
+          user: state.user,
+          company: state.company,
+          theme: state.theme,
+          role: state.role,
+          sessionMode: state.sessionMode,
+          onboardingComplete: state.onboardingComplete,
+          companyModules: state.companyModules,
+          data: state.data,
+          sidebarCollapsed: state.sidebarCollapsed
+        };
+      }
     }
   )
 );

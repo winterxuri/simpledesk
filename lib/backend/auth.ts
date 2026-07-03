@@ -4,6 +4,7 @@ import { buildDefaultCompanyModules } from "@/config/navigation";
 import { getBusinessTemplate } from "@/config/templates";
 import { createInitialBusinessData } from "@/data/initial-data";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getLocalDateKey } from "@/lib/utils";
 import type {
   Appointment,
   AppointmentStatus,
@@ -401,7 +402,7 @@ function mapClient(row: LooseRow): Client {
     responsibleId: text(row, "responsible_employee_id"),
     totalSpent: num(row, "total_spent"),
     visits: num(row, "visits"),
-    lastVisit: text(row, "last_visit", new Date().toISOString().slice(0, 10)),
+    lastVisit: text(row, "last_visit", getLocalDateKey()),
     nextAppointment: nullableText(row, "next_appointment"),
     source: text(row, "source"),
     notes: text(row, "notes")
@@ -567,7 +568,7 @@ function mapNotification(row: LooseRow): Notification {
     description: text(row, "description"),
     category: text(row, "category", "system") as Notification["category"],
     important: bool(row, "important"),
-    date: text(row, "date", new Date().toISOString().slice(0, 10)),
+    date: text(row, "date", getLocalDateKey()),
     read: bool(row, "read")
   };
 }

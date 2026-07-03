@@ -75,11 +75,10 @@ export default function AnalyticsPage() {
 
   const bar = data.employees.filter((employee) => employee.status !== "dismissed").slice(0, 6).map((employee) => ({
     name: employee.name.split(" ")[0],
-    load: employee.loadPercent,
     revenue: employee.revenue,
     appointments: employee.appointmentsCount
   }));
-  const barHasData = bar.some((employee) => employee.load > 0 || employee.revenue > 0 || employee.appointments > 0);
+  const barHasData = bar.some((employee) => employee.revenue > 0 || employee.appointments > 0);
 
   const pie = useMemo(() => buildClientSegments(data.clients), [data.clients]);
   const leaders = bar
@@ -190,7 +189,7 @@ export default function AnalyticsPage() {
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <DashboardWidget title="Загрузка сотрудников">
+        <DashboardWidget title="Записи сотрудников">
           {barHasData ? (
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
@@ -199,12 +198,12 @@ export default function AnalyticsPage() {
                   <XAxis dataKey="name" {...chartAxisProps} />
                   <YAxis {...chartAxisProps} />
                   <Tooltip contentStyle={tooltipStyle} />
-                  <Bar dataKey="load" name="Загрузка, %" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
+                  <Bar dataKey="appointments" name="Записи" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           ) : (
-            <EmptyPanel text="Загрузка появится после записей и распределения работы по сотрудникам." />
+            <EmptyPanel text="Данные появятся после создания записей и распределения работы по сотрудникам." />
           )}
         </DashboardWidget>
         <DashboardWidget title="Таблица лидеров и вывод">

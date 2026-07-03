@@ -1,4 +1,5 @@
 import type { DemoData, Employee, User } from "@/types";
+import { getLocalDateKey } from "@/lib/utils";
 
 export function createInitialBusinessData(owner: User | null, ownerEmployeeId?: string): DemoData {
   const ownerEmployee: Employee = {
@@ -35,7 +36,7 @@ export function createInitialBusinessData(owner: User | null, ownerEmployeeId?: 
         description: "Добавьте клиентов, сотрудников, записи и первые продажи.",
         category: "system",
         important: false,
-        date: new Date().toISOString().slice(0, 10),
+        date: getLocalDateKey(),
         read: false
       }
     ],

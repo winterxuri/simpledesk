@@ -10,18 +10,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormDrawer } from "@/components/modules/form-drawer";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
-import type { QuickCreateType } from "@/types";
+import { getLocalDateKey } from "@/lib/utils";
+import type { QuickCreateType, Role } from "@/types";
 
-const createItems = [
-  { type: "client", label: "Клиент", icon: "UsersRound" },
-  { type: "appointment", label: "Запись", icon: "CalendarDays" },
-  { type: "task", label: "Задача", icon: "ListTodo" },
-  { type: "sale", label: "Продажа", icon: "CreditCard" },
-  { type: "product", label: "Товар", icon: "Boxes" },
-  { type: "material", label: "Расходник", icon: "PackagePlus" },
-  { type: "promotion", label: "Акция", icon: "BadgePercent" },
-  { type: "employee", label: "Сотрудник", icon: "UserRoundCog" }
-] as const satisfies { type: QuickCreateType; label: string; icon: string }[];
+const createItems: { type: QuickCreateType; label: string; icon: string; roles: Role[] }[] = [
+  { type: "client", label: "Клиент", icon: "UsersRound", roles: ["owner", "admin", "employee"] },
+  { type: "appointment", label: "Запись", icon: "CalendarDays", roles: ["owner", "admin", "employee"] },
+  { type: "task", label: "Задача", icon: "ListTodo", roles: ["owner", "admin", "employee"] },
+  { type: "sale", label: "Продажа", icon: "CreditCard", roles: ["owner", "admin"] },
+  { type: "product", label: "Товар", icon: "Boxes", roles: ["owner", "admin"] },
+  { type: "material", label: "Расходник", icon: "PackagePlus", roles: ["owner", "admin"] },
+  { type: "promotion", label: "Акция", icon: "BadgePercent", roles: ["owner", "admin"] },
+  { type: "employee", label: "Сотрудник", icon: "UserRoundCog", roles: ["owner", "admin"] }
+];
 
 export function QuickCreateMenu() {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,8 +42,10 @@ export function QuickCreateMenu() {
   const addFinancialOperation = useAppStore((state) => state.addFinancialOperation);
   const addToast = useAppStore((state) => state.addToast);
   const data = useAppStore((state) => state.data);
+  const role = useAppStore((state) => state.role);
 
   const item = createItems.find((entry) => entry.type === drawerType);
+  const availableItems = createItems.filter((entry) => entry.roles.includes(role));
 
   function reset() {
     setName("");
@@ -72,7 +75,7 @@ export function QuickCreateMenu() {
         title: name || "Новая задача",
         description: comment || "Задача создана через быстрое меню.",
         responsibleId: secondary || data.employees[0]?.id || "employee-1",
-        dueDate: new Date().toISOString().slice(0, 10),
+        dueDate: getLocalDateKey(),
         priority: "medium",
         status: "new",
         checklist: [{ title: "Уточнить детали", done: false }]
@@ -83,7 +86,7 @@ export function QuickCreateMenu() {
         employeeId: data.employees[0]?.id ?? "employee-1",
         resourceId: data.resources[0]?.id,
         title: name || "Новая запись",
-        date: new Date().toISOString().slice(0, 10),
+        date: getLocalDateKey(),
         time: secondary || "12:00",
         duration: 60,
         price: 2500,
@@ -131,7 +134,7 @@ export function QuickCreateMenu() {
         type: "income",
         category: "Продажа",
         amount: Number(secondary) || 0,
-        date: new Date().toISOString().slice(0, 10),
+        date: getLocalDateKey(),
         comment: comment || name || "Продажа через быстрое создание",
         clientId: data.clients[0]?.id,
         employeeId: data.employees[0]?.id
@@ -160,7 +163,7 @@ export function QuickCreateMenu() {
       </Button>
       {menuOpen ? (
         <div className="absolute right-0 top-12 z-30 w-64 rounded-lg border border-border bg-card p-2 shadow-soft">
-          {createItems.map((entry) => (
+          {availableItems.map((entry) => (
             <button
               key={entry.type}
               type="button"

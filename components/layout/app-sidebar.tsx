@@ -6,6 +6,7 @@ import { ProductMark } from "@/components/layout/product-logo";
 import { Button } from "@/components/ui/button";
 import { PRODUCT_NAME } from "@/config/product";
 import { buildNavigationItems } from "@/config/navigation";
+import { canAccessNavigationItem } from "@/lib/permissions";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
 import { cn, getInitials } from "@/lib/utils";
@@ -26,7 +27,7 @@ export function AppSidebar({
   const setCollapsed = useAppStore((state) => state.setSidebarCollapsed);
 
   const items = buildNavigationItems(modules, company.businessTemplateId).filter(
-    (item) => item.visible && (role !== "employee" || item.code !== "settings")
+    (item) => item.visible && canAccessNavigationItem(role, item.code)
   );
 
   return (

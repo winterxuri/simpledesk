@@ -54,7 +54,10 @@ function getInitialBusinessOptionId(templateId: string, industry: string) {
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const hasHydrated = useAppStore((state) => state.hasHydrated);
+  const user = useAppStore((state) => state.user);
   const company = useAppStore((state) => state.company);
+  const sessionMode = useAppStore((state) => state.sessionMode);
   const completeOnboarding = useAppStore((state) => state.completeOnboarding);
   const [step, setStep] = useState(1);
   const [businessOptionId, setBusinessOptionId] = useState(() =>
@@ -80,20 +83,36 @@ export default function OnboardingPage() {
     setSelectedModules(getBusinessTemplate(templateId).activeModules);
   }, [templateId]);
 
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (!user || sessionMode === "none") {
+      router.replace("/login");
+    }
+  }, [hasHydrated, router, sessionMode, user]);
+
   function toggleList(value: string, list: string[], setter: (value: string[]) => void) {
     setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
   }
 
   function finish() {
-    void completeBackendOnboarding(
-      {
-        ...company,
-        businessTemplateId: templateId
-      },
-      selectedModules
-    );
+    if (sessionMode === "registered") {
+      void completeBackendOnboarding(
+        {
+          ...company,
+          businessTemplateId: templateId
+        },
+        selectedModules
+      );
+    }
     completeOnboarding(templateId, selectedModules);
     router.push("/dashboard");
+  }
+
+  if (!hasHydrated || !user || sessionMode === "none") {
+    return null;
   }
 
   return (

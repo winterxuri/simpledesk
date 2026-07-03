@@ -14,7 +14,7 @@ import { PageHeader } from "@/components/modules/page-header";
 import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
-import { formatDate } from "@/lib/utils";
+import { formatDate, getLocalDateKey } from "@/lib/utils";
 import type { TaskStatus } from "@/types";
 
 const views = [
@@ -60,7 +60,7 @@ export default function TasksPage() {
     description: "",
     responsibleId: data.employees[0]?.id ?? "",
     priority: "medium",
-    dueDate: new Date().toISOString().slice(0, 10)
+    dueDate: getLocalDateKey()
   });
 
   const tasks = useMemo(
@@ -73,7 +73,7 @@ export default function TasksPage() {
       title: form.title || "Новая задача",
       description: form.description,
       responsibleId: form.responsibleId,
-      dueDate: form.dueDate || new Date().toISOString().slice(0, 10),
+      dueDate: form.dueDate || getLocalDateKey(),
       priority: form.priority as "low" | "medium" | "high",
       status: "new",
       checklist: [
@@ -86,7 +86,7 @@ export default function TasksPage() {
       description: "",
       responsibleId: data.employees[0]?.id ?? "",
       priority: "medium",
-      dueDate: new Date().toISOString().slice(0, 10)
+      dueDate: getLocalDateKey()
     });
     setOpen(false);
   }

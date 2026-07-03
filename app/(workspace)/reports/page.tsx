@@ -297,12 +297,11 @@ export default function ReportsPage() {
         <DashboardWidget title="Сотрудники">
           <ReportTable
             empty="По сотрудникам пока нет данных за период."
-            headers={["Сотрудник", "Выручка", "Записей", "Загрузка"]}
+            headers={["Сотрудник", "Выручка", "Записей"]}
             rows={currentReport.sections.employees.map((row) => [
               row.name,
               formatCurrency(row.revenue, company.currency),
-              String(row.appointments),
-              `${row.load}%`
+              String(row.appointments)
             ])}
           />
         </DashboardWidget>
@@ -530,7 +529,7 @@ function buildReportSnapshot(
         load: employee.loadPercent
       };
     })
-    .filter((employee) => employee.revenue > 0 || employee.appointments > 0 || employee.load > 0)
+    .filter((employee) => employee.revenue > 0 || employee.appointments > 0)
     .sort((first, second) => second.revenue - first.revenue);
   const appointmentRows = appointments
     .slice()
@@ -665,12 +664,11 @@ function snapshotToCsv(snapshot: ReportSnapshot, currency: string) {
     ]),
     [],
     ["Сотрудники"],
-    ["Сотрудник", "Выручка", "Записей", "Загрузка"],
+    ["Сотрудник", "Выручка", "Записей"],
     ...snapshot.sections.employees.map((row) => [
       row.name,
       formatCurrency(row.revenue, currency),
-      String(row.appointments),
-      `${row.load}%`
+      String(row.appointments)
     ]),
     [],
     ["Записи"],
@@ -729,11 +727,10 @@ function snapshotToHtml(snapshot: ReportSnapshot, currency: string, printable = 
     formatCurrency(row.amount, currency),
     String(row.count)
   ]))}
-  ${htmlTable("Сотрудники", ["Сотрудник", "Выручка", "Записей", "Загрузка"], snapshot.sections.employees.map((row) => [
+  ${htmlTable("Сотрудники", ["Сотрудник", "Выручка", "Записей"], snapshot.sections.employees.map((row) => [
     row.name,
     formatCurrency(row.revenue, currency),
-    String(row.appointments),
-    `${row.load}%`
+    String(row.appointments)
   ]))}
   ${htmlTable("Записи", ["Дата", "Время", "Название", "Клиент", "Сотрудник", "Сумма"], snapshot.sections.appointments.map((row) => [
     row.date,
