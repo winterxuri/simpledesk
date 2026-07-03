@@ -15,11 +15,14 @@ import { PageHeader } from "@/components/modules/page-header";
 import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { Client, ClientStatus } from "@/types";
 
 const pageSize = 12;
+const managerSegments = ["Все", "VIP", "Повторные", "Без визита 45 дней", "Из акции"];
+const employeeSegments = ["Все", "Повторные", "Без визита 45 дней"];
 
 const statusOptions: { value: ClientStatus; label: string }[] = [
   { value: "active", label: "Активный" },
@@ -30,13 +33,18 @@ const statusOptions: { value: ClientStatus; label: string }[] = [
 ];
 
 export default function ClientsPage() {
-  const clients = useAppStore((state) => state.data.clients);
-  const employees = useAppStore((state) => state.data.employees);
+  const data = useAppStore((state) => state.data);
   const addClient = useAppStore((state) => state.addClient);
   const bulkUpdateClients = useAppStore((state) => state.bulkUpdateClients);
   const company = useAppStore((state) => state.company);
+  const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
   const addToast = useAppStore((state) => state.addToast);
+  const canManageClients = canPerformAction(role, "manageClients");
+  const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
+  const clients = scopedData.clients;
+  const employees = canManageClients ? data.employees : scopedData.employees;
+  const segmentOptions = canManageClients ? managerSegments : employeeSegments;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [segment, setSegment] = useState("Все");
@@ -58,7 +66,6 @@ export default function ClientsPage() {
     responsibleId: "",
     nextAppointment: ""
   });
-  const canManageClients = canPerformAction(role, "manageClients");
 
   const filtered = useMemo(() => {
     const query = search.toLowerCase();
@@ -100,6 +107,24 @@ export default function ClientsPage() {
     setPage(1);
   }, [search, segment, sort, status]);
 
+  useEffect(() => {
+    if (!canManageClients) {
+      setSelected([]);
+    }
+  }, [canManageClients]);
+
+  useEffect(() => {
+    if (!segmentOptions.includes(segment)) {
+      setSegment("Все");
+    }
+  }, [segment, segmentOptions]);
+
+  useEffect(() => {
+    if (!canManageClients && sort === "total") {
+      setSort("last");
+    }
+  }, [canManageClients, sort]);
+
   const columns: DataTableColumn<Client>[] = [
     {
       key: "client",
@@ -121,11 +146,15 @@ export default function ClientsPage() {
       header: `Следующая ${company.terminology.appointment}`,
       cell: (client) => client.nextAppointment ? formatDate(client.nextAppointment) : "не назначена"
     },
-    {
-      key: "total",
-      header: "Общая сумма",
-      cell: (client) => formatCurrency(client.totalSpent)
-    },
+    ...(canManageClients
+      ? [
+          {
+            key: "total",
+            header: "Общая сумма",
+            cell: (client: Client) => formatCurrency(client.totalSpent)
+          }
+        ]
+      : []),
     {
       key: "status",
       header: "Статус",
@@ -135,7 +164,8 @@ export default function ClientsPage() {
       key: "responsible",
       header: "Ответственный",
       cell: (client) =>
-        employees.find((employee) => employee.id === client.responsibleId)?.name ?? "не назначен"
+        employees.find((employee) => employee.id === client.responsibleId)?.name ??
+        (role === "employee" ? "другой ответственный" : "не назначен")
     }
   ];
 
@@ -215,7 +245,11 @@ export default function ClientsPage() {
     <div>
       <PageHeader
         title="Клиенты"
-        description="Поиск, сегменты, история обращений и быстрые действия по базе клиентов."
+        description={
+          canManageClients
+            ? "Поиск, сегменты, история обращений и быстрые действия по базе клиентов."
+            : "Клиенты, связанные с вашими записями и задачами."
+        }
         actions={
           canManageClients ? (
           <Button type="button" onClick={() => setOpen(true)}>
@@ -242,17 +276,22 @@ export default function ClientsPage() {
             label: "Сортировка",
             value: sort,
             onChange: setSort,
-            options: [
-              { value: "total", label: "По сумме" },
-              { value: "last", label: "По последнему визиту" },
-              { value: "name", label: "По имени" }
-            ]
+            options: canManageClients
+              ? [
+                  { value: "total", label: "По сумме" },
+                  { value: "last", label: "По последнему визиту" },
+                  { value: "name", label: "По имени" }
+                ]
+              : [
+                  { value: "last", label: "По последнему визиту" },
+                  { value: "name", label: "По имени" }
+                ]
           }
         ]}
       />
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {["Все", "VIP", "Повторные", "Без визита 45 дней", "Из акции"].map((segmentName) => (
+        {segmentOptions.map((segmentName) => (
           <Button
             key={segmentName}
             type="button"
@@ -312,8 +351,12 @@ export default function ClientsPage() {
           }
           empty={
             <EmptyState
-              title="Клиенты не найдены"
-              description="Измените поиск или фильтры, чтобы увидеть результаты."
+              title={canManageClients ? "Клиенты не найдены" : "Нет доступных клиентов"}
+              description={
+                canManageClients
+                  ? "Измените поиск или фильтры, чтобы увидеть результаты."
+                  : "Клиенты появятся здесь, когда вас назначат ответственным, на запись или на задачу."
+              }
             />
           }
         />
@@ -334,8 +377,19 @@ export default function ClientsPage() {
               <StatusBadge status={client.status} />
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
-              <span className="text-muted-foreground">Сумма</span>
-              <span className="text-right">{formatCurrency(client.totalSpent)}</span>
+              {canManageClients ? (
+                <>
+                  <span className="text-muted-foreground">Сумма</span>
+                  <span className="text-right">{formatCurrency(client.totalSpent)}</span>
+                </>
+              ) : (
+                <>
+                  <span className="text-muted-foreground">Следующая запись</span>
+                  <span className="text-right">
+                    {client.nextAppointment ? formatDate(client.nextAppointment) : "не назначена"}
+                  </span>
+                </>
+              )}
               <span className="text-muted-foreground">Последний визит</span>
               <span className="text-right">{formatDate(client.lastVisit)}</span>
             </div>

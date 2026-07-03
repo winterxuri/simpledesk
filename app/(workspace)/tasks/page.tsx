@@ -10,10 +10,12 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs } from "@/components/ui/tabs";
 import { FormDrawer } from "@/components/modules/form-drawer";
+import { EmptyState } from "@/components/modules/empty-state";
 import { PageHeader } from "@/components/modules/page-header";
 import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
 import { formatDate, getLocalDateKey } from "@/lib/utils";
 import type { TaskStatus } from "@/types";
@@ -50,6 +52,7 @@ const statusActions: Partial<Record<TaskStatus, { label: string; status: TaskSta
 
 export default function TasksPage() {
   const data = useAppStore((state) => state.data);
+  const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
   const addTask = useAppStore((state) => state.addTask);
   const updateTask = useAppStore((state) => state.updateTask);
@@ -58,20 +61,55 @@ export default function TasksPage() {
   const [view, setView] = useState("list");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const canManageTasks = canPerformAction(role, "manageTasks");
+  const canUpdateTaskProgress = canPerformAction(role, "updateTaskProgress");
+  const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
+  const employees = canManageTasks ? data.employees : scopedData.employees;
   const [form, setForm] = useState({
     title: "",
     description: "",
-    responsibleId: data.employees[0]?.id ?? "",
+    responsibleId: employees[0]?.id ?? "",
     priority: "medium",
     dueDate: getLocalDateKey()
   });
-  const canManageTasks = canPerformAction(role, "manageTasks");
-  const canUpdateTaskProgress = canPerformAction(role, "updateTaskProgress");
 
   const tasks = useMemo(
-    () => data.tasks.filter((task) => task.title.toLowerCase().includes(search.toLowerCase())),
-    [data.tasks, search]
+    () =>
+      scopedData.tasks.filter((task) => {
+        const query = search.toLowerCase();
+        return [task.title, task.description].some((value) => value.toLowerCase().includes(query));
+      }),
+    [scopedData.tasks, search]
   );
+  const taskGuideCards = canManageTasks
+    ? [
+        {
+          title: "1. Создать",
+          description: "Задача получает ответственного, срок, приоритет и чек-лист."
+        },
+        {
+          title: "2. Выполнить",
+          description: "Ответственный переводит задачу в работу и отмечает пункты проверки."
+        },
+        {
+          title: "3. Закрыть",
+          description: "После проверки задача переводится в статус «выполнена»."
+        }
+      ]
+    : [
+        {
+          title: "1. Взять в работу",
+          description: "Переведите назначенную задачу в работу, когда начали выполнение."
+        },
+        {
+          title: "2. Отметить чек-лист",
+          description: "Закрывайте пункты проверки по мере выполнения задачи."
+        },
+        {
+          title: "3. Закрыть",
+          description: "После выполнения переведите задачу в статус «выполнена»."
+        }
+      ];
 
   function save() {
     const title = form.title.trim();
@@ -118,7 +156,7 @@ export default function TasksPage() {
     setForm({
       title: "",
       description: "",
-      responsibleId: data.employees[0]?.id ?? "",
+      responsibleId: employees[0]?.id ?? "",
       priority: "medium",
       dueDate: getLocalDateKey()
     });
@@ -129,7 +167,11 @@ export default function TasksPage() {
     <div>
       <PageHeader
         title="Задачи"
-        description="Простой task manager: список, канбан, приоритеты, связи с клиентами и чек-листы."
+        description={
+          canManageTasks
+            ? "Простой task manager: список, канбан, приоритеты, связи с клиентами и чек-листы."
+            : "Ваши назначенные задачи, чек-листы и рабочие статусы."
+        }
         actions={
           <div className="flex gap-2">
             <Tabs items={views} value={view} onValueChange={setView} />
@@ -144,20 +186,23 @@ export default function TasksPage() {
       />
       <SearchAndFilters search={search} onSearchChange={setSearch} />
       <div className="mb-5 grid gap-3 md:grid-cols-3">
-        <Card className="p-4">
-          <p className="text-sm font-medium">1. Создать</p>
-          <p className="mt-1 text-sm text-muted-foreground">Задача получает ответственного, срок, приоритет и чек-лист.</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm font-medium">2. Выполнить</p>
-          <p className="mt-1 text-sm text-muted-foreground">Ответственный переводит задачу в работу и отмечает пункты проверки.</p>
-        </Card>
-        <Card className="p-4">
-          <p className="text-sm font-medium">3. Закрыть</p>
-          <p className="mt-1 text-sm text-muted-foreground">После проверки задача переводится в статус «выполнена».</p>
-        </Card>
+        {taskGuideCards.map((card) => (
+          <Card key={card.title} className="p-4">
+            <p className="text-sm font-medium">{card.title}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
+          </Card>
+        ))}
       </div>
-      {view === "list" ? (
+      {tasks.length === 0 ? (
+        <EmptyState
+          title={canManageTasks ? "Задачи не найдены" : "Нет назначенных задач"}
+          description={
+            canManageTasks
+              ? "Измените поиск или создайте новую задачу."
+              : "Задачи появятся здесь, когда владелец или администратор назначит их вам."
+          }
+        />
+      ) : view === "list" ? (
         <div className="space-y-3">
           {tasks.map((task) => (
             <Card key={task.id} className="p-4">
@@ -190,7 +235,7 @@ export default function TasksPage() {
                   </div>
                 </div>
                 <div className="flex min-w-48 flex-col gap-3 text-sm text-muted-foreground">
-                  <span>{data.employees.find((employee) => employee.id === task.responsibleId)?.name}</span>
+                  <span>{employees.find((employee) => employee.id === task.responsibleId)?.name}</span>
                   <div className="flex flex-wrap gap-2 md:justify-end">
                     {(statusActions[task.status] ?? []).map((action) => (
                       <Button
@@ -259,7 +304,7 @@ export default function TasksPage() {
             <div className="space-y-2">
               <Label>Ответственный</Label>
               <Select value={form.responsibleId} onChange={(event) => setForm({ ...form, responsibleId: event.target.value })}>
-                {data.employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+                {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
               </Select>
             </div>
             <div className="space-y-2">

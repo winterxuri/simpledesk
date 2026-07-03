@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -17,6 +17,7 @@ import { MetricCard } from "@/components/modules/metric-card";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction, type PermissionAction } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { QuickCreateType } from "@/types";
@@ -32,20 +33,10 @@ export default function DashboardPage() {
   const appointmentTerm = company.terminology.appointment;
   const today = getLocalDateKey(new Date());
   const isEmployee = role === "employee";
-  const currentEmployee = isEmployee
-    ? data.employees.find((employee) => employee.email && employee.email === user?.email) ??
-      data.employees.find((employee) => employee.role === "employee") ??
-      data.employees[0]
-    : undefined;
-  const visibleAppointments = isEmployee && currentEmployee
-    ? data.appointments.filter((appointment) => appointment.employeeId === currentEmployee.id)
-    : data.appointments;
-  const visibleTasks = isEmployee && currentEmployee
-    ? data.tasks.filter((task) => task.responsibleId === currentEmployee.id)
-    : data.tasks;
-  const visibleClients = isEmployee && currentEmployee
-    ? data.clients.filter((client) => client.responsibleId === currentEmployee.id)
-    : data.clients;
+  const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
+  const visibleAppointments = scopedData.appointments;
+  const visibleTasks = scopedData.tasks;
+  const visibleClients = scopedData.clients;
   const hasBusinessData = Boolean(
     visibleClients.length ||
     visibleAppointments.length ||

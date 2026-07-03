@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { EmptyState } from "@/components/modules/empty-state";
 import { useAppStore } from "@/store/app-store";
+import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { ClientStatus } from "@/types";
@@ -55,17 +56,40 @@ export default function ClientDetailPage() {
   });
   const data = useAppStore((state) => state.data);
   const company = useAppStore((state) => state.company);
+  const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
   const updateClient = useAppStore((state) => state.updateClient);
   const addTask = useAppStore((state) => state.addTask);
   const addToast = useAppStore((state) => state.addToast);
-  const client = data.clients.find((item) => item.id === params.id);
+  const canManageClients = canPerformAction(role, "manageClients");
+  const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
+  const sourceClient = data.clients.find((item) => item.id === params.id);
+  const client = role === "employee"
+    ? scopedData.clients.find((item) => item.id === params.id)
+    : sourceClient;
+  const visibleTabs = useMemo(
+    () =>
+      canManageClients
+        ? tabs
+        : tabs.filter((item) => item.value !== "payments" && item.value !== "files"),
+    [canManageClients]
+  );
+
+  useEffect(() => {
+    if (!visibleTabs.some((item) => item.value === tab)) {
+      setTab("overview");
+    }
+  }, [tab, visibleTabs]);
 
   if (!client) {
     return (
       <EmptyState
-        title="Клиент не найден"
-        description="Проверьте ссылку или вернитесь к списку клиентов."
+        title={sourceClient && role === "employee" ? "Клиент недоступен" : "Клиент не найден"}
+        description={
+          sourceClient && role === "employee"
+            ? "Эта карточка не связана с вашими записями или задачами."
+            : "Проверьте ссылку или вернитесь к списку клиентов."
+        }
         actionLabel="К списку клиентов"
         onAction={() => window.location.assign("/clients")}
       />
@@ -73,9 +97,9 @@ export default function ClientDetailPage() {
   }
 
   const currentClient = client;
-  const responsible = data.employees.find((employee) => employee.id === currentClient.responsibleId);
-  const appointments = data.appointments.filter((appointment) => appointment.clientId === currentClient.id);
-  const canManageClients = canPerformAction(role, "manageClients");
+  const visibleEmployees = canManageClients ? data.employees : scopedData.employees;
+  const responsible = visibleEmployees.find((employee) => employee.id === currentClient.responsibleId);
+  const appointments = scopedData.appointments.filter((appointment) => appointment.clientId === currentClient.id);
   const contactDescription = [client.phone, client.email].filter(Boolean).join(" · ") || "Контакты не указаны";
 
   function openEdit() {
@@ -207,19 +231,23 @@ export default function ClientDetailPage() {
         }
       />
 
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className={`grid gap-4 ${canManageClients ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Статус</p>
           <div className="mt-2"><StatusBadge status={client.status} /></div>
         </Card>
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Ответственный</p>
-          <p className="mt-2 font-semibold">{responsible?.name ?? "не назначен"}</p>
+          <p className="mt-2 font-semibold">
+            {responsible?.name ?? (role === "employee" ? "другой ответственный" : "не назначен")}
+          </p>
         </Card>
-        <Card className="p-4">
-          <p className="text-sm text-muted-foreground">Общая сумма</p>
-          <p className="mt-2 font-semibold">{formatCurrency(client.totalSpent)}</p>
-        </Card>
+        {canManageClients ? (
+          <Card className="p-4">
+            <p className="text-sm text-muted-foreground">Общая сумма</p>
+            <p className="mt-2 font-semibold">{formatCurrency(client.totalSpent)}</p>
+          </Card>
+        ) : null}
         <Card className="p-4">
           <p className="text-sm text-muted-foreground">Визитов</p>
           <p className="mt-2 font-semibold">{client.visits}</p>
@@ -227,7 +255,7 @@ export default function ClientDetailPage() {
       </div>
 
       <div className="mt-6">
-        <Tabs items={tabs} value={tab} onValueChange={setTab} />
+        <Tabs items={visibleTabs} value={tab} onValueChange={setTab} />
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -262,7 +290,7 @@ export default function ClientDetailPage() {
               ))}
             </div>
           ) : null}
-          {tab === "payments" ? (
+          {canManageClients && tab === "payments" ? (
             <div className="space-y-3">
               {appointments.slice(0, 4).map((appointment) => (
                 <Info
@@ -274,7 +302,7 @@ export default function ClientDetailPage() {
             </div>
           ) : null}
           {tab === "notes" ? <p className="text-sm text-muted-foreground">{client.notes}</p> : null}
-          {tab === "files" ? (
+          {canManageClients && tab === "files" ? (
             <EmptyState
               icon="Download"
               title="Файлов пока нет"
@@ -301,7 +329,7 @@ export default function ClientDetailPage() {
           ) : null}
           <Card className="p-5">
             <h2 className="font-semibold">Временная шкала</h2>
-            <Timeline clientName={client.name} compact />
+            <Timeline clientName={client.name} compact showFinancial={canManageClients} />
           </Card>
         </div>
       </div>
@@ -395,13 +423,27 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Timeline({ clientName, compact = false }: { clientName: string; compact?: boolean }) {
-  const items = [
-    `${clientName} подтвердил запись`,
-    "Администратор добавил заметку",
-    "Создана задача на повторный контакт",
-    "Оплата за услугу получена"
-  ];
+function Timeline({
+  clientName,
+  compact = false,
+  showFinancial = true
+}: {
+  clientName: string;
+  compact?: boolean;
+  showFinancial?: boolean;
+}) {
+  const items = showFinancial
+    ? [
+        `${clientName} подтвердил запись`,
+        "Администратор добавил заметку",
+        "Создана задача на повторный контакт",
+        "Оплата за услугу получена"
+      ]
+    : [
+        `${clientName} подтвердил запись`,
+        "Добавлена рабочая заметка",
+        "Создана задача по клиенту"
+      ];
 
   return (
     <div className={compact ? "mt-4 space-y-3" : "mt-4 space-y-4"}>

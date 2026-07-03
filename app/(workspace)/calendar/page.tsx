@@ -12,6 +12,7 @@ import { Tabs } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Appointment } from "@/types";
@@ -75,6 +76,7 @@ function pluralRecords(count: number) {
 export default function CalendarPage() {
   const data = useAppStore((state) => state.data);
   const company = useAppStore((state) => state.company);
+  const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
   const addAppointment = useAppStore((state) => state.addAppointment);
   const updateAppointment = useAppStore((state) => state.updateAppointment);
@@ -82,9 +84,15 @@ export default function CalendarPage() {
   const [view, setView] = useState("day");
   const [dialogOpen, setDialogOpen] = useState(false);
   const today = isoDate();
-  const employees = data.employees.slice(0, 5);
+  const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
+  const employees = scopedData.employees.slice(0, 5);
+  const appointments = scopedData.appointments;
+  const clients = scopedData.clients;
   const [form, setForm] = useState<AppointmentForm>(() => createEmptyForm(data, today, employees[0]?.id));
   const canManageAppointments = canPerformAction(role, "manageAppointments");
+  const scheduleGridClass = employees.length <= 1
+    ? "grid min-w-[320px] grid-cols-[96px_minmax(180px,1fr)]"
+    : "grid min-w-[900px] grid-cols-[96px_repeat(5,minmax(150px,1fr))]";
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, index) => isoDate(index)),
@@ -103,13 +111,13 @@ export default function CalendarPage() {
 
   const byEmployeeAndTime = useMemo(() => {
     const map = new Map<string, Appointment>();
-    data.appointments
+    appointments
       .filter((appointment) => appointment.date === today)
       .forEach((appointment) => {
         map.set(`${appointment.employeeId}-${appointment.time.slice(0, 5)}`, appointment);
       });
     return map;
-  }, [data.appointments, today]);
+  }, [appointments, today]);
 
   function openCreate(slot?: { time: string; employeeId: string; date?: string }) {
     if (!canManageAppointments) {
@@ -231,7 +239,11 @@ export default function CalendarPage() {
     <div>
       <PageHeader
         title="Календарь и записи"
-        description="Создавайте записи, переносите их между временем и сотрудниками, редактируйте данные по клику."
+        description={
+          role === "employee"
+            ? "Ваши записи по дням, неделям и месяцам без доступа к чужому расписанию."
+            : "Создавайте записи, переносите их между временем и сотрудниками, редактируйте данные по клику."
+        }
         actions={
           <div className="flex gap-2">
             <Tabs items={viewTabs} value={view} onValueChange={setView} />
@@ -248,7 +260,7 @@ export default function CalendarPage() {
       {view === "month" ? (
         <div className="grid gap-3 md:grid-cols-7">
           {monthDays.map((date) => {
-            const dayAppointments = data.appointments.filter((appointment) => appointment.date === date);
+            const dayAppointments = appointments.filter((appointment) => appointment.date === date);
             return (
               <button
                 key={date}
@@ -275,7 +287,7 @@ export default function CalendarPage() {
       {view === "week" ? (
         <div className="grid gap-3 lg:grid-cols-7">
           {weekDays.map((date) => {
-            const dayAppointments = data.appointments.filter((appointment) => appointment.date === date);
+            const dayAppointments = appointments.filter((appointment) => appointment.date === date);
             return (
               <div key={date} className="rounded-lg border border-border bg-card p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -295,12 +307,13 @@ export default function CalendarPage() {
                     <button
                       key={appointment.id}
                       type="button"
+                      disabled={!canManageAppointments}
                       onClick={() => openEdit(appointment)}
-                      className="w-full rounded-lg border border-border bg-background p-2 text-left text-xs transition-colors hover:bg-muted/50"
+                      className="w-full rounded-lg border border-border bg-background p-2 text-left text-xs transition-colors hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-background"
                     >
                       <p className="font-medium">{appointment.time} · {appointment.title}</p>
                       <p className="mt-1 truncate text-muted-foreground">
-                        {data.clients.find((client) => client.id === appointment.clientId)?.name}
+                        {clients.find((client) => client.id === appointment.clientId)?.name ?? "Клиент"}
                       </p>
                     </button>
                   ))}
@@ -313,7 +326,7 @@ export default function CalendarPage() {
 
       {view === "day" ? (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="grid min-w-[900px] grid-cols-[96px_repeat(5,minmax(150px,1fr))] border-b border-border bg-muted/50">
+          <div className={`${scheduleGridClass} border-b border-border bg-muted/50`}>
             <div className="p-3 text-sm font-medium">Время</div>
             {employees.map((employee) => (
               <div key={employee.id} className="border-l border-border p-3">
@@ -324,7 +337,7 @@ export default function CalendarPage() {
           </div>
           <div className="overflow-x-auto">
             {slots.map((time) => (
-              <div key={time} className="grid min-w-[900px] grid-cols-[96px_repeat(5,minmax(150px,1fr))] border-b border-border last:border-b-0">
+              <div key={time} className={`${scheduleGridClass} border-b border-border last:border-b-0`}>
                 <div className="bg-muted/30 p-3 text-sm text-muted-foreground">{time}</div>
                 {employees.map((employee) => {
                   const appointment = byEmployeeAndTime.get(`${employee.id}-${time}`);
@@ -352,7 +365,7 @@ export default function CalendarPage() {
                     >
                       {appointment ? (
                         <div
-                          draggable
+                          draggable={canManageAppointments}
                           onDragStart={(event) => {
                             if (canManageAppointments) {
                               event.dataTransfer.setData("appointment-id", appointment.id);
@@ -362,7 +375,7 @@ export default function CalendarPage() {
                         >
                           <p className="font-medium">{appointment.title}</p>
                           <p className="mt-1 text-xs">
-                            {data.clients.find((client) => client.id === appointment.clientId)?.name}
+                            {clients.find((client) => client.id === appointment.clientId)?.name ?? "Клиент"}
                           </p>
                           <div className="mt-2 flex items-center justify-between gap-2">
                             <StatusBadge status={appointment.status} />
@@ -370,7 +383,9 @@ export default function CalendarPage() {
                           </div>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">Свободное окно</span>
+                        <span className="text-xs text-muted-foreground">
+                          {canManageAppointments ? "Свободное окно" : "Нет записи"}
+                        </span>
                       )}
                     </button>
                   );
