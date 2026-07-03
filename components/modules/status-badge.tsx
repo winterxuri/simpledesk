@@ -43,7 +43,10 @@ const labels: Record<string, string> = {
   connected: "подключено",
   disconnected: "не подключено",
   soon: "скоро",
-  setup: "требует настройки"
+  setup: "требует настройки",
+  pending: "ожидает",
+  accepted: "принято",
+  expired: "истекло"
 };
 
 const variants: Record<string, BadgeProps["variant"]> = {
@@ -66,6 +69,9 @@ const variants: Record<string, BadgeProps["variant"]> = {
   "priority-low": "secondary",
   "priority-medium": "warning",
   setup: "warning",
+  pending: "warning",
+  accepted: "success",
+  expired: "danger",
   attention: "danger",
   "priority-high": "danger",
   inactive: "warning",

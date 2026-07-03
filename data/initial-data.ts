@@ -5,6 +5,7 @@ export function createInitialBusinessData(owner: User | null, ownerEmployeeId?: 
   const ownerEmployee: Employee = {
     id: ownerEmployeeId ?? "employee-owner",
     name: owner?.name ?? "Владелец",
+    email: owner?.email ?? "",
     position: "Владелец",
     status: "working",
     schedule: "09:00-18:00",

@@ -139,6 +139,8 @@ export interface Client {
 export interface Employee {
   id: string;
   name: string;
+  phone?: string;
+  email?: string;
   position: string;
   status: "working" | "dayOff" | "vacation" | "dismissed";
   schedule: string;
@@ -151,6 +153,19 @@ export interface Employee {
   baseSalary?: number;
   commissionPercent?: number;
   dismissedAt?: string;
+}
+
+export interface EmployeeInvite {
+  id?: string;
+  token: string;
+  companyId?: string;
+  employeeId?: string;
+  email: string;
+  role: Role;
+  status: "pending" | "accepted" | "expired" | "cancelled";
+  expiresAt: string;
+  companyName?: string;
+  employeeName?: string;
 }
 
 export interface Appointment {

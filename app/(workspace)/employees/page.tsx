@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Drawer } from "@/components/ui/drawer";
@@ -10,9 +10,11 @@ import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { createEmployeeInvite, loadEmployeeInvites } from "@/lib/backend/auth";
+import { syncEmployee } from "@/lib/backend/sync";
 import { useAppStore } from "@/store/app-store";
 import { formatCurrency, getLocalDateKey } from "@/lib/utils";
-import type { Employee } from "@/types";
+import type { Employee, EmployeeInvite } from "@/types";
 
 const profileTabs = [
   { value: "info", label: "Информация" },
@@ -27,6 +29,8 @@ const profileTabs = [
 function employeeToForm(employee?: Employee) {
   return {
     name: employee?.name ?? "",
+    phone: employee?.phone ?? "",
+    email: employee?.email ?? "",
     position: employee?.position ?? "",
     status: employee?.status ?? "working" as Employee["status"],
     schedule: employee?.schedule ?? "09:00-18:00",
@@ -43,6 +47,8 @@ function employeeToForm(employee?: Employee) {
 
 export default function EmployeesPage() {
   const data = useAppStore((state) => state.data);
+  const company = useAppStore((state) => state.company);
+  const sessionMode = useAppStore((state) => state.sessionMode);
   const addEmployee = useAppStore((state) => state.addEmployee);
   const updateEmployee = useAppStore((state) => state.updateEmployee);
   const dismissEmployee = useAppStore((state) => state.dismissEmployee);
@@ -52,6 +58,35 @@ export default function EmployeesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [tab, setTab] = useState("info");
   const [form, setForm] = useState(() => employeeToForm());
+  const [invites, setInvites] = useState<EmployeeInvite[]>([]);
+  const [latestInvite, setLatestInvite] = useState<EmployeeInvite | null>(null);
+
+  useEffect(() => {
+    if (sessionMode !== "registered") {
+      setInvites([]);
+      return;
+    }
+
+    loadEmployeeInvites(company.id)
+      .then(setInvites)
+      .catch((error) => {
+        addToast({
+          title: "Не удалось загрузить приглашения",
+          description: error instanceof Error ? error.message : "Проверьте Supabase.",
+          variant: "error"
+        });
+      });
+  }, [addToast, company.id, sessionMode]);
+
+  const selectedInvite = useMemo(() => {
+    if (!selected) {
+      return null;
+    }
+    return invites.find((invite) =>
+      invite.employeeId === selected.id ||
+      (selected.email && invite.email.toLowerCase() === selected.email.toLowerCase())
+    ) ?? null;
+  }, [invites, selected]);
 
   function openEmployee(employee: Employee) {
     setSelected(employee);
@@ -70,6 +105,15 @@ export default function EmployeesPage() {
       addToast({
         title: "Заполните карточку сотрудника",
         description: "ФИО и должность обязательны.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      addToast({
+        title: "Email сотрудника некорректен",
+        description: "Проверьте адрес или оставьте поле пустым.",
         variant: "warning"
       });
       return;
@@ -95,6 +139,8 @@ export default function EmployeesPage() {
 
     const patch: Partial<Employee> = {
       name,
+      phone: form.phone.trim(),
+      email: form.email.trim().toLowerCase(),
       position,
       status: form.status,
       schedule: form.schedule,
@@ -115,12 +161,15 @@ export default function EmployeesPage() {
     setSelected(null);
     setTab("info");
     setForm(employeeToForm());
+    setLatestInvite(null);
     setCreateOpen(true);
   }
 
-  function createEmployee() {
+  async function createEmployee() {
     const name = form.name.trim();
     const position = form.position.trim();
+    const email = form.email.trim().toLowerCase();
+    const phone = form.phone.trim();
 
     if (!name || !position) {
       addToast({
@@ -131,8 +180,19 @@ export default function EmployeesPage() {
       return;
     }
 
-    addEmployee({
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      addToast({
+        title: "Email сотрудника некорректен",
+        description: "Проверьте адрес или оставьте поле пустым.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    const payload: Omit<Employee, "id"> = {
       name,
+      phone,
+      email,
       position,
       status: form.status,
       schedule: form.schedule || "09:00-18:00",
@@ -144,14 +204,100 @@ export default function EmployeesPage() {
       compensationType: form.compensationType,
       baseSalary: Number(form.baseSalary) || 0,
       commissionPercent: Number(form.commissionPercent) || 0
-    });
+    };
+    const employeeId = addEmployee(payload);
+
     addToast({
       title: "Сотрудник добавлен",
-      description: "Карточка создана владельцем. Личный вход сотрудника можно будет подключить приглашением.",
+      description: email
+        ? "Карточка создана. Сейчас создаём приглашение для входа."
+        : "Карточка создана без приглашения, потому что email не указан.",
       variant: "success"
     });
+
+    if (email && sessionMode === "registered") {
+      try {
+        await syncEmployee(company.id, { ...payload, id: employeeId });
+        await createInvite(employeeId, email, form.role);
+      } catch (error) {
+        addToast({
+          title: "Сотрудник создан, но invite не создан",
+          description: error instanceof Error ? error.message : "Проверьте Supabase.",
+          variant: "error"
+        });
+      }
+    }
+
     setCreateOpen(false);
     setForm(employeeToForm());
+  }
+
+  async function createInvite(employeeId: string, email: string, role: Employee["role"]) {
+    if (role === "owner") {
+      addToast({
+        title: "Owner не приглашается через карточку",
+        description: "Передача владельца должна быть отдельным подтверждаемым действием.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!email) {
+      addToast({
+        title: "Укажите email сотрудника",
+        description: "Invite создаётся на конкретный email.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (sessionMode !== "registered") {
+      addToast({
+        title: "Invite доступен только в зарегистрированной компании",
+        description: "В демо можно проверить интерфейс, но ссылка сотрудника не создаётся.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    const invite = await createEmployeeInvite({
+      companyId: company.id,
+      employeeId,
+      email,
+      role
+    });
+
+    setInvites((current) => [invite, ...current.filter((item) => item.id !== invite.id)]);
+    setLatestInvite(invite);
+    addToast({
+      title: "Приглашение создано",
+      description: "Скопируйте ссылку и отправьте сотруднику.",
+      variant: "success"
+    });
+  }
+
+  function getInviteLink(invite: EmployeeInvite) {
+    if (typeof window === "undefined") {
+      return `/join?token=${invite.token}`;
+    }
+    return `${window.location.origin}/join?token=${invite.token}`;
+  }
+
+  async function copyInvite(invite: EmployeeInvite) {
+    const link = getInviteLink(invite);
+    await navigator.clipboard.writeText(link);
+    addToast({
+      title: "Ссылка скопирована",
+      description: "Отправьте её сотруднику на указанный email.",
+      variant: "success"
+    });
+  }
+
+  function openMailInvite(invite: EmployeeInvite) {
+    const link = getInviteLink(invite);
+    const subject = encodeURIComponent(`Приглашение в ${company.name}`);
+    const body = encodeURIComponent(`Здравствуйте!\n\nВас пригласили в ${company.name}.\nОткройте ссылку и задайте пароль:\n${link}`);
+    window.location.href = `mailto:${invite.email}?subject=${subject}&body=${body}`;
   }
 
   function fireEmployee() {
@@ -245,6 +391,7 @@ export default function EmployeesPage() {
               </div>
               <div className="mt-5 space-y-3 text-sm">
                 <Row label="Расписание" value={employee.schedule} />
+                <Row label="Контакт" value={employee.phone || employee.email || "не указан"} />
                 <Row label="Выручка" value={formatCurrency(employee.revenue)} />
                 <Row label="Записей" value={String(employee.appointmentsCount)} />
                 <Row label="Рейтинг" value={employee.rating.toFixed(1)} />
@@ -277,6 +424,14 @@ export default function EmployeesPage() {
               <Input value={form.position} onChange={(event) => setForm({ ...form, position: event.target.value })} />
             </div>
             <div className="space-y-2">
+              <Label>Телефон</Label>
+              <Input type="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Email для входа</Label>
+              <Input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
+            </div>
+            <div className="space-y-2">
               <Label>Роль</Label>
               <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Employee["role"] })}>
                 <option value="admin">Администратор</option>
@@ -305,8 +460,9 @@ export default function EmployeesPage() {
             </div>
           </div>
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-            Личный вход сотрудника лучше делать через приглашение по email. Пока карточка хранит расписание, роль, показатели и условия оплаты.
+            Если указать email, после создания карточки будет создана ссылка приглашения. Сотрудник сам задаст пароль.
           </div>
+          {latestInvite ? <InviteBox invite={latestInvite} link={getInviteLink(latestInvite)} onCopy={() => copyInvite(latestInvite)} onMail={() => openMailInvite(latestInvite)} /> : null}
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
               Отмена
@@ -338,6 +494,16 @@ export default function EmployeesPage() {
                     <div className="space-y-2">
                       <Label>Должность</Label>
                       <Input value={form.position} onChange={(event) => setForm({ ...form, position: event.target.value })} />
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Телефон</Label>
+                      <Input type="tel" value={form.phone} onChange={(event) => setForm({ ...form, phone: event.target.value })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Email для входа</Label>
+                      <Input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
                     </div>
                   </div>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -451,6 +617,36 @@ export default function EmployeesPage() {
                 <>
                   <Row label="Финансы" value={selected.role === "employee" ? "ограничено" : "доступно"} />
                   <Row label="Настройки" value={selected.role === "owner" ? "полный доступ" : "ограничено"} />
+                  <Row label="Email входа" value={selected.email || "не указан"} />
+                  {selected.role === "owner" ? (
+                    <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                      Владелец входит через основной аккаунт. Передача роли owner будет отдельным безопасным сценарием.
+                    </div>
+                  ) : (
+                    <div className="space-y-3 rounded-lg border border-border bg-background p-3">
+                      <div>
+                        <p className="text-sm font-medium">Приглашение сотрудника</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Сотрудник открывает ссылку, задаёт пароль и получает доступ только к своей роли.
+                        </p>
+                      </div>
+                      {selectedInvite ? (
+                        <InviteBox
+                          invite={selectedInvite}
+                          link={getInviteLink(selectedInvite)}
+                          onCopy={() => copyInvite(selectedInvite)}
+                          onMail={() => openMailInvite(selectedInvite)}
+                        />
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant={selectedInvite ? "outline" : "default"}
+                        onClick={() => createInvite(selected.id, form.email.trim().toLowerCase() || selected.email || "", form.role)}
+                      >
+                        {selectedInvite ? "Пересоздать приглашение" : "Создать приглашение"}
+                      </Button>
+                    </div>
+                  )}
                 </>
               ) : null}
             </div>
@@ -466,6 +662,41 @@ function Row({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background p-3 text-sm">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+function InviteBox({
+  invite,
+  link,
+  onCopy,
+  onMail
+}: {
+  invite: EmployeeInvite;
+  link: string;
+  onCopy: () => void;
+  onMail: () => void;
+}) {
+  return (
+    <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-medium">Invite: {invite.email}</p>
+          <p className="text-xs text-muted-foreground">
+            Статус: {invite.status} · действует до {invite.expiresAt ? new Date(invite.expiresAt).toLocaleDateString("ru-RU") : "не указано"}
+          </p>
+        </div>
+        <StatusBadge status={invite.status === "accepted" ? "active" : invite.status === "expired" ? "inactive" : "new"} />
+      </div>
+      <Input readOnly value={link} />
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" size="sm" onClick={onCopy}>
+          Скопировать ссылку
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={onMail}>
+          Отправить email
+        </Button>
+      </div>
     </div>
   );
 }

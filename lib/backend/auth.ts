@@ -14,6 +14,7 @@ import type {
   CompanyModule,
   DemoData,
   Employee,
+  EmployeeInvite,
   FinancialOperation,
   InventoryMovement,
   ModuleCode,
@@ -119,6 +120,7 @@ export async function signUpOwner({
       company_id: companyId,
       user_id: data.user.id,
       name,
+      email,
       position: "Владелец",
       status: "working",
       schedule: "09:00-18:00",
@@ -171,6 +173,129 @@ export async function signOutUser() {
   if (error) {
     throwSupabaseError("Auth signout", error);
   }
+}
+
+export async function createEmployeeInvite({
+  companyId,
+  employeeId,
+  email,
+  role
+}: {
+  companyId: string;
+  employeeId: string;
+  email: string;
+  role: Role;
+}): Promise<EmployeeInvite> {
+  if (!isUuid(companyId) || !isUuid(employeeId)) {
+    throw new Error("Приглашение можно создать только для сохранённой компании и сотрудника.");
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + 7);
+
+  const { data, error } = await createSupabaseBrowserClient()
+    .from("employee_invites")
+    .upsert(
+      {
+        company_id: companyId,
+        employee_id: employeeId,
+        email: normalizedEmail,
+        role,
+        token: crypto.randomUUID(),
+        status: "pending",
+        expires_at: expiresAt.toISOString()
+      },
+      { onConflict: "company_id,email" }
+    )
+    .select("id, company_id, employee_id, email, role, token, status, expires_at")
+    .single();
+
+  if (error) {
+    throwSupabaseError("Create employee invite", error);
+  }
+
+  return mapEmployeeInvite(data as LooseRow);
+}
+
+export async function loadEmployeeInvites(companyId: string): Promise<EmployeeInvite[]> {
+  if (!isUuid(companyId)) {
+    return [];
+  }
+
+  const { data, error } = await createSupabaseBrowserClient()
+    .from("employee_invites")
+    .select("id, company_id, employee_id, email, role, token, status, expires_at")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throwSupabaseError("Load employee invites", error);
+  }
+
+  return rows(data).map(mapEmployeeInvite);
+}
+
+export async function getEmployeeInvite(token: string): Promise<EmployeeInvite | null> {
+  if (!isUuid(token)) {
+    return null;
+  }
+
+  const { data, error } = await createSupabaseBrowserClient()
+    .rpc("get_employee_invite", { invite_token: token })
+    .maybeSingle();
+
+  if (error) {
+    throwSupabaseError("Load employee invite", error);
+  }
+
+  return data ? mapEmployeeInvite(data as LooseRow) : null;
+}
+
+export async function signUpInvitedEmployee({
+  email,
+  name,
+  password
+}: {
+  email: string;
+  name: string;
+  password: string;
+}) {
+  const { data, error } = await createSupabaseBrowserClient().auth.signUp({
+    email,
+    password,
+    options: {
+      data: { name }
+    }
+  });
+
+  if (error) {
+    throwSupabaseError("Employee signup", error);
+  }
+
+  return Boolean(data.session);
+}
+
+export async function signInForInvite(email: string, password: string) {
+  const { error } = await createSupabaseBrowserClient().auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    throwSupabaseError("Employee signin", error);
+  }
+}
+
+export async function acceptEmployeeInvite(token: string): Promise<BackendWorkspace | null> {
+  const { error } = await createSupabaseBrowserClient()
+    .rpc("accept_employee_invite", { invite_token: token });
+
+  if (error) {
+    throwSupabaseError("Accept employee invite", error);
+  }
+
+  return loadCurrentBackendWorkspace();
 }
 
 export async function loadCurrentBackendWorkspace(): Promise<BackendWorkspace | null> {
@@ -351,7 +476,7 @@ async function loadCompanyData(
     supabase.from("notifications").select("*").eq("company_id", companyId).order("created_at", { ascending: false })
   ]);
 
-  return {
+  const mappedData: DemoData = {
     ...base,
     clients: rows(clients.data).map(mapClient),
     employees: rows(employees.data).map(mapEmployee).concat(
@@ -369,6 +494,36 @@ async function loadCompanyData(
       rows(notifications.data).length ? [] : base.notifications
     )
   };
+
+  if (user.role === "employee" && ownerEmployeeId) {
+    const ownAppointments = mappedData.appointments.filter(
+      (appointment) => appointment.employeeId === ownerEmployeeId
+    );
+    const ownTasks = mappedData.tasks.filter(
+      (task) => task.responsibleId === ownerEmployeeId
+    );
+    const relatedClientIds = new Set([
+      ...ownAppointments.map((appointment) => appointment.clientId),
+      ...ownTasks.map((task) => task.clientId).filter(Boolean)
+    ]);
+
+    return {
+      ...mappedData,
+      clients: mappedData.clients.filter(
+        (client) => client.responsibleId === ownerEmployeeId || relatedClientIds.has(client.id)
+      ),
+      employees: mappedData.employees.filter((employee) => employee.id === ownerEmployeeId),
+      appointments: ownAppointments,
+      tasks: ownTasks,
+      products: [],
+      inventoryMovements: [],
+      promotions: [],
+      financialOperations: [],
+      reportSnapshots: []
+    };
+  }
+
+  return mappedData;
 }
 
 function rows(data: unknown): LooseRow[] {
@@ -421,6 +576,8 @@ function mapEmployee(row: LooseRow): Employee {
   return {
     id: text(row, "id"),
     name: text(row, "name", "Сотрудник"),
+    phone: nullableText(row, "phone"),
+    email: nullableText(row, "email"),
     position: text(row, "position", "Сотрудник"),
     status: text(row, "status", "working") as Employee["status"],
     schedule: text(row, "schedule", "09:00-18:00"),
@@ -580,6 +737,21 @@ function mapNotification(row: LooseRow): Notification {
     important: bool(row, "important"),
     date: text(row, "date", getLocalDateKey()),
     read: bool(row, "read")
+  };
+}
+
+function mapEmployeeInvite(row: LooseRow): EmployeeInvite {
+  return {
+    id: nullableText(row, "id"),
+    token: text(row, "token"),
+    companyId: nullableText(row, "company_id"),
+    employeeId: nullableText(row, "employee_id"),
+    email: text(row, "email"),
+    role: text(row, "role", "employee") as Role,
+    status: text(row, "status", "pending") as EmployeeInvite["status"],
+    expiresAt: text(row, "expires_at"),
+    companyName: nullableText(row, "company_name"),
+    employeeName: nullableText(row, "employee_name")
   };
 }
 

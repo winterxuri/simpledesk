@@ -133,7 +133,7 @@ interface AppStore {
   bulkUpdateClients: (ids: string[], client: Partial<Client>) => void;
   addAppointment: (appointment: Omit<Appointment, "id">) => void;
   updateAppointment: (id: string, appointment: Partial<Appointment>) => void;
-  addEmployee: (employee: Omit<Employee, "id">) => void;
+  addEmployee: (employee: Omit<Employee, "id">) => string;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
   dismissEmployee: (id: string) => void;
   deleteDismissedEmployee: (id: string) => void;
@@ -471,9 +471,10 @@ export const useAppStore = create<AppStore>()(
             }
           };
         }),
-      addEmployee: (employee) =>
+      addEmployee: (employee) => {
+        const employeeId = createId("employee");
         set((state) => {
-          const nextEmployee = { ...employee, id: createId("employee") };
+          const nextEmployee = { ...employee, id: employeeId };
           runBackendSync(get, () => syncEmployee(state.company.id, nextEmployee));
           return {
             data: {
@@ -481,7 +482,9 @@ export const useAppStore = create<AppStore>()(
               employees: [nextEmployee, ...state.data.employees]
             }
           };
-        }),
+        });
+        return employeeId;
+      },
       updateEmployee: (id, employee) =>
         set((state) => {
           let changedEmployee: Employee | undefined;

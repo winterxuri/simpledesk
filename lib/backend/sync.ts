@@ -113,6 +113,8 @@ export async function syncEmployee(companyId: string, employee: Employee) {
     createSupabaseBrowserClient().from("employees").upsert({
       id: employee.id,
       company_id: companyId,
+      phone: employee.phone ?? null,
+      email: employee.email ?? null,
       name: employee.name,
       position: employee.position,
       status: employee.status,
