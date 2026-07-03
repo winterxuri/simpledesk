@@ -17,28 +17,50 @@ import { MetricCard } from "@/components/modules/metric-card";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import { canPerformAction, type PermissionAction } from "@/lib/permissions";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { QuickCreateType } from "@/types";
 
 export default function DashboardPage() {
   const company = useAppStore((state) => state.company);
   const user = useAppStore((state) => state.user);
+  const role = useAppStore((state) => state.role);
   const data = useAppStore((state) => state.data);
   const addToast = useAppStore((state) => state.addToast);
   const openQuickCreate = useAppStore((state) => state.openQuickCreate);
   const [greeting, setGreeting] = useState("Здравствуйте");
   const appointmentTerm = company.terminology.appointment;
   const today = getLocalDateKey(new Date());
+  const isEmployee = role === "employee";
+  const currentEmployee = isEmployee
+    ? data.employees.find((employee) => employee.email && employee.email === user?.email) ??
+      data.employees.find((employee) => employee.role === "employee") ??
+      data.employees[0]
+    : undefined;
+  const visibleAppointments = isEmployee && currentEmployee
+    ? data.appointments.filter((appointment) => appointment.employeeId === currentEmployee.id)
+    : data.appointments;
+  const visibleTasks = isEmployee && currentEmployee
+    ? data.tasks.filter((task) => task.responsibleId === currentEmployee.id)
+    : data.tasks;
+  const visibleClients = isEmployee && currentEmployee
+    ? data.clients.filter((client) => client.responsibleId === currentEmployee.id)
+    : data.clients;
   const hasBusinessData = Boolean(
-    data.clients.length ||
-    data.appointments.length ||
-    data.products.length ||
-    data.promotions.length ||
-    data.tasks.length ||
-    data.financialOperations.length
+    visibleClients.length ||
+    visibleAppointments.length ||
+    visibleTasks.length ||
+    (!isEmployee && (
+      data.products.length ||
+      data.promotions.length ||
+      data.financialOperations.length
+    ))
   );
-  const todayAppointments = data.appointments
+  const todayAppointments = visibleAppointments
     .filter((appointment) => appointment.date === today)
+    .slice(0, 6);
+  const todayTasks = visibleTasks
+    .filter((task) => task.status !== "done" && task.dueDate <= today)
     .slice(0, 6);
   const todayRevenue = data.financialOperations
     .filter((operation) => operation.type === "income" && operation.date === today)
@@ -50,13 +72,13 @@ export default function DashboardPage() {
   const lowStock = data.products.filter((product) =>
     ["low", "critical", "out"].includes(product.status)
   ).length;
-  const overdueTasks = data.tasks.filter((task) => task.status !== "done" && (task.status === "overdue" || task.dueDate < today)).length;
+  const overdueTasks = visibleTasks.filter((task) => task.status !== "done" && (task.status === "overdue" || task.dueDate < today)).length;
   const unconfirmedAppointments = todayAppointments.filter((appointment) => appointment.status === "planned").length;
   const endingPromotions = data.promotions.filter((promotion) => promotion.status === "ending").length;
   const attention = [
     unconfirmedAppointments ? `${unconfirmedAppointments} ${plural(unconfirmedAppointments, ["запись", "записи", "записей"])} ожидает подтверждения` : "",
-    lowStock ? `${lowStock} ${plural(lowStock, ["позиция", "позиции", "позиций"])} склада требует закупки` : "",
-    endingPromotions ? `${endingPromotions} ${plural(endingPromotions, ["акция", "акции", "акций"])} скоро завершится` : "",
+    !isEmployee && lowStock ? `${lowStock} ${plural(lowStock, ["позиция", "позиции", "позиций"])} склада требует закупки` : "",
+    !isEmployee && endingPromotions ? `${endingPromotions} ${plural(endingPromotions, ["акция", "акции", "акций"])} скоро завершится` : "",
     overdueTasks ? `${overdueTasks} ${plural(overdueTasks, ["задача", "задачи", "задач"])} просрочено` : ""
   ].filter(Boolean);
   const chartData = getLastSevenDays().map(({ date, label }) => ({
@@ -67,6 +89,9 @@ export default function DashboardPage() {
   }));
   const chartHasData = chartData.some((item) => item.value > 0);
   const userFirstName = user?.name?.split(" ")[0] ?? "владелец";
+  const nextAppointment = todayAppointments
+    .slice()
+    .sort((a, b) => a.time.localeCompare(b.time))[0];
 
   useEffect(() => {
     setGreeting(getGreetingByHour(new Date().getHours()));
@@ -77,23 +102,32 @@ export default function DashboardPage() {
       <div>
         <PageHeader
           title={`${greeting}, ${userFirstName}`}
-          description="Рабочее пространство пока пустое. Добавьте первые данные, чтобы здесь появились показатели за день."
+          description={
+            isEmployee
+              ? "На сегодня нет назначенных записей и задач."
+              : "Рабочее пространство пока пустое. Добавьте первые данные, чтобы здесь появились показатели за день."
+          }
         />
         <DashboardWidget title="Сегодня">
           <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6">
             <p className="font-medium">Данных за сегодня пока нет</p>
             <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              После регистрации SimpleDesk не подставляет демо-выручку, записи и клиентов. Начните с клиента, записи, продажи или задачи.
+              {isEmployee
+                ? "Когда администратор назначит вам записи или задачи, они появятся здесь."
+                : "После регистрации SimpleDesk не подставляет демо-выручку, записи и клиентов. Начните с клиента, записи, продажи или задачи."}
             </p>
           </div>
         </DashboardWidget>
+        {!isEmployee ? (
         <div className="mt-6">
           <QuickActionsWidget
+            role={role}
             appointmentTerm={appointmentTerm}
             productTerm={company.terminology.product}
             onCreate={openQuickCreate}
           />
         </div>
+        ) : null}
       </div>
     );
   }
@@ -102,11 +136,11 @@ export default function DashboardPage() {
     <div>
       <PageHeader
         title={`${greeting}, ${userFirstName}`}
-        description="Вот что происходит в вашем бизнесе сегодня."
+        description={isEmployee ? "Ваши записи, задачи и важные события на сегодня." : "Вот что происходит в вашем бизнесе сегодня."}
         actions={
           <Button type="button" onClick={() => addToast({
-            title: "Рабочий день открыт",
-            description: "Проверьте записи, задачи и остатки на сегодня.",
+            title: isEmployee ? "План дня открыт" : "Рабочий день открыт",
+            description: isEmployee ? "Проверьте свои записи и задачи на сегодня." : "Проверьте записи, задачи и остатки на сегодня.",
             variant: "info"
           })}>
             Открыть план дня
@@ -114,6 +148,42 @@ export default function DashboardPage() {
         }
       />
 
+      {isEmployee ? (
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+        <MetricCard
+          title={`Мои ${appointmentTerm} сегодня`}
+          value={String(todayAppointments.length)}
+          hint={todayAppointments.length ? `${todayAppointments.filter((appointment) => appointment.status === "confirmed").length} подтверждены` : "нет записей"}
+          icon="CalendarDays"
+        />
+        <MetricCard
+          title="Мои задачи"
+          value={String(todayTasks.length)}
+          hint={overdueTasks ? `${overdueTasks} просрочено` : "без просрочек"}
+          icon="ListTodo"
+          tone={overdueTasks ? "danger" : "default"}
+        />
+        <MetricCard
+          title="Следующая запись"
+          value={nextAppointment?.time ?? "нет"}
+          hint={nextAppointment?.title ?? "свободное окно"}
+          icon="Clock3"
+        />
+        <MetricCard
+          title="Клиенты"
+          value={String(visibleClients.length)}
+          hint="доступные вам карточки"
+          icon="UsersRound"
+        />
+        <MetricCard
+          title="Статус дня"
+          value={attention.length ? "есть события" : "спокойно"}
+          hint={attention.length ? "проверьте блок внимания" : "критичных событий нет"}
+          icon="CircleCheck"
+          tone={attention.length ? "warning" : "success"}
+        />
+      </div>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <MetricCard
           title="Выручка за сегодня"
@@ -144,6 +214,7 @@ export default function DashboardPage() {
           tone="danger"
         />
       </div>
+      )}
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <DashboardWidget title="Требует внимания">
@@ -187,8 +258,28 @@ export default function DashboardPage() {
         </DashboardWidget>
       </div>
 
+      {isEmployee ? (
+      <div className="mt-6">
+        <DashboardWidget title="Мои задачи на сегодня">
+          <div className="space-y-3">
+            {todayTasks.length ? todayTasks.map((task) => (
+              <div key={task.id} className="rounded-lg border border-border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-medium">{task.title}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{task.description || "Описание не указано"}</p>
+                  </div>
+                  <StatusBadge status={task.status} />
+                </div>
+              </div>
+            )) : <EmptyPanel text="На сегодня активных задач нет." />}
+          </div>
+        </DashboardWidget>
+      </div>
+      ) : (
       <div className="mt-6 grid gap-6 xl:grid-cols-[0.75fr_1.25fr]">
         <QuickActionsWidget
+          role={role}
           appointmentTerm={appointmentTerm}
           productTerm={company.terminology.product}
           onCreate={openQuickCreate}
@@ -218,6 +309,7 @@ export default function DashboardPage() {
           )}
         </DashboardWidget>
       </div>
+      )}
     </div>
   );
 }
@@ -227,22 +319,28 @@ function capitalize(value: string) {
 }
 
 function QuickActionsWidget({
+  role,
   appointmentTerm,
   productTerm,
   onCreate
 }: {
+  role: "owner" | "admin" | "employee";
   appointmentTerm: string;
   productTerm: string;
   onCreate: (type: QuickCreateType) => void;
 }) {
-  const actions: { label: string; type: QuickCreateType }[] = [
-    { label: "добавить клиента", type: "client" },
-    { label: `создать ${appointmentTerm}`, type: "appointment" },
-    { label: `добавить ${productTerm}`, type: "product" },
-    { label: "создать задачу", type: "task" },
-    { label: "запустить акцию", type: "promotion" },
-    { label: "добавить продажу", type: "sale" }
-  ];
+  const allActions = [
+    { label: "добавить клиента", type: "client", action: "manageClients" },
+    { label: `создать ${appointmentTerm}`, type: "appointment", action: "manageAppointments" },
+    { label: `добавить ${productTerm}`, type: "product", action: "manageInventory" },
+    { label: "создать задачу", type: "task", action: "manageTasks" },
+    { label: "добавить продажу", type: "sale", action: "manageInventory" }
+  ] satisfies { label: string; type: QuickCreateType; action: PermissionAction }[];
+  const actions = allActions.filter((action) => canPerformAction(role, action.action));
+
+  if (!actions.length) {
+    return null;
+  }
 
   return (
     <DashboardWidget title="Быстрые действия">
