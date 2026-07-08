@@ -2,10 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
-import { Bell, LogOut, Menu, Moon, Search, Sun } from "lucide-react";
+import { Bell, LogOut, Menu, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { GlobalSearch } from "@/components/layout/global-search";
 import { QuickCreateMenu } from "@/components/layout/quick-create-menu";
 import { signOutUser } from "@/lib/backend/auth";
 import { getVisibleNotifications } from "@/lib/role-notifications";
@@ -94,12 +94,7 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
         </p>
         <h1 className="truncate text-lg font-semibold">{getTitle(pathname)}</h1>
       </div>
-      <div className="hidden min-w-60 max-w-sm flex-1 md:block">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Поиск клиентов, задач, записей" className="pl-9" />
-        </div>
-      </div>
+      <GlobalSearch />
       <QuickCreateMenu />
       <Button
         type="button"
