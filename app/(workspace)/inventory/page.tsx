@@ -26,6 +26,41 @@ const tabs = [
   { value: "suppliers", label: "Поставщики" }
 ];
 
+type InventorySortKey =
+  | "name"
+  | "type"
+  | "category"
+  | "stock"
+  | "minStock"
+  | "purchase"
+  | "sale"
+  | "supplier"
+  | "status";
+
+const sortOptions: { value: InventorySortKey; label: string }[] = [
+  { value: "name", label: "По названию" },
+  { value: "type", label: "По типу" },
+  { value: "category", label: "По категории" },
+  { value: "stock", label: "По остатку" },
+  { value: "minStock", label: "По мин. остатку" },
+  { value: "purchase", label: "По закупке" },
+  { value: "sale", label: "По продаже" },
+  { value: "supplier", label: "По поставщику" },
+  { value: "status", label: "По статусу" }
+];
+
+const sortDirectionOptions = [
+  { value: "asc", label: "По возрастанию" },
+  { value: "desc", label: "По убыванию" }
+];
+
+const statusSortOrder: Record<ProductStatus, number> = {
+  out: 0,
+  critical: 1,
+  low: 2,
+  ok: 3
+};
+
 const writeOffReasons = [
   "Использовано в работе",
   "Брак",
@@ -69,6 +104,8 @@ export default function InventoryPage() {
   const addToast = useAppStore((state) => state.addToast);
   const [tab, setTab] = useState("products");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<InventorySortKey>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [movementOpen, setMovementOpen] = useState(false);
   const [movementType, setMovementType] = useState<InventoryMovement["type"]>("income");
@@ -85,10 +122,45 @@ export default function InventoryPage() {
   });
 
   const products = useMemo(() => {
-    return data.products.filter((product) =>
-      product.name.toLowerCase().includes(search.toLowerCase())
+    const query = search.toLowerCase();
+    const filtered = data.products.filter((product) =>
+      [product.name, product.type, product.category, product.supplier, product.status].some((value) =>
+        value.toLowerCase().includes(query)
+      )
     );
-  }, [data.products, search]);
+
+    return [...filtered].sort((a, b) => {
+      const multiplier = sortDirection === "asc" ? 1 : -1;
+      const numericCompare = (left: number, right: number) => (left - right) * multiplier;
+      const textCompare = (left: string, right: string) => left.localeCompare(right, "ru") * multiplier;
+
+      if (sortBy === "stock") {
+        return numericCompare(a.currentStock, b.currentStock);
+      }
+      if (sortBy === "minStock") {
+        return numericCompare(a.minStock, b.minStock);
+      }
+      if (sortBy === "purchase") {
+        return numericCompare(a.purchasePrice, b.purchasePrice);
+      }
+      if (sortBy === "sale") {
+        return numericCompare(a.salePrice, b.salePrice);
+      }
+      if (sortBy === "status") {
+        return numericCompare(statusSortOrder[a.status], statusSortOrder[b.status]);
+      }
+      if (sortBy === "type") {
+        return textCompare(productTypeLabel(a.type), productTypeLabel(b.type));
+      }
+      if (sortBy === "category") {
+        return textCompare(a.category, b.category);
+      }
+      if (sortBy === "supplier") {
+        return textCompare(a.supplier, b.supplier);
+      }
+      return textCompare(a.name, b.name);
+    });
+  }, [data.products, search, sortBy, sortDirection]);
 
   const columns: DataTableColumn<Product>[] = [
     {
@@ -100,7 +172,7 @@ export default function InventoryPage() {
         </button>
       )
     },
-    { key: "type", header: "Тип", cell: (product) => product.type === "material" ? "расходник" : product.type === "part" ? "запчасть" : "товар" },
+    { key: "type", header: "Тип", cell: (product) => productTypeLabel(product.type) },
     { key: "category", header: "Категория", cell: (product) => product.category },
     { key: "stock", header: "Остаток", cell: (product) => `${product.currentStock} / мин. ${product.minStock}` },
     { key: "purchase", header: "Закупка", cell: (product) => formatCurrency(product.purchasePrice) },
@@ -325,7 +397,24 @@ export default function InventoryPage() {
       </div>
       {tab === "products" || tab === "materials" ? (
         <>
-          <SearchAndFilters search={search} onSearchChange={setSearch} />
+          <SearchAndFilters
+            search={search}
+            onSearchChange={setSearch}
+            filters={[
+              {
+                label: "Сортировка",
+                value: sortBy,
+                onChange: (value) => setSortBy(value as InventorySortKey),
+                options: sortOptions
+              },
+              {
+                label: "Направление",
+                value: sortDirection,
+                onChange: (value) => setSortDirection(value as "asc" | "desc"),
+                options: sortDirectionOptions
+              }
+            ]}
+          />
           <DataTable
             rows={products.filter((product) => tab === "products" ? product.type !== "material" : product.type === "material")}
             columns={columns}
@@ -648,4 +737,14 @@ function movementLabel(type: InventoryMovement["type"]) {
     return "Корректировка";
   }
   return "Перемещение";
+}
+
+function productTypeLabel(type: Product["type"]) {
+  if (type === "material") {
+    return "расходник";
+  }
+  if (type === "part") {
+    return "запчасть";
+  }
+  return "товар";
 }

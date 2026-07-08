@@ -7,12 +7,14 @@ export function FormDrawer({
   onOpenChange,
   title,
   description,
+  className = "max-w-lg",
   children
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -21,7 +23,7 @@ export function FormDrawer({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      className="max-w-lg"
+      className={className}
     >
       {children}
     </Drawer>
