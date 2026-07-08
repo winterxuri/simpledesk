@@ -12,6 +12,7 @@ import type {
   Product,
   Promotion,
   ReportSnapshot,
+  Resource,
   Task
 } from "@/types";
 
@@ -173,6 +174,23 @@ export async function syncInventoryMovement(companyId: string, movement: Invento
       quantity: movement.quantity,
       date: movement.date,
       comment: movement.comment
+    })
+  );
+}
+
+export async function syncResource(companyId: string, resource: Resource) {
+  if (!canSync(companyId) || !canSync(resource.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("resources").upsert({
+      id: resource.id,
+      company_id: companyId,
+      name: resource.name,
+      type: resource.type,
+      status: resource.status,
+      load_percent: resource.loadPercent,
+      future_bookings: resource.futureBookings,
+      resource_condition: resource.condition,
+      comment: resource.comment
     })
   );
 }

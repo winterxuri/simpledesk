@@ -24,6 +24,7 @@ import {
   syncProduct,
   syncPromotion,
   syncReportSnapshot,
+  syncResource,
   deleteReportSnapshot,
   syncTask
 } from "@/lib/backend/sync";
@@ -42,6 +43,7 @@ import type {
   Promotion,
   QuickCreateType,
   ReportSnapshot,
+  Resource,
   Role,
   Task,
   ThemeMode,
@@ -146,6 +148,8 @@ interface AppStore {
   updateProduct: (id: string, product: Partial<Product>) => void;
   addInventoryMovement: (movement: Omit<InventoryMovement, "id">) => void;
   addFinancialOperation: (operation: Omit<FinancialOperation, "id">) => void;
+  addResource: (resource: Omit<Resource, "id">) => void;
+  updateResource: (id: string, resource: Partial<Resource>) => void;
   saveReportSnapshot: (snapshot: ReportSnapshot) => void;
   deleteReportSnapshot: (id: string) => void;
   addTask: (task: Omit<Task, "id">) => void;
@@ -706,6 +710,38 @@ export const useAppStore = create<AppStore>()(
                         : employee
                     )
                   : state.data.employees
+            }
+          };
+        }),
+      addResource: (resource) =>
+        set((state) => {
+          const nextResource = { ...resource, id: createId("resource") };
+          runBackendSync(get, () => syncResource(state.company.id, nextResource));
+          return {
+            data: {
+              ...state.data,
+              resources: [nextResource, ...state.data.resources]
+            }
+          };
+        }),
+      updateResource: (id, resource) =>
+        set((state) => {
+          let changedResource: Resource | undefined;
+          const resources = state.data.resources.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedResource = { ...item, ...resource };
+            return changedResource;
+          });
+          if (changedResource) {
+            const resourceToSync = changedResource;
+            runBackendSync(get, () => syncResource(state.company.id, resourceToSync));
+          }
+          return {
+            data: {
+              ...state.data,
+              resources
             }
           };
         }),
