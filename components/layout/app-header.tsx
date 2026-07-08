@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { QuickCreateMenu } from "@/components/layout/quick-create-menu";
 import { signOutUser } from "@/lib/backend/auth";
+import { getVisibleNotifications } from "@/lib/role-notifications";
 import { useAppStore } from "@/store/app-store";
 
 const titles: Record<string, string> = {
@@ -56,7 +57,8 @@ export function AppHeader({ onOpenMenu }: { onOpenMenu: () => void }) {
   const setNotificationPanelOpen = useAppStore(
     (state) => state.setNotificationPanelOpen
   );
-  const unread = notifications.filter((notification) => !notification.read).length;
+  const visibleNotifications = getVisibleNotifications(notifications, role);
+  const unread = visibleNotifications.filter((notification) => !notification.read).length;
 
   async function handleLogout() {
     try {

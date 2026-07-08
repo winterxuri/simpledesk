@@ -533,7 +533,8 @@ async function loadCompanyData(
       inventoryMovements: [],
       promotions: [],
       financialOperations: [],
-      reportSnapshots: []
+      reportSnapshots: [],
+      notifications: []
     };
   }
 

@@ -156,7 +156,7 @@ interface AppStore {
   setSidebarCollapsed: (collapsed: boolean) => void;
   addToast: (toast: Omit<ToastMessage, "id">) => void;
   removeToast: (id: string) => void;
-  markAllNotificationsRead: () => void;
+  markAllNotificationsRead: (ids?: string[]) => void;
 }
 
 function runBackendSync(get: () => AppStore, action: () => Promise<void>) {
@@ -823,13 +823,13 @@ export const useAppStore = create<AppStore>()(
         set((state) => ({
           toasts: state.toasts.filter((toast) => toast.id !== id)
         })),
-      markAllNotificationsRead: () =>
+      markAllNotificationsRead: (ids) =>
         set((state) => ({
           data: {
             ...state.data,
             notifications: state.data.notifications.map((notification) => ({
               ...notification,
-              read: true
+              read: ids && !ids.includes(notification.id) ? notification.read : true
             }))
           }
         }))
