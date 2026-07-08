@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { MODULES, getModuleDefinition } from "@/config/modules";
-import { getModuleTitle, normalizeCompanyModules } from "@/config/navigation";
+import { getModuleTitle, isRequiredModule, normalizeCompanyModules } from "@/config/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/modules/page-header";
@@ -16,7 +16,6 @@ export default function SettingsModulesPage() {
   const modules = useAppStore((state) => state.companyModules);
   const toggleModule = useAppStore((state) => state.toggleModule);
   const setVisibility = useAppStore((state) => state.setModuleVisibility);
-  const addToast = useAppStore((state) => state.addToast);
   const [pendingDisable, setPendingDisable] = useState<ModuleCode | null>(null);
 
   const enriched = useMemo(
@@ -47,6 +46,7 @@ export default function SettingsModulesPage() {
             module={module}
             definition={definition}
             title={title}
+            locked={isRequiredModule(module.code)}
             onToggle={(enabled) => {
               if (!enabled) {
                 setPendingDisable(module.code);
@@ -55,13 +55,6 @@ export default function SettingsModulesPage() {
               }
             }}
             onVisibility={(visible) => setVisibility(module.code, visible)}
-            onSettings={() =>
-              addToast({
-                title: "Настройки модуля",
-                description: `Включение и видимость модуля "${title}" сохраняются автоматически.`,
-                variant: "info"
-              })
-            }
           />
         ))}
       </div>

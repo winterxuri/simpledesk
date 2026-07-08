@@ -4,8 +4,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { AppIcon } from "@/lib/icons";
@@ -22,6 +20,13 @@ const integrations = [
   { name: "API", icon: "Braces", status: "soon", description: "Доступ к данным по REST API" }
 ];
 
+const statusLabels: Record<string, string> = {
+  connected: "Демо-подключение",
+  setup: "Требует настройки",
+  disconnected: "Не подключено",
+  soon: "Скоро"
+};
+
 export default function IntegrationsPage() {
   const [selected, setSelected] = useState<(typeof integrations)[number] | null>(null);
 
@@ -29,7 +34,7 @@ export default function IntegrationsPage() {
     <div>
       <PageHeader
         title="Интеграции"
-        description="Демонстрационный каталог подключений. Реальные внешние API пока не используются."
+        description="Демонстрационный каталог подключений. Реальные внешние API и сохранение токенов пока не используются."
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {integrations.map((integration) => (
@@ -47,7 +52,7 @@ export default function IntegrationsPage() {
               <StatusBadge status={integration.status} />
             </div>
             <Button type="button" variant="outline" className="mt-5 w-full" disabled={integration.status === "soon"} onClick={() => setSelected(integration)}>
-              {integration.status === "connected" ? "Настроить" : "Подключить"}
+              {integration.status === "soon" ? "Скоро" : "Посмотреть"}
             </Button>
           </Card>
         ))}
@@ -55,30 +60,32 @@ export default function IntegrationsPage() {
       <Dialog
         open={Boolean(selected)}
         onOpenChange={(open) => !open && setSelected(null)}
-        title={selected ? `Подключение: ${selected.name}` : "Подключение"}
-        description="Mock-настройки не отправляются во внешние сервисы."
+        title={selected ? `Интеграция: ${selected.name}` : "Интеграция"}
+        description="Это демонстрационная карточка. Подключение и токены сейчас не сохраняются."
         footer={
-          <>
-            <Button type="button" variant="outline" onClick={() => setSelected(null)}>Отмена</Button>
-            <Button type="button" onClick={() => setSelected(null)}>Сохранить настройки</Button>
-          </>
+          <Button type="button" onClick={() => setSelected(null)}>Закрыть</Button>
         }
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Ключ доступа</Label>
-            <Input placeholder="demo-token-123" />
+        {selected ? (
+          <div className="space-y-3">
+            <InfoRow label="Название" value={selected.name} />
+            <InfoRow label="Статус" value={statusLabels[selected.status] ?? selected.status} />
+            <InfoRow label="Назначение" value={selected.description} />
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Реальное подключение потребует отдельного экрана авторизации, проверки прав и безопасного хранения ключей.
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label>Название подключения</Label>
-            <Input defaultValue={selected?.name} />
-          </div>
-          <div className="space-y-2">
-            <Label>Webhook URL</Label>
-            <Input placeholder="https://example.ru/webhook" />
-          </div>
-        </div>
+        ) : null}
       </Dialog>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 text-sm font-medium">{value}</p>
     </div>
   );
 }

@@ -31,7 +31,7 @@ const footerGroups = [
     links: [
       { href: "/docs", label: "Документация" },
       { href: "/feedback", label: "Обратная связь" },
-      { href: "/settings/integrations", label: "Интеграции" }
+      { href: "/updates", label: "Обновления" }
     ]
   },
   {

@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { getModuleDefinition } from "@/config/modules";
-import { getModuleTitle } from "@/config/navigation";
+import { getModuleTitle, isRequiredModule } from "@/config/navigation";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
 import type { ModuleCode } from "@/types";
@@ -30,7 +30,7 @@ export default function SettingsNavigationPage() {
   );
 
   function drop(target: ModuleCode) {
-    if (!dragged || dragged === target) {
+    if (!dragged || dragged === target || isRequiredModule(dragged) || isRequiredModule(target)) {
       return;
     }
     const current = items.map((item) => item.code);
@@ -59,18 +59,19 @@ export default function SettingsNavigationPage() {
         {items.map((module, index) => {
           const definition = getModuleDefinition(module.code);
           const title = getModuleTitle(module.code, company.businessTemplateId);
+          const locked = isRequiredModule(module.code);
           return (
             <Card
               key={module.code}
               className="p-4"
-              draggable
-              onDragStart={() => setDragged(module.code)}
+              draggable={!locked}
+              onDragStart={() => !locked && setDragged(module.code)}
               onDragOver={(event) => event.preventDefault()}
               onDrop={() => drop(module.code)}
             >
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
-                  <GripVertical className="h-5 w-5 text-muted-foreground" />
+                  <GripVertical className={locked ? "h-5 w-5 text-muted-foreground/40" : "h-5 w-5 text-muted-foreground"} />
                   <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-accent text-accent-foreground">
                     <AppIcon name={definition?.icon ?? "Circle"} className="h-5 w-5" />
                   </div>
@@ -79,17 +80,37 @@ export default function SettingsNavigationPage() {
                       <p className="font-medium">{title}</p>
                       <StatusBadge status={module.status} />
                     </div>
-                    <p className="text-sm text-muted-foreground">Позиция {index + 1}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {locked ? "Обязательный пункт меню" : `Позиция ${index + 1}`}
+                    </p>
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => moveItem(module.code, "up")} disabled={index === 0}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => moveItem(module.code, "up")}
+                    disabled={locked || index === 0 || (items[index - 1] ? isRequiredModule(items[index - 1].code) : false)}
+                  >
                     Выше
                   </Button>
-                  <Button type="button" variant="outline" size="sm" onClick={() => moveItem(module.code, "down")} disabled={index === items.length - 1}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => moveItem(module.code, "down")}
+                    disabled={locked || index === items.length - 1 || (items[index + 1] ? isRequiredModule(items[index + 1].code) : false)}
+                  >
                     Ниже
                   </Button>
-                  <Button type="button" variant="secondary" size="sm" onClick={() => setVisibility(module.code, !module.visible)}>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setVisibility(module.code, !module.visible)}
+                    disabled={locked}
+                  >
                     {module.visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     {module.visible ? "Скрыть" : "Показать"}
                   </Button>

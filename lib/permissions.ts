@@ -35,8 +35,7 @@ const roleModuleAccess: Record<Role, Array<ModuleCode | "settings">> = {
     "promotions",
     "tasks",
     "reports",
-    "analytics",
-    "integrations"
+    "analytics"
   ],
   employee: ["dashboard", "calendar", "clients", "tasks"]
 };

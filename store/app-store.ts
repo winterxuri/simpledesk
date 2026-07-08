@@ -2,7 +2,12 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { buildDefaultCompanyModules, normalizeCompanyModules } from "@/config/navigation";
+import {
+  buildDefaultCompanyModules,
+  isRequiredModule,
+  normalizeCompanyModules,
+  withRequiredModules
+} from "@/config/navigation";
 import { PRODUCT_NAME, STORAGE_KEY } from "@/config/product";
 import { getBusinessTemplate } from "@/config/templates";
 import { createDemoData } from "@/data/demo-data";
@@ -267,7 +272,7 @@ export const useAppStore = create<AppStore>()(
             industry: template.title,
             terminology: template.terminology
           },
-          companyModules: buildDefaultCompanyModules(template.id, selectedModules),
+          companyModules: buildDefaultCompanyModules(template.id, withRequiredModules(selectedModules)),
           data:
             state.sessionMode === "registered"
               ? createInitialBusinessData(state.user, state.data.employees[0]?.id)
@@ -307,6 +312,10 @@ export const useAppStore = create<AppStore>()(
         }),
       toggleModule: (code, enabled) =>
         set((state) => {
+          if (isRequiredModule(code) && !enabled) {
+            return state;
+          }
+
           const companyModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
             if (module.code !== code || !module.availableOnTariff) {
               return module;
@@ -322,6 +331,10 @@ export const useAppStore = create<AppStore>()(
         }),
       setModuleVisibility: (code, visible) =>
         set((state) => {
+          if (isRequiredModule(code) && !visible) {
+            return state;
+          }
+
           const companyModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => {
             if (module.code !== code || !module.availableOnTariff) {
               return module;
@@ -337,6 +350,10 @@ export const useAppStore = create<AppStore>()(
         }),
       moveNavigationItem: (code, direction) =>
         set((state) => {
+          if (isRequiredModule(code)) {
+            return state;
+          }
+
           const normalizedModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId);
           const visible = normalizedModules
             .filter((module) => module.status !== "disabled" && module.status !== "unavailable")
@@ -344,6 +361,9 @@ export const useAppStore = create<AppStore>()(
           const index = visible.findIndex((module) => module.code === code);
           const targetIndex = direction === "up" ? index - 1 : index + 1;
           if (index < 0 || targetIndex < 0 || targetIndex >= visible.length) {
+            return state;
+          }
+          if (isRequiredModule(visible[targetIndex].code)) {
             return state;
           }
           const swapped = [...visible];
@@ -359,11 +379,15 @@ export const useAppStore = create<AppStore>()(
         }),
       reorderNavigation: (orderedCodes) =>
         set((state) => {
+          const safeOrderedCodes = [
+            ...orderedCodes.filter((code) => isRequiredModule(code)),
+            ...orderedCodes.filter((code) => !isRequiredModule(code))
+          ];
           const companyModules = normalizeCompanyModules(state.companyModules, state.company.businessTemplateId).map((module) => ({
             ...module,
             order:
-              orderedCodes.indexOf(module.code) >= 0
-                ? orderedCodes.indexOf(module.code) + 1
+              safeOrderedCodes.indexOf(module.code) >= 0
+                ? safeOrderedCodes.indexOf(module.code) + 1
                 : module.order
           }));
           runBackendSync(get, () => syncCompanyModules(state.company.id, companyModules));

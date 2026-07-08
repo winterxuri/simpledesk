@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ const currencyOptions = [
 ];
 
 const workDayOptions = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const timeOptions = Array.from({ length: 48 }, (_, index) => {
   const hours = String(Math.floor(index / 2)).padStart(2, "0");
   const minutes = index % 2 === 0 ? "00" : "30";
@@ -52,8 +53,57 @@ export default function SettingsCompanyPage() {
   const [draft, setDraft] = useState(company);
 
   function save() {
+    const trimmedName = draft.name.trim();
+    const trimmedEmail = draft.email.trim();
+
+    if (!trimmedName) {
+      addToast({
+        title: "Укажите название компании",
+        description: "Название используется в шапке, отчетах и приглашениях сотрудников.",
+        variant: "error"
+      });
+      return;
+    }
+
+    if (trimmedEmail && !emailPattern.test(trimmedEmail)) {
+      addToast({
+        title: "Проверьте email компании",
+        description: "Введите адрес в формате name@example.ru или оставьте поле пустым.",
+        variant: "error"
+      });
+      return;
+    }
+
+    if (draft.workDays.length === 0) {
+      addToast({
+        title: "Выберите рабочие дни",
+        description: "Нужен хотя бы один день, чтобы корректно показывать расписание.",
+        variant: "error"
+      });
+      return;
+    }
+
+    if (draft.workHours.start >= draft.workHours.end) {
+      addToast({
+        title: "Проверьте график работы",
+        description: "Время начала должно быть раньше времени окончания.",
+        variant: "error"
+      });
+      return;
+    }
+
     const { terminology, ...companyDraft } = draft;
-    updateCompany(companyDraft);
+    const normalizedCompany = {
+      ...companyDraft,
+      name: trimmedName,
+      logoUrl: companyDraft.logoUrl?.trim() || undefined,
+      industry: companyDraft.industry.trim(),
+      address: companyDraft.address.trim(),
+      phone: companyDraft.phone.trim(),
+      email: trimmedEmail
+    };
+    setDraft((current) => ({ ...current, ...normalizedCompany }));
+    updateCompany(normalizedCompany);
     addToast({ title: "Настройки компании сохранены", variant: "success" });
   }
 
@@ -126,8 +176,9 @@ export default function SettingsCompanyPage() {
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label>Выбранный шаблон</Label>
+              <Label htmlFor="business-template">Выбранный шаблон</Label>
               <Select
+                id="business-template"
                 value={draft.businessTemplateId}
                 onChange={(event) => setDraft({ ...draft, businessTemplateId: event.target.value })}
               >
@@ -146,8 +197,9 @@ export default function SettingsCompanyPage() {
           <div className="mt-5 space-y-4">
             {terminologyKeys.map(([key, label]) => (
               <div key={key} className="space-y-2">
-                <Label>{label}</Label>
+                <Label htmlFor={`terminology-${key}`}>{label}</Label>
                 <Input
+                  id={`terminology-${key}`}
                   value={company.terminology[key] ?? ""}
                   onChange={(event) => updateTerminology(key, event.target.value)}
                 />
@@ -171,10 +223,12 @@ function Field({
   onChange: (value: string) => void;
   placeholder?: string;
 }) {
+  const inputId = useId();
+
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
-      <Input value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
+      <Label htmlFor={inputId}>{label}</Label>
+      <Input id={inputId} value={value} onChange={(event) => onChange(event.target.value)} placeholder={placeholder} />
     </div>
   );
 }
@@ -190,10 +244,12 @@ function SelectField({
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
 }) {
+  const selectId = useId();
+
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
-      <Select value={value} onChange={(event) => onChange(event.target.value)}>
+      <Label htmlFor={selectId}>{label}</Label>
+      <Select id={selectId} value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}

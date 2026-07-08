@@ -2,6 +2,8 @@ import { MODULES, getModuleDefinition } from "@/config/modules";
 import { getBusinessTemplate } from "@/config/templates";
 import type { CompanyModule, ModuleCode, NavigationItem } from "@/types";
 
+export const REQUIRED_MODULES: ModuleCode[] = ["dashboard"];
+
 const titleByTemplate: Partial<Record<string, Partial<Record<ModuleCode, string>>>> = {
   auto: {
     calendar: "Записи",
@@ -24,6 +26,27 @@ const titleByTemplate: Partial<Record<string, Partial<Record<ModuleCode, string>
 export function getModuleTitle(code: ModuleCode, templateId: string) {
   const definition = getModuleDefinition(code);
   return titleByTemplate[templateId]?.[code] ?? definition?.title ?? code;
+}
+
+export function isRequiredModule(code: ModuleCode) {
+  return REQUIRED_MODULES.includes(code);
+}
+
+export function withRequiredModules(modules: ModuleCode[] = []) {
+  return Array.from(new Set([...REQUIRED_MODULES, ...modules]));
+}
+
+function applyRequiredModuleRules(modules: CompanyModule[]) {
+  return modules.map((module) =>
+    isRequiredModule(module.code)
+      ? {
+          ...module,
+          status: "enabled" as const,
+          visible: true,
+          availableOnTariff: true
+        }
+      : module
+  );
 }
 
 export function buildNavigationItems(
@@ -67,7 +90,7 @@ export function normalizeCompanyModules(
 ): CompanyModule[] {
   const existing = new Set(modules.map((module) => module.code));
   const missing = buildDefaultCompanyModules(templateId).filter((module) => !existing.has(module.code));
-  return [...modules, ...missing];
+  return applyRequiredModuleRules([...modules, ...missing]);
 }
 
 export function buildDefaultCompanyModules(
@@ -75,10 +98,10 @@ export function buildDefaultCompanyModules(
   selectedModules?: ModuleCode[]
 ): CompanyModule[] {
   const template = getBusinessTemplate(templateId);
-  const selected = new Set(selectedModules ?? template.activeModules);
+  const selected = new Set(withRequiredModules(selectedModules ?? template.activeModules));
   const menuOrder = new Map(template.menuOrder.map((code, index) => [code, index + 1]));
 
-  return MODULES.map((definition) => {
+  return applyRequiredModuleRules(MODULES.map((definition) => {
     const availableOnTariff = definition.plan === "basic";
     const active = selected.has(definition.code);
     const hidden = template.hiddenModules.includes(definition.code);
@@ -97,5 +120,5 @@ export function buildDefaultCompanyModules(
       order: menuOrder.get(definition.code) ?? definition.defaultOrder,
       availableOnTariff
     };
-  });
+  }));
 }

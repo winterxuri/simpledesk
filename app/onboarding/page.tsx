@@ -16,7 +16,7 @@ import {
   getBusinessTemplate
 } from "@/config/templates";
 import { MODULES } from "@/config/modules";
-import { getModuleTitle } from "@/config/navigation";
+import { getModuleTitle, isRequiredModule, withRequiredModules } from "@/config/navigation";
 import { completeBackendOnboarding } from "@/lib/backend/auth";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
@@ -57,7 +57,9 @@ export default function OnboardingPage() {
   const hasHydrated = useAppStore((state) => state.hasHydrated);
   const user = useAppStore((state) => state.user);
   const company = useAppStore((state) => state.company);
+  const role = useAppStore((state) => state.role);
   const sessionMode = useAppStore((state) => state.sessionMode);
+  const onboardingComplete = useAppStore((state) => state.onboardingComplete);
   const completeOnboarding = useAppStore((state) => state.completeOnboarding);
   const addToast = useAppStore((state) => state.addToast);
   const [step, setStep] = useState(1);
@@ -75,14 +77,14 @@ export default function OnboardingPage() {
     financeAccess: true
   });
   const [selectedModules, setSelectedModules] = useState<ModuleCode[]>(
-    getBusinessTemplate(templateId).activeModules
+    withRequiredModules(getBusinessTemplate(templateId).activeModules)
   );
 
   const template = useMemo(() => getBusinessTemplate(templateId), [templateId]);
   const progress = Math.round((step / 6) * 100);
 
   useEffect(() => {
-    setSelectedModules(getBusinessTemplate(templateId).activeModules);
+    setSelectedModules(withRequiredModules(getBusinessTemplate(templateId).activeModules));
   }, [templateId]);
 
   useEffect(() => {
@@ -92,8 +94,23 @@ export default function OnboardingPage() {
 
     if (!user || sessionMode === "none") {
       router.replace("/login");
+      return;
     }
-  }, [hasHydrated, router, sessionMode, user]);
+
+    if (role !== "owner") {
+      addToast({
+        title: "Onboarding доступен только владельцу",
+        description: "Сотрудники и администраторы работают в уже настроенном пространстве.",
+        variant: "info"
+      });
+      router.replace("/dashboard");
+      return;
+    }
+
+    if (sessionMode === "registered" && onboardingComplete) {
+      router.replace("/settings/modules");
+    }
+  }, [addToast, hasHydrated, onboardingComplete, role, router, sessionMode, user]);
 
   function toggleList(value: string, list: string[], setter: (value: string[]) => void) {
     setter(list.includes(value) ? list.filter((item) => item !== value) : [...list, value]);
@@ -106,16 +123,17 @@ export default function OnboardingPage() {
 
     setIsSaving(true);
     try {
+      const safeSelectedModules = withRequiredModules(selectedModules);
       if (sessionMode === "registered") {
         await completeBackendOnboarding(
           {
             ...company,
             businessTemplateId: templateId
           },
-          selectedModules
+          safeSelectedModules
         );
       }
-      completeOnboarding(templateId, selectedModules);
+      completeOnboarding(templateId, safeSelectedModules);
       router.push("/dashboard");
     } catch (error) {
       addToast({
@@ -131,7 +149,13 @@ export default function OnboardingPage() {
     }
   }
 
-  if (!hasHydrated || !user || sessionMode === "none") {
+  if (
+    !hasHydrated ||
+    !user ||
+    sessionMode === "none" ||
+    role !== "owner" ||
+    (sessionMode === "registered" && onboardingComplete)
+  ) {
     return null;
   }
 
@@ -263,7 +287,8 @@ export default function OnboardingPage() {
               </p>
               <div className="mt-5 grid gap-3 md:grid-cols-2">
                 {MODULES.map((module) => {
-                  const checked = selectedModules.includes(module.code);
+                  const required = isRequiredModule(module.code);
+                  const checked = required || selectedModules.includes(module.code);
                   const recommended = template.activeModules.includes(module.code);
                   return (
                     <div key={module.code} className="flex items-start justify-between gap-4 rounded-lg border border-border bg-background p-4">
@@ -279,13 +304,19 @@ export default function OnboardingPage() {
                                 рекомендовано
                               </span>
                             ) : null}
+                            {required ? (
+                              <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs text-primary">
+                                обязательно
+                              </span>
+                            ) : null}
                           </div>
                           <p className="mt-1 text-sm text-muted-foreground">{module.description}</p>
                         </div>
                       </div>
                       <Switch
                         checked={checked}
-                        disabled={module.plan === "pro"}
+                        disabled={required || module.plan === "pro"}
+                        label={`Включить модуль ${getModuleTitle(module.code, templateId)}`}
                         onCheckedChange={(value) =>
                           setSelectedModules((current) =>
                             value

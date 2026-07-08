@@ -12,16 +12,16 @@ export function ModuleCard({
   definition,
   module,
   title,
+  locked,
   onToggle,
-  onVisibility,
-  onSettings
+  onVisibility
 }: {
   definition: ModuleDefinition;
   module: CompanyModule;
   title: string;
+  locked?: boolean;
   onToggle: (enabled: boolean) => void;
   onVisibility: (visible: boolean) => void;
-  onSettings: () => void;
 }) {
   const enabled = module.status === "enabled" || module.status === "hidden";
   const unavailable = module.status === "unavailable";
@@ -51,10 +51,15 @@ export function ModuleCard({
               Данные не удалены. Модуль скрыт только из меню.
             </p>
           ) : null}
+          {locked ? (
+            <p className="mt-3 text-xs text-primary">
+              Обязательный раздел рабочего пространства.
+            </p>
+          ) : null}
         </div>
         <Switch
           checked={enabled && !unavailable}
-          disabled={unavailable}
+          disabled={unavailable || locked}
           onCheckedChange={onToggle}
           label={`Включить модуль ${title}`}
         />
@@ -64,13 +69,10 @@ export function ModuleCard({
           type="button"
           variant="outline"
           size="sm"
-          disabled={!enabled || unavailable}
+          disabled={!enabled || unavailable || locked}
           onClick={() => onVisibility(!module.visible)}
         >
           {module.visible ? "Скрыть из меню" : "Показать в меню"}
-        </Button>
-        <Button type="button" variant="secondary" size="sm" onClick={onSettings}>
-          Настроить
         </Button>
       </div>
     </Card>
