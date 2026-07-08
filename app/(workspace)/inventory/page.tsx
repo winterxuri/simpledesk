@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DataTable, type DataTableColumn } from "@/components/modules/data-table";
+import { EmptyState } from "@/components/modules/empty-state";
 import { PageHeader } from "@/components/modules/page-header";
 import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
@@ -97,6 +98,23 @@ type MovementForm = {
   unitCost: string;
 };
 
+type ProductGroup = {
+  name: string;
+  products: Product[];
+  productCount: number;
+  materialCount: number;
+  totalStock: number;
+  lowStockCount: number;
+  inventoryValue: number;
+};
+
+type InventoryFilter = {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  label: string;
+};
+
 export default function InventoryPage() {
   const data = useAppStore((state) => state.data);
   const updateProduct = useAppStore((state) => state.updateProduct);
@@ -106,6 +124,8 @@ export default function InventoryPage() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<InventorySortKey>("name");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<string | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [movementOpen, setMovementOpen] = useState(false);
   const [movementType, setMovementType] = useState<InventoryMovement["type"]>("income");
@@ -124,7 +144,13 @@ export default function InventoryPage() {
   const products = useMemo(() => {
     const query = search.toLowerCase();
     const filtered = data.products.filter((product) =>
-      [product.name, product.type, product.category, product.supplier, product.status].some((value) =>
+      [
+        product.name,
+        productTypeLabel(product.type),
+        productGroupName(product.category, "Без категории"),
+        productGroupName(product.supplier, "Без поставщика"),
+        product.status
+      ].some((value) =>
         value.toLowerCase().includes(query)
       )
     );
@@ -153,10 +179,10 @@ export default function InventoryPage() {
         return textCompare(productTypeLabel(a.type), productTypeLabel(b.type));
       }
       if (sortBy === "category") {
-        return textCompare(a.category, b.category);
+        return textCompare(productGroupName(a.category, "Без категории"), productGroupName(b.category, "Без категории"));
       }
       if (sortBy === "supplier") {
-        return textCompare(a.supplier, b.supplier);
+        return textCompare(productGroupName(a.supplier, "Без поставщика"), productGroupName(b.supplier, "Без поставщика"));
       }
       return textCompare(a.name, b.name);
     });
@@ -173,11 +199,11 @@ export default function InventoryPage() {
       )
     },
     { key: "type", header: "Тип", cell: (product) => productTypeLabel(product.type) },
-    { key: "category", header: "Категория", cell: (product) => product.category },
+    { key: "category", header: "Категория", cell: (product) => productGroupName(product.category, "Без категории") },
     { key: "stock", header: "Остаток", cell: (product) => `${product.currentStock} / мин. ${product.minStock}` },
     { key: "purchase", header: "Закупка", cell: (product) => formatCurrency(product.purchasePrice) },
     { key: "sale", header: "Продажа", cell: (product) => formatCurrency(product.salePrice) },
-    { key: "supplier", header: "Поставщик", cell: (product) => product.supplier },
+    { key: "supplier", header: "Поставщик", cell: (product) => productGroupName(product.supplier, "Без поставщика") },
     { key: "status", header: "Статус", cell: (product) => <StatusBadge status={product.status} /> }
   ];
 
@@ -185,9 +211,52 @@ export default function InventoryPage() {
     name: product.name.split(" ").slice(0, 2).join(" "),
     расход: Math.max(1, product.minStock + 8 - product.currentStock)
   }));
-  const categories = Array.from(new Set(data.products.map((product) => product.category)));
-  const suppliers = Array.from(new Set(data.products.map((product) => product.supplier).filter(Boolean)));
+  const categoryGroups = useMemo(
+    () => buildProductGroups(data.products, (product) => product.category, "Без категории"),
+    [data.products]
+  );
+  const supplierGroups = useMemo(
+    () => buildProductGroups(data.products, (product) => product.supplier, "Без поставщика"),
+    [data.products]
+  );
+  const suppliers = supplierGroups.filter((group) => group.name !== "Без поставщика").map((group) => group.name);
+  const selectedCategoryGroup = selectedCategory
+    ? categoryGroups.find((group) => group.name === selectedCategory) ?? null
+    : null;
+  const selectedSupplierGroup = selectedSupplier
+    ? supplierGroups.find((group) => group.name === selectedSupplier) ?? null
+    : null;
+  const selectedCategoryRows = selectedCategory
+    ? products.filter((product) => productGroupName(product.category, "Без категории") === selectedCategory)
+    : [];
+  const selectedSupplierRows = selectedSupplier
+    ? products.filter((product) => productGroupName(product.supplier, "Без поставщика") === selectedSupplier)
+    : [];
   const selectedMovementProduct = data.products.find((product) => product.id === movementForm.productId);
+  const inventoryFilters = [
+    {
+      label: "Сортировка",
+      value: sortBy,
+      onChange: (value: string) => setSortBy(value as InventorySortKey),
+      options: sortOptions
+    },
+    {
+      label: "Направление",
+      value: sortDirection,
+      onChange: (value: string) => setSortDirection(value as "asc" | "desc"),
+      options: sortDirectionOptions
+    }
+  ];
+
+  function openCategory(name: string) {
+    setSelectedCategory(name);
+    setSearch("");
+  }
+
+  function openSupplier(name: string) {
+    setSelectedSupplier(name);
+    setSearch("");
+  }
 
   function openProduct(product: Product) {
     setSelectedProduct(product);
@@ -400,20 +469,7 @@ export default function InventoryPage() {
           <SearchAndFilters
             search={search}
             onSearchChange={setSearch}
-            filters={[
-              {
-                label: "Сортировка",
-                value: sortBy,
-                onChange: (value) => setSortBy(value as InventorySortKey),
-                options: sortOptions
-              },
-              {
-                label: "Направление",
-                value: sortDirection,
-                onChange: (value) => setSortDirection(value as "asc" | "desc"),
-                options: sortDirectionOptions
-              }
-            ]}
+            filters={inventoryFilters}
           />
           <DataTable
             rows={products.filter((product) => tab === "products" ? product.type !== "material" : product.type === "material")}
@@ -451,8 +507,60 @@ export default function InventoryPage() {
           })}
         </div>
       ) : null}
-      {tab === "categories" ? <SimpleList items={categories} /> : null}
-      {tab === "suppliers" ? <SimpleList items={suppliers} /> : null}
+      {tab === "categories" ? (
+        selectedCategoryGroup ? (
+          <ProductGroupDetail
+            title={`Категория: ${selectedCategoryGroup.name}`}
+            description="Позиции внутри выбранной категории. Поиск и сортировка применяются только к этому списку."
+            backLabel="К списку категорий"
+            group={selectedCategoryGroup}
+            rows={selectedCategoryRows}
+            columns={columns}
+            search={search}
+            onSearchChange={setSearch}
+            filters={inventoryFilters}
+            onBack={() => {
+              setSelectedCategory(null);
+              setSearch("");
+            }}
+          />
+        ) : (
+          <ProductGroupList
+            groups={categoryGroups}
+            emptyTitle="Категорий пока нет"
+            emptyDescription="Категории появятся после добавления товаров, расходников или запчастей."
+            ariaPrefix="Открыть категорию"
+            onSelect={openCategory}
+          />
+        )
+      ) : null}
+      {tab === "suppliers" ? (
+        selectedSupplierGroup ? (
+          <ProductGroupDetail
+            title={`Поставщик: ${selectedSupplierGroup.name}`}
+            description="Позиции, которые относятся к выбранному поставщику."
+            backLabel="К списку поставщиков"
+            group={selectedSupplierGroup}
+            rows={selectedSupplierRows}
+            columns={columns}
+            search={search}
+            onSearchChange={setSearch}
+            filters={inventoryFilters}
+            onBack={() => {
+              setSelectedSupplier(null);
+              setSearch("");
+            }}
+          />
+        ) : (
+          <ProductGroupList
+            groups={supplierGroups}
+            emptyTitle="Поставщиков пока нет"
+            emptyDescription="Поставщики появятся после заполнения карточек товаров или поступлений."
+            ariaPrefix="Открыть поставщика"
+            onSelect={openSupplier}
+          />
+        )
+      ) : null}
 
       <Dialog
         open={Boolean(selectedProduct)}
@@ -635,16 +743,175 @@ export default function InventoryPage() {
   );
 }
 
-function SimpleList({ items }: { items: string[] }) {
+function ProductGroupList({
+  groups,
+  emptyTitle,
+  emptyDescription,
+  ariaPrefix,
+  onSelect
+}: {
+  groups: ProductGroup[];
+  emptyTitle: string;
+  emptyDescription: string;
+  ariaPrefix: string;
+  onSelect: (name: string) => void;
+}) {
+  if (!groups.length) {
+    return <EmptyState title={emptyTitle} description={emptyDescription} />;
+  }
+
   return (
     <div className="grid gap-3 md:grid-cols-3">
-      {items.map((item) => (
-        <div key={item} className="rounded-lg border border-border bg-card p-4 font-medium">
-          {item}
-        </div>
+      {groups.map((group) => (
+        <button
+          key={group.name}
+          type="button"
+          aria-label={`${ariaPrefix}: ${group.name}`}
+          className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-muted/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          onClick={() => onSelect(group.name)}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="font-semibold">{group.name}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{pluralPositions(group.products.length)}</p>
+            </div>
+            <span className="rounded-md bg-accent px-2 py-1 text-xs text-accent-foreground">
+              Открыть
+            </span>
+          </div>
+          <div className="mt-4 space-y-2 text-sm">
+            <GroupRow label="Расходники" value={String(group.materialCount)} />
+            <GroupRow label="Товары и запчасти" value={String(group.productCount)} />
+            <GroupRow label="Остаток" value={`${group.totalStock} шт.`} />
+            <GroupRow label="На складе" value={formatCurrency(group.inventoryValue)} />
+            {group.lowStockCount ? (
+              <GroupRow label="Требует внимания" value={String(group.lowStockCount)} />
+            ) : null}
+          </div>
+        </button>
       ))}
     </div>
   );
+}
+
+function ProductGroupDetail({
+  title,
+  description,
+  backLabel,
+  group,
+  rows,
+  columns,
+  search,
+  onSearchChange,
+  filters,
+  onBack
+}: {
+  title: string;
+  description: string;
+  backLabel: string;
+  group: ProductGroup;
+  rows: Product[];
+  columns: DataTableColumn<Product>[];
+  search: string;
+  onSearchChange: (value: string) => void;
+  filters: InventoryFilter[];
+  onBack: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="font-semibold">{title}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+        <Button type="button" variant="outline" onClick={onBack}>
+          {backLabel}
+        </Button>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <SummaryMetric label="Позиций" value={String(group.products.length)} />
+        <SummaryMetric label="Расходников" value={String(group.materialCount)} />
+        <SummaryMetric label="Товаров и запчастей" value={String(group.productCount)} />
+        <SummaryMetric label="Общий остаток" value={`${group.totalStock} шт.`} />
+        <SummaryMetric label="Стоимость остатков" value={formatCurrency(group.inventoryValue)} />
+      </div>
+
+      <SearchAndFilters search={search} onSearchChange={onSearchChange} filters={filters} />
+      <DataTable
+        rows={rows}
+        columns={columns}
+        empty={
+          <EmptyState
+            title="Позиции не найдены"
+            description="Измените поиск или сортировку, чтобы увидеть позиции внутри выбранной группы."
+          />
+        }
+      />
+    </div>
+  );
+}
+
+function GroupRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}
+
+function SummaryMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-3">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-1 font-semibold">{value}</p>
+    </div>
+  );
+}
+
+function buildProductGroups(
+  products: Product[],
+  getValue: (product: Product) => string,
+  fallback: string
+) {
+  const grouped = new Map<string, Product[]>();
+
+  products.forEach((product) => {
+    const name = productGroupName(getValue(product), fallback);
+    grouped.set(name, [...(grouped.get(name) ?? []), product]);
+  });
+
+  return Array.from(grouped.entries())
+    .map(([name, groupProducts]) => ({
+      name,
+      products: groupProducts,
+      productCount: groupProducts.filter((product) => product.type !== "material").length,
+      materialCount: groupProducts.filter((product) => product.type === "material").length,
+      totalStock: groupProducts.reduce((sum, product) => sum + product.currentStock, 0),
+      lowStockCount: groupProducts.filter((product) => product.status !== "ok").length,
+      inventoryValue: groupProducts.reduce(
+        (sum, product) => sum + product.currentStock * product.purchasePrice,
+        0
+      )
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
+function productGroupName(value: string, fallback: string) {
+  return value.trim() || fallback;
+}
+
+function pluralPositions(count: number) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) {
+    return `${count} позиция`;
+  }
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) {
+    return `${count} позиции`;
+  }
+  return `${count} позиций`;
 }
 
 function createEmptyMovementForm(productId: string): MovementForm {
