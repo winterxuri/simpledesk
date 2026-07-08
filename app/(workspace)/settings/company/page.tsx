@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { PageHeader } from "@/components/modules/page-header";
-import { PRODUCT_LOGO_PATH } from "@/config/product";
 import { BUSINESS_TEMPLATES } from "@/config/templates";
 import { useAppStore } from "@/store/app-store";
 
@@ -128,7 +127,6 @@ export default function SettingsCompanyPage() {
           <h2 className="font-semibold">Профиль компании</h2>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             <Field label="Название" value={draft.name} onChange={(value) => setDraft({ ...draft, name: value })} />
-            <Field label="Логотип" value={draft.logoUrl ?? ""} onChange={(value) => setDraft({ ...draft, logoUrl: value })} placeholder={PRODUCT_LOGO_PATH} />
             <Field label="Сфера бизнеса" value={draft.industry} onChange={(value) => setDraft({ ...draft, industry: value })} />
             <Field label="Адрес" value={draft.address} onChange={(value) => setDraft({ ...draft, address: value })} />
             <Field label="Телефон" value={draft.phone} onChange={(value) => setDraft({ ...draft, phone: value })} />
