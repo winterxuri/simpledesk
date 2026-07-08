@@ -53,8 +53,8 @@ export const MODULES: ModuleDefinition[] = [
   },
   {
     code: "resources",
-    title: "Ресурсы",
-    description: "Рабочие места, помещения, оборудование и бронирования.",
+    title: "Помещения и оборудование",
+    description: "Кабинеты, посты, залы, техника и другое, что нужно бронировать вместе с записью.",
     icon: "Wrench",
     route: "/resources",
     dependencies: ["calendar"],

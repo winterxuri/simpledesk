@@ -35,8 +35,10 @@ export default function SettingsModulesPage() {
         title="Настройки модулей"
         description="Каталог разделов с зависимостями, статусами и безопасным отключением."
       />
-      <Card className="mb-6 border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200">
-        Модуль «Ресурсы» используется в 8 будущих записях. После скрытия существующие связи сохранятся.
+      <Card className="mb-6 border-border bg-card p-4 text-sm text-muted-foreground">
+        Модуль «Помещения и оборудование» нужен только если вместе с записью требуется бронировать кабинет,
+        пост, зал, технику или другое ограниченное место. Если бизнес работает только по сотрудникам,
+        модуль лучше держать скрытым.
       </Card>
       <div className="grid gap-4 lg:grid-cols-2">
         {enriched.map(({ module, definition, title }) => (

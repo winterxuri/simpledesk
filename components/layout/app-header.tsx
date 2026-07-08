@@ -16,7 +16,7 @@ const titles: Record<string, string> = {
   "/clients": "Клиенты",
   "/employees": "Сотрудники",
   "/inventory": "Товары и расходники",
-  "/resources": "Ресурсы",
+  "/resources": "Помещения и оборудование",
   "/promotions": "Акции",
   "/tasks": "Задачи",
   "/reports": "Отчёты",

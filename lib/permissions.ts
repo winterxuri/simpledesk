@@ -38,7 +38,7 @@ const roleModuleAccess: Record<Role, Array<ModuleCode | "settings">> = {
     "analytics",
     "integrations"
   ],
-  employee: ["dashboard", "calendar", "clients", "resources", "tasks"]
+  employee: ["dashboard", "calendar", "clients", "tasks"]
 };
 
 const routeAccess: Array<{
@@ -50,6 +50,7 @@ const routeAccess: Array<{
   { pattern: /^\/reports(?:\/|$)/, roles: ["owner", "admin"] },
   { pattern: /^\/employees(?:\/|$)/, roles: ["owner", "admin"] },
   { pattern: /^\/inventory(?:\/|$)/, roles: ["owner", "admin"] },
+  { pattern: /^\/resources(?:\/|$)/, roles: ["owner", "admin"] },
   { pattern: /^\/promotions(?:\/|$)/, roles: ["owner", "admin"] }
 ];
 

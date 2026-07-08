@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { EmptyState } from "@/components/modules/empty-state";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
@@ -12,9 +13,16 @@ export default function ResourcesPage() {
   return (
     <div>
       <PageHeader
-        title="Ресурсы"
-        description="Рабочие места, кабинеты, подъёмники, оборудование и будущие бронирования."
+        title="Помещения и оборудование"
+        description="Включайте этот раздел, если записи зависят от кабинетов, постов, залов, техники или другого ограниченного ресурса."
       />
+      {resources.length === 0 ? (
+        <EmptyState
+          icon="Wrench"
+          title="Помещения и оборудование не добавлены"
+          description="Если бизнес работает только по сотрудникам, этот модуль можно оставить скрытым. Добавлять его стоит для кабинетов, постов, залов, техники или оборудования, которое нужно бронировать."
+        />
+      ) : null}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {resources.map((resource) => (
           <Card key={resource.id} className="p-5">
