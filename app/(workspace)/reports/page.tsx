@@ -508,7 +508,7 @@ function buildReportSnapshot(
     paidAppointments: appointments.filter((appointment) => appointment.paid).length,
     clients: clients.length,
     newClients: clients.filter((client) => client.visits <= 1 || client.status === "new").length,
-    tasksOpen: tasks.filter((task) => task.status !== "done").length,
+    tasksOpen: tasks.filter((task) => task.status !== "done" && task.status !== "cancelled").length,
     tasksDone: tasks.filter((task) => task.status === "done").length,
     lowStock: data.products.filter((product) => ["low", "critical", "out"].includes(product.status)).length,
     inventoryWriteOff

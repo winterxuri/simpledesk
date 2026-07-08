@@ -30,24 +30,32 @@ const columns = [
   ["inProgress", "В работе"],
   ["waiting", "Ожидает"],
   ["done", "Выполнена"],
-  ["overdue", "Просрочена"]
+  ["overdue", "Просрочена"],
+  ["cancelled", "Отменена"]
 ] as const;
 
 const managerStatusActions: Partial<Record<TaskStatus, { label: string; status: TaskStatus }[]>> = {
-  new: [{ label: "Взять в работу", status: "inProgress" }],
+  new: [
+    { label: "Взять в работу", status: "inProgress" },
+    { label: "Отменить", status: "cancelled" }
+  ],
   inProgress: [
     { label: "Ожидание", status: "waiting" },
-    { label: "Закрыть", status: "done" }
+    { label: "Закрыть", status: "done" },
+    { label: "Отменить", status: "cancelled" }
   ],
   waiting: [
     { label: "Вернуть в работу", status: "inProgress" },
-    { label: "Закрыть", status: "done" }
+    { label: "Закрыть", status: "done" },
+    { label: "Отменить", status: "cancelled" }
   ],
   overdue: [
     { label: "В работу", status: "inProgress" },
-    { label: "Закрыть", status: "done" }
+    { label: "Закрыть", status: "done" },
+    { label: "Отменить", status: "cancelled" }
   ],
-  done: [{ label: "Переоткрыть", status: "inProgress" }]
+  done: [{ label: "Переоткрыть", status: "inProgress" }],
+  cancelled: [{ label: "Переоткрыть", status: "inProgress" }]
 };
 
 const employeeStatusActions: Partial<Record<TaskStatus, { label: string; status: TaskStatus }[]>> = {
@@ -74,6 +82,7 @@ export default function TasksPage() {
   const [view, setView] = useState("list");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const canManageTasks = canPerformAction(role, "manageTasks");
   const canUpdateTaskProgress = canPerformAction(role, "updateTaskProgress");
   const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
@@ -83,7 +92,8 @@ export default function TasksPage() {
     description: "",
     responsibleId: employees[0]?.id ?? "",
     priority: "medium",
-    dueDate: getLocalDateKey()
+    dueDate: getLocalDateKey(),
+    checklist: "Проверить детали\nПодтвердить выполнение"
   });
 
   const tasks = useMemo(
@@ -137,7 +147,42 @@ export default function TasksPage() {
   }
 
   function canEditTaskChecklist(task: Task) {
-    return canManageTasks || (canUpdateTaskProgress && task.status !== "done");
+    return canManageTasks || (canUpdateTaskProgress && task.status !== "done" && task.status !== "cancelled");
+  }
+
+  function openCreateTask() {
+    setSelectedTask(null);
+    setForm({
+      title: "",
+      description: "",
+      responsibleId: employees[0]?.id ?? "",
+      priority: "medium",
+      dueDate: getLocalDateKey(),
+      checklist: "Проверить детали\nПодтвердить выполнение"
+    });
+    setOpen(true);
+  }
+
+  function openEditTask(task: Task) {
+    if (!canManageTasks) {
+      addToast({
+        title: "Редактирование недоступно",
+        description: "Сотрудник может менять только рабочий статус и чек-лист своих задач.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    setSelectedTask(task);
+    setForm({
+      title: task.title,
+      description: task.description,
+      responsibleId: task.responsibleId,
+      priority: task.priority,
+      dueDate: task.dueDate,
+      checklist: task.checklist.map((item) => item.title).join("\n")
+    });
+    setOpen(true);
   }
 
   function changeTaskStatus(task: Task, status: TaskStatus) {
@@ -201,25 +246,43 @@ export default function TasksPage() {
       return;
     }
 
-    addTask({
+    const checklist = form.checklist
+      .split("\n")
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((title, index) => ({
+        title,
+        done: selectedTask?.checklist[index]?.title === title ? selectedTask.checklist[index].done : false
+      }));
+
+    const payload = {
       title,
       description: form.description.trim(),
       responsibleId: form.responsibleId,
       dueDate: form.dueDate || getLocalDateKey(),
       priority: form.priority as "low" | "medium" | "high",
-      status: "new",
-      checklist: [
-        { title: "Проверить детали", done: false },
-        { title: "Подтвердить выполнение", done: false }
-      ]
-    });
+      checklist: checklist.length ? checklist : [{ title: "Проверить детали", done: false }]
+    };
+
+    if (selectedTask) {
+      updateTask(selectedTask.id, payload);
+      addToast({ title: "Задача обновлена", variant: "success" });
+    } else {
+      addTask({
+        ...payload,
+        status: "new"
+      });
+    }
+
     setForm({
       title: "",
       description: "",
       responsibleId: employees[0]?.id ?? "",
       priority: "medium",
-      dueDate: getLocalDateKey()
+      dueDate: getLocalDateKey(),
+      checklist: "Проверить детали\nПодтвердить выполнение"
     });
+    setSelectedTask(null);
     setOpen(false);
   }
 
@@ -236,7 +299,7 @@ export default function TasksPage() {
           <div className="flex gap-2">
             <Tabs items={views} value={view} onValueChange={setView} />
             {canManageTasks ? (
-            <Button type="button" onClick={() => setOpen(true)}>
+            <Button type="button" onClick={openCreateTask}>
               <Plus className="h-4 w-4" />
               Создать задачу
             </Button>
@@ -303,6 +366,16 @@ export default function TasksPage() {
                 <div className="flex min-w-48 flex-col gap-3 text-sm text-muted-foreground">
                   <span>{employees.find((employee) => employee.id === task.responsibleId)?.name}</span>
                   <div className="flex flex-wrap gap-2 md:justify-end">
+                    {canManageTasks ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEditTask(task)}
+                      >
+                        Редактировать
+                      </Button>
+                    ) : null}
                     {getTaskStatusActions(task).map((action) => (
                       <Button
                         key={action.status}
@@ -334,7 +407,17 @@ export default function TasksPage() {
                       {task.checklist.filter((item) => item.done).length}/{task.checklist.length} проверок
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {getTaskStatusActions(task).slice(0, 2).map((action) => (
+                      {canManageTasks ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openEditTask(task)}
+                        >
+                          Ред.
+                        </Button>
+                      ) : null}
+                      {getTaskStatusActions(task).map((action) => (
                         <Button
                           key={action.status}
                           type="button"
@@ -354,7 +437,16 @@ export default function TasksPage() {
         </div>
       )}
 
-      <FormDrawer open={open} onOpenChange={setOpen} title="Новая задача">
+      <FormDrawer
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) {
+            setSelectedTask(null);
+          }
+        }}
+        title={selectedTask ? "Редактировать задачу" : "Новая задача"}
+      >
         <div className="space-y-4">
           <div className="space-y-2">
             <Label>Название</Label>
@@ -384,9 +476,17 @@ export default function TasksPage() {
             <Label>Срок выполнения</Label>
               <Input
                 type="date"
-                min={getLocalDateKey()}
+                min={selectedTask ? undefined : getLocalDateKey()}
                 value={form.dueDate}
               onChange={(event) => setForm({ ...form, dueDate: event.target.value })}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Чек-лист</Label>
+            <Textarea
+              value={form.checklist}
+              onChange={(event) => setForm({ ...form, checklist: event.target.value })}
+              placeholder="Каждый пункт с новой строки"
             />
           </div>
           <Button type="button" className="w-full" onClick={save}>Сохранить</Button>

@@ -520,7 +520,15 @@ export const useAppStore = create<AppStore>()(
             if (item.id !== id) {
               return item;
             }
-            changedEmployee = { ...item, ...employee };
+            const patch =
+              item.role === "owner"
+                ? {
+                    ...employee,
+                    role: "owner" as const,
+                    status: employee.status === "dismissed" ? item.status : employee.status
+                  }
+                : employee;
+            changedEmployee = { ...item, ...patch };
             return changedEmployee;
           });
           if (changedEmployee) {
@@ -539,6 +547,9 @@ export const useAppStore = create<AppStore>()(
           let changedEmployee: Employee | undefined;
           const employees = state.data.employees.map((item) => {
             if (item.id !== id) {
+              return item;
+            }
+            if (item.role === "owner") {
               return item;
             }
             changedEmployee = {

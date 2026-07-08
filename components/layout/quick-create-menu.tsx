@@ -52,11 +52,14 @@ const compensationOptions: { value: NonNullable<Employee["compensationType"]>; l
 type WorkspaceData = ReturnType<typeof useAppStore.getState>["data"];
 
 type QuickCreateForm = {
-  clientName: string;
+  clientLastName: string;
+  clientFirstName: string;
+  clientMiddleName: string;
   clientPhone: string;
   clientEmail: string;
   clientResponsibleId: string;
   clientNextAppointment: string;
+  clientSource: string;
   clientNotes: string;
   appointmentClientId: string;
   appointmentEmployeeId: string;
@@ -74,6 +77,8 @@ type QuickCreateForm = {
   taskPriority: Priority;
   taskChecklist: string;
   saleAmount: string;
+  saleProductId: string;
+  saleQuantity: string;
   saleCategory: string;
   saleDate: string;
   saleClientId: string;
@@ -92,7 +97,8 @@ type QuickCreateForm = {
   employeeEmail: string;
   employeePosition: string;
   employeeRole: Employee["role"];
-  employeeSchedule: string;
+  employeeScheduleStart: string;
+  employeeScheduleEnd: string;
   employeeCompensationType: NonNullable<Employee["compensationType"]>;
   employeeBaseSalary: string;
   employeeCommissionPercent: string;
@@ -102,14 +108,18 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
   const today = getLocalDateKey();
   const firstEmployeeId = data.employees[0]?.id ?? "";
   const firstClientId = data.clients[0]?.id ?? "";
+  const firstSaleProduct = data.products.find((product) => product.currentStock > 0) ?? data.products[0];
   const productType: Product["type"] = type === "material" ? "material" : "product";
 
   return {
-    clientName: "",
+    clientLastName: "",
+    clientFirstName: "",
+    clientMiddleName: "",
     clientPhone: "",
     clientEmail: "",
     clientResponsibleId: firstEmployeeId,
     clientNextAppointment: "",
+    clientSource: "",
     clientNotes: "",
     appointmentClientId: firstClientId,
     appointmentEmployeeId: firstEmployeeId,
@@ -126,7 +136,9 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     taskDueDate: today,
     taskPriority: "medium",
     taskChecklist: "Проверить детали\nПодтвердить выполнение",
-    saleAmount: "",
+    saleAmount: firstSaleProduct ? String(firstSaleProduct.salePrice) : "",
+    saleProductId: firstSaleProduct?.id ?? "",
+    saleQuantity: "1",
     saleCategory: "Продажа",
     saleDate: today,
     saleClientId: firstClientId,
@@ -145,7 +157,8 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     employeeEmail: "",
     employeePosition: "",
     employeeRole: "employee",
-    employeeSchedule: "09:00-18:00",
+    employeeScheduleStart: "09:00",
+    employeeScheduleEnd: "18:00",
     employeeCompensationType: "fixed",
     employeeBaseSalary: "0",
     employeeCommissionPercent: "0"
@@ -163,6 +176,8 @@ export function QuickCreateMenu() {
   const addAppointment = useAppStore((state) => state.addAppointment);
   const addEmployee = useAppStore((state) => state.addEmployee);
   const addProduct = useAppStore((state) => state.addProduct);
+  const updateProduct = useAppStore((state) => state.updateProduct);
+  const addInventoryMovement = useAppStore((state) => state.addInventoryMovement);
   const addFinancialOperation = useAppStore((state) => state.addFinancialOperation);
   const addToast = useAppStore((state) => state.addToast);
   const data = useAppStore((state) => state.data);
@@ -222,14 +237,14 @@ export function QuickCreateMenu() {
   }
 
   function saveClient() {
-    const name = form.clientName.trim();
+    const name = buildFullName(form.clientLastName, form.clientFirstName, form.clientMiddleName);
     const phone = form.clientPhone.trim();
     const email = form.clientEmail.trim();
 
     if (!name) {
       addToast({
-        title: "Укажите ФИО клиента",
-        description: "Имя нужно для поиска, записи и истории клиента.",
+        title: "Укажите имя клиента",
+        description: "Минимум имя или фамилия нужны для поиска, записи и истории клиента.",
         variant: "warning"
       });
       return false;
@@ -260,7 +275,7 @@ export function QuickCreateMenu() {
       status: "new",
       responsibleId: form.clientResponsibleId || data.employees[0]?.id || "employee-1",
       nextAppointment: form.clientNextAppointment || undefined,
-      source: "Быстрое создание",
+      source: form.clientSource || "Быстрое создание",
       notes: form.clientNotes.trim()
     });
     return true;
@@ -391,6 +406,37 @@ export function QuickCreateMenu() {
 
   function saveSale() {
     const amount = Number(form.saleAmount);
+    const quantity = Number(form.saleQuantity);
+    const product = data.products.find((item) => item.id === form.saleProductId);
+
+    if (!form.saleDate) {
+      addToast({
+        title: "Укажите дату продажи",
+        description: "Дата нужна для отчётов, выручки и истории клиента.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (product) {
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        addToast({
+          title: "Укажите количество",
+          description: "Количество товара должно быть больше нуля.",
+          variant: "warning"
+        });
+        return false;
+      }
+
+      if (quantity > product.currentStock) {
+        addToast({
+          title: "Недостаточно остатка",
+          description: `Сейчас доступно ${product.currentStock}. Уменьшите количество или скорректируйте склад.`,
+          variant: "warning"
+        });
+        return false;
+      }
+    }
 
     if (!Number.isFinite(amount) || amount <= 0) {
       addToast({
@@ -414,11 +460,27 @@ export function QuickCreateMenu() {
       type: "income",
       category: form.saleCategory.trim(),
       amount,
-      date: form.saleDate || getLocalDateKey(),
-      comment: form.saleComment.trim() || "Продажа через быстрое создание",
+      date: form.saleDate,
+      comment: form.saleComment.trim() || (product ? `Продажа: ${product.name} x ${quantity}` : "Продажа через быстрое создание"),
       clientId: form.saleClientId || undefined,
       employeeId: form.saleEmployeeId || undefined
     });
+
+    if (product) {
+      const nextStock = product.currentStock - quantity;
+      addInventoryMovement({
+        productId: product.id,
+        type: "writeOff",
+        quantity,
+        date: form.saleDate,
+        comment: `Продажа через быстрое создание${form.saleClientId ? " клиенту" : ""}`
+      });
+      updateProduct(product.id, {
+        currentStock: nextStock,
+        status: getProductStatus(nextStock, product.minStock)
+      });
+    }
+
     return true;
   }
 
@@ -498,6 +560,7 @@ export function QuickCreateMenu() {
     const name = form.employeeName.trim();
     const position = form.employeePosition.trim();
     const email = form.employeeEmail.trim().toLowerCase();
+    const schedule = buildScheduleFromTimes(form.employeeScheduleStart, form.employeeScheduleEnd);
     const baseSalary = Number(form.employeeBaseSalary);
     const commissionPercent = Number(form.employeeCommissionPercent);
 
@@ -505,6 +568,15 @@ export function QuickCreateMenu() {
       addToast({
         title: "Заполните карточку сотрудника",
         description: "Для карточки сотрудника нужны ФИО и должность.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!isValidTimeRange(form.employeeScheduleStart, form.employeeScheduleEnd)) {
+      addToast({
+        title: "Проверьте график",
+        description: "Время начала и окончания нужно указать в 24-часовом формате, окончание должно быть позже начала.",
         variant: "warning"
       });
       return false;
@@ -534,7 +606,7 @@ export function QuickCreateMenu() {
       email,
       position,
       status: "working",
-      schedule: form.employeeSchedule.trim() || "09:00-18:00",
+      schedule,
       role: form.employeeRole,
       loadPercent: 0,
       revenue: 0,
@@ -609,9 +681,18 @@ function renderClientForm(
   setForm: (form: QuickCreateForm) => void,
   data: WorkspaceData
 ) {
+  const promotionOptions = data.promotions.map((promotion) => ({
+    value: promotion.name,
+    label: promotion.name
+  }));
+
   return (
     <div className="space-y-4">
-      <Field id="quick-client-name" label="ФИО клиента" value={form.clientName} onChange={(clientName) => setForm({ ...form, clientName })} />
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field id="quick-client-last-name" label="Фамилия" value={form.clientLastName} onChange={(clientLastName) => setForm({ ...form, clientLastName })} />
+        <Field id="quick-client-first-name" label="Имя" value={form.clientFirstName} onChange={(clientFirstName) => setForm({ ...form, clientFirstName })} />
+        <Field id="quick-client-middle-name" label="Отчество" value={form.clientMiddleName} onChange={(clientMiddleName) => setForm({ ...form, clientMiddleName })} />
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="quick-client-phone" label="Телефон" type="tel" value={form.clientPhone} onChange={(clientPhone) => setForm({ ...form, clientPhone })} />
         <Field id="quick-client-email" label="Email" type="email" value={form.clientEmail} onChange={(clientEmail) => setForm({ ...form, clientEmail })} />
@@ -633,6 +714,15 @@ function renderClientForm(
           onChange={(clientNextAppointment) => setForm({ ...form, clientNextAppointment })}
         />
       </div>
+      <SelectField
+        id="quick-client-source"
+        label="Акция / источник"
+        value={form.clientSource}
+        onChange={(clientSource) => setForm({ ...form, clientSource })}
+        options={promotionOptions}
+        emptyLabel="Без акции"
+        allowEmpty
+      />
       <TextareaField id="quick-client-notes" label="Комментарий" value={form.clientNotes} onChange={(clientNotes) => setForm({ ...form, clientNotes })} />
     </div>
   );
@@ -727,13 +817,65 @@ function renderSaleForm(
   setForm: (form: QuickCreateForm) => void,
   data: WorkspaceData
 ) {
+  const product = data.products.find((item) => item.id === form.saleProductId);
+  const quantity = Number(form.saleQuantity);
+  const productOptions = data.products.map((item) => ({
+    value: item.id,
+    label: `${item.name} · остаток ${item.currentStock}`
+  }));
+
   return (
     <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField
+          id="quick-sale-product"
+          label="Товар"
+          value={form.saleProductId}
+          onChange={(saleProductId) => {
+            const nextProduct = data.products.find((item) => item.id === saleProductId);
+            setForm({
+              ...form,
+              saleProductId,
+              saleCategory: nextProduct?.category ?? form.saleCategory,
+              saleAmount:
+                nextProduct && Number.isFinite(quantity) && quantity > 0
+                  ? String(nextProduct.salePrice * quantity)
+                  : form.saleAmount
+            });
+          }}
+          options={productOptions}
+          emptyLabel={data.products.length ? "Ручная продажа без товара" : "Товаров нет"}
+          allowEmpty
+        />
+        <Field
+          id="quick-sale-quantity"
+          label="Количество"
+          type="number"
+          min="1"
+          value={form.saleQuantity}
+          onChange={(saleQuantity) => {
+            const nextQuantity = Number(saleQuantity);
+            setForm({
+              ...form,
+              saleQuantity,
+              saleAmount:
+                product && Number.isFinite(nextQuantity) && nextQuantity > 0
+                  ? String(product.salePrice * nextQuantity)
+                  : form.saleAmount
+            });
+          }}
+        />
+      </div>
       <div className="grid gap-4 sm:grid-cols-3">
         <Field id="quick-sale-amount" label="Сумма" type="number" min="1" value={form.saleAmount} onChange={(saleAmount) => setForm({ ...form, saleAmount })} />
-        <Field id="quick-sale-category" label="Категория" value={form.saleCategory} onChange={(saleCategory) => setForm({ ...form, saleCategory })} />
+        <Field id="quick-sale-category" label="Категория дохода" value={form.saleCategory} onChange={(saleCategory) => setForm({ ...form, saleCategory })} />
         <Field id="quick-sale-date" label="Дата" type="date" value={form.saleDate} onChange={(saleDate) => setForm({ ...form, saleDate })} />
       </div>
+      {product ? (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+          После сохранения будет создан доход и списано {Number.isFinite(quantity) && quantity > 0 ? quantity : 0} шт. со склада.
+        </div>
+      ) : null}
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
           id="quick-sale-client"
@@ -817,13 +959,28 @@ function renderEmployeeForm(form: QuickCreateForm, setForm: (form: QuickCreateFo
           onChange={(employeeRole) => setForm({ ...form, employeeRole: employeeRole as Employee["role"] })}
           options={roleOptions}
         />
-        <Field id="quick-employee-schedule" label="График" value={form.employeeSchedule} onChange={(employeeSchedule) => setForm({ ...form, employeeSchedule })} />
         <SelectField
           id="quick-employee-compensation"
           label="Оплата"
           value={form.employeeCompensationType}
           onChange={(employeeCompensationType) => setForm({ ...form, employeeCompensationType: employeeCompensationType as NonNullable<Employee["compensationType"]> })}
           options={compensationOptions}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          id="quick-employee-schedule-start"
+          label="Начало смены"
+          type="time"
+          value={form.employeeScheduleStart}
+          onChange={(employeeScheduleStart) => setForm({ ...form, employeeScheduleStart })}
+        />
+        <Field
+          id="quick-employee-schedule-end"
+          label="Конец смены"
+          type="time"
+          value={form.employeeScheduleEnd}
+          onChange={(employeeScheduleEnd) => setForm({ ...form, employeeScheduleEnd })}
         />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -938,12 +1095,18 @@ function getDrawerDescription(type: QuickCreateType | null) {
     return "Заполните клиента, сотрудника, дату, время, работу и стоимость.";
   }
   if (type === "client") {
-    return "Заполните ФИО и минимум один контакт: телефон или email.";
+    return "Заполните имя клиента, контакт и при необходимости укажите акцию или источник обращения.";
+  }
+  if (type === "task") {
+    return "Опишите задачу, назначьте ответственного и срок выполнения.";
+  }
+  if (type === "sale") {
+    return "Выберите товар для списания со склада или оформите ручную продажу как доход.";
   }
   if (type === "employee") {
-    return "Быстро создаётся карточка сотрудника без автоматического invite.";
+    return "Создайте карточку сотрудника с ролью, графиком и базовыми условиями оплаты.";
   }
-  return "Для зарегистрированной компании данные сохраняются в Supabase, в демо-режиме - локально.";
+  return "Заполните обязательные поля и сохраните объект в рабочем пространстве.";
 }
 
 function getProductStatus(currentStock: number, minStock: number): ProductStatus {
@@ -957,4 +1120,19 @@ function getProductStatus(currentStock: number, minStock: number): ProductStatus
     return "low";
   }
   return "ok";
+}
+
+function buildFullName(lastName: string, firstName: string, middleName: string) {
+  return [lastName, firstName, middleName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
+}
+
+function buildScheduleFromTimes(start: string, end: string) {
+  return `${start}-${end}`;
+}
+
+function isValidTimeRange(start: string, end: string) {
+  return /^\d{2}:\d{2}$/.test(start) && /^\d{2}:\d{2}$/.test(end) && end > start;
 }

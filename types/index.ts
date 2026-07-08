@@ -50,7 +50,7 @@ export type PromotionStatus =
   | "ending"
   | "finished"
   | "paused";
-export type TaskStatus = "new" | "inProgress" | "waiting" | "done" | "overdue";
+export type TaskStatus = "new" | "inProgress" | "waiting" | "done" | "overdue" | "cancelled";
 export type Priority = "low" | "medium" | "high";
 
 export interface User {

@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { buildNavigationItems } from "@/config/navigation";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canAccessNavigationItem } from "@/lib/permissions";
-import { formatDate } from "@/lib/utils";
+import { getPromotionDisplayStatus } from "@/lib/promotion-status";
+import { formatDate, getLocalDateKey } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
 import type { ModuleCode } from "@/types";
 
@@ -38,6 +39,7 @@ export function GlobalSearch() {
   const company = useAppStore((state) => state.company);
   const modules = useAppStore((state) => state.companyModules);
   const normalizedQuery = normalize(query);
+  const today = getLocalDateKey();
   const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
 
   const accessibleModules = useMemo(() => {
@@ -126,19 +128,33 @@ export function GlobalSearch() {
 
     if (role !== "employee" && canSearch("promotions")) {
       data.promotions.forEach((promotion) => {
+        const status = getPromotionDisplayStatus(promotion, today);
         results.push({
           id: `promotion-${promotion.id}`,
           title: promotion.name,
-          description: `${promotion.period} · ${promotion.status}`,
+          description: `${promotion.period} · ${status}`,
           section: "Акции",
           route: "/promotions",
-          searchText: joinSearchFields([promotion.name, promotion.description, promotion.conditions, promotion.status])
+          searchText: joinSearchFields([promotion.name, promotion.description, promotion.conditions, status])
+        });
+      });
+    }
+
+    if (role !== "employee" && canSearch("resources")) {
+      data.resources.forEach((resource) => {
+        results.push({
+          id: `resource-${resource.id}`,
+          title: resource.name,
+          description: `${resource.type} · ${resource.status}`,
+          section: "Ресурсы",
+          route: "/resources",
+          searchText: joinSearchFields([resource.name, resource.type, resource.status, resource.condition, resource.comment])
         });
       });
     }
 
     return results;
-  }, [accessibleModules, data.employees, data.products, data.promotions, role, scopedData]);
+  }, [accessibleModules, data.employees, data.products, data.promotions, data.resources, role, scopedData, today]);
 
   const results = useMemo(() => {
     if (normalizedQuery.length < 2) {

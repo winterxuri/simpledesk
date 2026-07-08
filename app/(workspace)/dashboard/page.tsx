@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -19,6 +19,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction, type PermissionAction } from "@/lib/permissions";
+import { getPromotionDisplayStatus } from "@/lib/promotion-status";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { QuickCreateType } from "@/types";
 
@@ -30,6 +31,8 @@ export default function DashboardPage() {
   const addToast = useAppStore((state) => state.addToast);
   const openQuickCreate = useAppStore((state) => state.openQuickCreate);
   const [greeting, setGreeting] = useState("Здравствуйте");
+  const [planHighlight, setPlanHighlight] = useState(false);
+  const dayPlanRef = useRef<HTMLDivElement | null>(null);
   const appointmentTerm = company.terminology.appointment;
   const today = getLocalDateKey(new Date());
   const isEmployee = role === "employee";
@@ -51,21 +54,22 @@ export default function DashboardPage() {
     .filter((appointment) => appointment.date === today)
     .slice(0, 6);
   const todayTasks = visibleTasks
-    .filter((task) => task.status !== "done" && task.dueDate <= today)
+    .filter((task) => task.status !== "done" && task.status !== "cancelled" && task.dueDate <= today)
     .slice(0, 6);
   const todayRevenue = data.financialOperations
     .filter((operation) => operation.type === "income" && operation.date === today)
     .reduce((sum, operation) => sum + operation.amount, 0);
   const newClientsToday = data.clients.filter((client) => client.lastVisit === today && client.visits === 0).length;
-  const activePromotions = data.promotions.filter((promotion) =>
-    ["active", "scheduled", "ending"].includes(promotion.status)
+  const promotionStatuses = data.promotions.map((promotion) => getPromotionDisplayStatus(promotion, today));
+  const activePromotions = promotionStatuses.filter((status) =>
+    ["active", "scheduled", "ending"].includes(status)
   ).length;
   const lowStock = data.products.filter((product) =>
     ["low", "critical", "out"].includes(product.status)
   ).length;
-  const overdueTasks = visibleTasks.filter((task) => task.status !== "done" && (task.status === "overdue" || task.dueDate < today)).length;
+  const overdueTasks = visibleTasks.filter((task) => task.status !== "done" && task.status !== "cancelled" && (task.status === "overdue" || task.dueDate < today)).length;
   const unconfirmedAppointments = todayAppointments.filter((appointment) => appointment.status === "planned").length;
-  const endingPromotions = data.promotions.filter((promotion) => promotion.status === "ending").length;
+  const endingPromotions = promotionStatuses.filter((status) => status === "ending").length;
   const attention = [
     unconfirmedAppointments ? `${unconfirmedAppointments} ${plural(unconfirmedAppointments, ["запись", "записи", "записей"])} ожидает подтверждения` : "",
     !isEmployee && lowStock ? `${lowStock} ${plural(lowStock, ["позиция", "позиции", "позиций"])} склада требует закупки` : "",
@@ -87,6 +91,17 @@ export default function DashboardPage() {
   useEffect(() => {
     setGreeting(getGreetingByHour(new Date().getHours()));
   }, []);
+
+  function openDayPlan() {
+    dayPlanRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setPlanHighlight(true);
+    window.setTimeout(() => setPlanHighlight(false), 1800);
+    addToast({
+      title: isEmployee ? "План дня открыт" : "Рабочий день открыт",
+      description: isEmployee ? "Показываю ваши записи и задачи на сегодня." : "Показываю расписание, задачи и события на сегодня.",
+      variant: "info"
+    });
+  }
 
   if (!hasBusinessData) {
     return (
@@ -129,11 +144,7 @@ export default function DashboardPage() {
         title={`${greeting}, ${userFirstName}`}
         description={isEmployee ? "Ваши записи, задачи и важные события на сегодня." : "Вот что происходит в вашем бизнесе сегодня."}
         actions={
-          <Button type="button" onClick={() => addToast({
-            title: isEmployee ? "План дня открыт" : "Рабочий день открыт",
-            description: isEmployee ? "Проверьте свои записи и задачи на сегодня." : "Проверьте записи, задачи и остатки на сегодня.",
-            variant: "info"
-          })}>
+          <Button type="button" onClick={openDayPlan}>
             Открыть план дня
           </Button>
         }
@@ -207,7 +218,12 @@ export default function DashboardPage() {
       </div>
       )}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div
+        ref={dayPlanRef}
+        className={`mt-6 grid scroll-mt-20 gap-6 rounded-lg transition-shadow xl:grid-cols-[1.1fr_0.9fr] ${
+          planHighlight ? "shadow-[0_0_0_3px_hsl(var(--primary)/0.25)]" : ""
+        }`}
+      >
         <DashboardWidget title="Требует внимания">
           {attention.length ? (
             <div className="space-y-3">

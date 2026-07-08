@@ -13,16 +13,19 @@ import { FormDrawer } from "@/components/modules/form-drawer";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
+import {
+  getPromotionDisplayStatus,
+  getPromotionManualMode,
+  resolvePromotionStatus,
+  type PromotionManualMode
+} from "@/lib/promotion-status";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
-import type { Promotion, PromotionStatus } from "@/types";
+import type { Promotion } from "@/types";
 
-const statusOptions: { value: PromotionStatus; label: string }[] = [
+const manualStatusOptions: { value: PromotionManualMode; label: string }[] = [
+  { value: "auto", label: "Автоматически по датам" },
   { value: "draft", label: "Черновик" },
-  { value: "scheduled", label: "Запланирована" },
-  { value: "active", label: "Активна" },
-  { value: "paused", label: "Пауза" },
-  { value: "ending", label: "Скоро завершится" },
-  { value: "finished", label: "Завершена" }
+  { value: "paused", label: "На паузе" }
 ];
 
 function buildPeriod(startDate: string, endDate: string, fallback = "") {
@@ -47,23 +50,21 @@ function createEmptyPromotionForm() {
     promocode: "",
     startDate: "",
     endDate: "",
-    status: "draft" as PromotionStatus,
-    periodText: ""
+    manualStatus: "auto" as PromotionManualMode
   };
 }
 
 function promotionToForm(promotion: Promotion) {
+  const parsed = parsePromotionConditions(promotion.conditions);
   return {
     name: promotion.name,
     description: promotion.description,
-    discount: "",
-    audience: "",
-    promocode: "",
+    discount: parsed.discount,
+    audience: parsed.audience,
+    promocode: parsed.promocode,
     startDate: promotion.startDate ?? "",
     endDate: promotion.endDate ?? "",
-    status: promotion.status,
-    periodText: promotion.period,
-    conditions: promotion.conditions
+    manualStatus: getPromotionManualMode(promotion.status)
   };
 }
 
@@ -91,13 +92,15 @@ export default function PromotionsPage() {
 
   function validatePromotion({
     name,
+    discount,
     startDate,
     endDate
   }: {
     name: string;
+    discount: string;
     startDate: string;
     endDate: string;
-  }) {
+  }, { allowPastDates = false }: { allowPastDates?: boolean } = {}) {
     if (!name.trim()) {
       addToast({
         title: "Укажите название акции",
@@ -107,7 +110,26 @@ export default function PromotionsPage() {
       return false;
     }
 
-    if (startDate && startDate < today) {
+    const discountValue = Number(discount);
+    if (!Number.isFinite(discountValue) || discountValue <= 0 || discountValue > 100) {
+      addToast({
+        title: "Проверьте скидку",
+        description: "Скидка должна быть числом от 1 до 100%.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!startDate || !endDate) {
+      addToast({
+        title: "Укажите период акции",
+        description: "Дата начала и дата окончания обязательны для автоматического статуса.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!allowPastDates && startDate < today) {
       addToast({
         title: "Дата начала уже прошла",
         description: "Акцию можно запланировать только на сегодня или будущую дату.",
@@ -116,7 +138,7 @@ export default function PromotionsPage() {
       return false;
     }
 
-    if (endDate && endDate < today) {
+    if (!allowPastDates && endDate < today) {
       addToast({
         title: "Дата окончания уже прошла",
         description: "Выберите сегодняшнюю или будущую дату окончания.",
@@ -125,7 +147,7 @@ export default function PromotionsPage() {
       return false;
     }
 
-    if (startDate && endDate && endDate < startDate) {
+    if (endDate < startDate) {
       addToast({
         title: "Период акции некорректный",
         description: "Дата окончания не может быть раньше даты начала.",
@@ -147,16 +169,20 @@ export default function PromotionsPage() {
       return;
     }
 
+    const status = resolvePromotionStatus({
+      startDate: form.startDate,
+      endDate: form.endDate,
+      manualMode: form.manualStatus,
+      today
+    });
+
     addPromotion({
       name: form.name.trim(),
       period: buildPeriod(form.startDate, form.endDate),
       startDate: form.startDate || undefined,
       endDate: form.endDate || undefined,
-      status: form.status,
-      conditions: [
-        `${form.discount || "0"}% для аудитории: ${form.audience.trim() || "все клиенты"}`,
-        form.promocode.trim() ? `промокод ${form.promocode.trim()}` : null
-      ].filter(Boolean).join(", "),
+      status,
+      conditions: buildPromotionConditions(form.discount, form.audience, form.promocode),
       description: form.description.trim()
     });
     setForm(createEmptyPromotionForm());
@@ -164,17 +190,24 @@ export default function PromotionsPage() {
   }
 
   function saveSelected() {
-    if (!selected || !validatePromotion(editForm)) {
+    if (!selected || !validatePromotion(editForm, { allowPastDates: true })) {
       return;
     }
 
+    const status = resolvePromotionStatus({
+      startDate: editForm.startDate,
+      endDate: editForm.endDate,
+      manualMode: editForm.manualStatus,
+      today
+    });
+
     const patch: Partial<Promotion> = {
       name: editForm.name.trim(),
-      period: buildPeriod(editForm.startDate, editForm.endDate, editForm.periodText.trim()),
+      period: buildPeriod(editForm.startDate, editForm.endDate),
       startDate: editForm.startDate || undefined,
       endDate: editForm.endDate || undefined,
-      status: editForm.status,
-      conditions: editForm.conditions.trim(),
+      status,
+      conditions: buildPromotionConditions(editForm.discount, editForm.audience, editForm.promocode),
       description: editForm.description.trim()
     };
 
@@ -200,26 +233,29 @@ export default function PromotionsPage() {
         }
       />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {promotions.map((promotion) => (
-          <button key={promotion.id} type="button" className="text-left" onClick={() => openPromotion(promotion)}>
-            <Card className="h-full p-5 transition-colors hover:bg-muted/35">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="font-semibold">{promotion.name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{promotion.period}</p>
+        {promotions.map((promotion) => {
+          const displayStatus = getPromotionDisplayStatus(promotion, today);
+          return (
+            <button key={promotion.id} type="button" className="text-left" onClick={() => openPromotion({ ...promotion, status: displayStatus })}>
+              <Card className="h-full p-5 transition-colors hover:bg-muted/35">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold">{promotion.name}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{buildPeriod(promotion.startDate ?? "", promotion.endDate ?? "", promotion.period)}</p>
+                  </div>
+                  <StatusBadge status={displayStatus} />
                 </div>
-                <StatusBadge status={promotion.status} />
-              </div>
-              <p className="mt-4 text-sm text-muted-foreground">{promotion.conditions}</p>
-              <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                <Metric label="Использований" value={String(promotion.usageCount)} />
-                <Metric label="Выручка" value={formatCurrency(promotion.revenue)} />
-                <Metric label="Новые клиенты" value={String(promotion.newClients)} />
-                <Metric label="Эффективность" value={`${promotion.efficiency}%`} />
-              </div>
-            </Card>
-          </button>
-        ))}
+                <p className="mt-4 text-sm text-muted-foreground">{promotion.conditions}</p>
+                <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+                  <Metric label="Использований" value={String(promotion.usageCount)} />
+                  <Metric label="Выручка" value={formatCurrency(promotion.revenue)} />
+                  <Metric label="Новые клиенты" value={String(promotion.newClients)} />
+                  <Metric label="Эффективность" value={`${promotion.efficiency}%`} />
+                </div>
+              </Card>
+            </button>
+          );
+        })}
       </div>
 
       <FormDrawer open={createOpen} onOpenChange={setCreateOpen} title="Новая акция" description="Заполните условия и период действия акции.">
@@ -231,12 +267,12 @@ export default function PromotionsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Скидка, %</Label>
-              <Input type="number" min="0" max="100" value={form.discount} onChange={(event) => setForm({ ...form, discount: event.target.value })} />
+              <Input type="number" min="1" max="100" value={form.discount} onChange={(event) => setForm({ ...form, discount: event.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Статус</Label>
-              <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as PromotionStatus })}>
-                {statusOptions.map((option) => (
+              <Label>Режим</Label>
+              <Select value={form.manualStatus} onChange={(event) => setForm({ ...form, manualStatus: event.target.value as PromotionManualMode })}>
+                {manualStatusOptions.map((option) => (
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </Select>
@@ -276,6 +312,17 @@ export default function PromotionsPage() {
             <Label>Описание и каналы продвижения</Label>
             <Textarea value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} />
           </div>
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Итоговый статус после сохранения:{" "}
+            <span className="font-medium text-foreground">
+              {getPromotionStatusLabel(resolvePromotionStatus({
+                startDate: form.startDate,
+                endDate: form.endDate,
+                manualMode: form.manualStatus,
+                today
+              }))}
+            </span>
+          </div>
           <Button type="button" className="w-full" onClick={save}>Сохранить</Button>
         </div>
       </FormDrawer>
@@ -289,9 +336,9 @@ export default function PromotionsPage() {
                 <Input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Статус</Label>
-                <Select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value as PromotionStatus })}>
-                  {statusOptions.map((option) => (
+                <Label>Режим</Label>
+                <Select value={editForm.manualStatus} onChange={(event) => setEditForm({ ...editForm, manualStatus: event.target.value as PromotionManualMode })}>
+                  {manualStatusOptions.map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </Select>
@@ -302,7 +349,6 @@ export default function PromotionsPage() {
                 <Label>Дата начала</Label>
                 <Input
                   type="date"
-                  min={today}
                   value={editForm.startDate}
                   onChange={(event) => setEditForm({ ...editForm, startDate: event.target.value })}
                 />
@@ -311,23 +357,40 @@ export default function PromotionsPage() {
                 <Label>Дата окончания</Label>
                 <Input
                   type="date"
-                  min={editForm.startDate || today}
+                  min={editForm.startDate || undefined}
                   value={editForm.endDate}
                   onChange={(event) => setEditForm({ ...editForm, endDate: event.target.value })}
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>Период текстом</Label>
-              <Input value={editForm.periodText} onChange={(event) => setEditForm({ ...editForm, periodText: event.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Условия</Label>
-              <Textarea value={editForm.conditions} onChange={(event) => setEditForm({ ...editForm, conditions: event.target.value })} />
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label>Скидка, %</Label>
+                <Input type="number" min="1" max="100" value={editForm.discount} onChange={(event) => setEditForm({ ...editForm, discount: event.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Целевая аудитория</Label>
+                <Input value={editForm.audience} onChange={(event) => setEditForm({ ...editForm, audience: event.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Промокод</Label>
+                <Input value={editForm.promocode} onChange={(event) => setEditForm({ ...editForm, promocode: event.target.value })} />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Описание</Label>
               <Textarea value={editForm.description} onChange={(event) => setEditForm({ ...editForm, description: event.target.value })} />
+            </div>
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Итоговый статус после сохранения:{" "}
+              <span className="font-medium text-foreground">
+                {getPromotionStatusLabel(resolvePromotionStatus({
+                  startDate: editForm.startDate,
+                  endDate: editForm.endDate,
+                  manualMode: editForm.manualStatus,
+                  today
+                }))}
+              </span>
             </div>
             <Button type="button" className="w-full" onClick={saveSelected}>Сохранить изменения</Button>
 
@@ -352,4 +415,33 @@ function Metric({ label, value }: { label: string; value: string }) {
       <p className="mt-1 font-medium">{value}</p>
     </div>
   );
+}
+
+function buildPromotionConditions(discount: string, audience: string, promocode: string) {
+  return [
+    `${Number(discount)}%`,
+    `аудитория: ${audience.trim() || "все клиенты"}`,
+    promocode.trim() ? `промокод ${promocode.trim()}` : null
+  ].filter(Boolean).join(", ");
+}
+
+function parsePromotionConditions(conditions: string) {
+  const discount = conditions.match(/(\d+(?:[.,]\d+)?)\s*%/)?.[1]?.replace(",", ".") ?? "10";
+  const audience = conditions.match(/аудитори[яи]:\s*([^,]+)/i)?.[1]?.trim() ?? "";
+  const promocode = conditions.match(/промокод\s*([^,]+)/i)?.[1]?.trim() ?? "";
+
+  return {
+    discount,
+    audience: audience === "все клиенты" ? "" : audience,
+    promocode
+  };
+}
+
+function getPromotionStatusLabel(status: Promotion["status"]) {
+  if (status === "draft") return "Черновик";
+  if (status === "paused") return "На паузе";
+  if (status === "scheduled") return "Запланирована";
+  if (status === "ending") return "Скоро завершится";
+  if (status === "finished") return "Завершена";
+  return "Активна";
 }

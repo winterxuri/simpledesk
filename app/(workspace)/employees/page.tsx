@@ -27,6 +27,7 @@ const profileTabs = [
 ];
 
 function employeeToForm(employee?: Employee) {
+  const schedule = parseSchedule(employee?.schedule);
   return {
     name: employee?.name ?? "",
     phone: employee?.phone ?? "",
@@ -34,6 +35,8 @@ function employeeToForm(employee?: Employee) {
     position: employee?.position ?? "",
     status: employee?.status ?? "working" as Employee["status"],
     schedule: employee?.schedule ?? "09:00-18:00",
+    scheduleStart: schedule.start,
+    scheduleEnd: schedule.end,
     role: employee?.role ?? "employee" as Employee["role"],
     loadPercent: String(employee?.loadPercent ?? 0),
     revenue: String(employee?.revenue ?? 0),
@@ -100,11 +103,21 @@ export default function EmployeesPage() {
     }
     const name = form.name.trim();
     const position = form.position.trim();
+    const schedule = buildSchedule(form.scheduleStart, form.scheduleEnd);
 
     if (!name || !position) {
       addToast({
         title: "Заполните карточку сотрудника",
         description: "ФИО и должность обязательны.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (form.status !== "dayOff" && !isValidSchedule(form.scheduleStart, form.scheduleEnd)) {
+      addToast({
+        title: "Проверьте график",
+        description: "Укажите начало и конец смены в 24-часовом формате. Конец должен быть позже начала.",
         variant: "warning"
       });
       return;
@@ -128,6 +141,15 @@ export default function EmployeesPage() {
       return;
     }
 
+    if (selected.role === "owner" && form.status === "dismissed") {
+      addToast({
+        title: "Владельца нельзя уволить",
+        description: "Сначала должен появиться отдельный сценарий передачи прав владельца.",
+        variant: "warning"
+      });
+      return;
+    }
+
     if (selected.role !== "owner" && form.role === "owner") {
       addToast({
         title: "Нельзя назначить владельца из карточки",
@@ -143,7 +165,7 @@ export default function EmployeesPage() {
       email: form.email.trim().toLowerCase(),
       position,
       status: form.status,
-      schedule: form.schedule,
+      schedule,
       role: form.role,
       loadPercent: Number(form.loadPercent) || 0,
       revenue: Number(form.revenue) || 0,
@@ -170,11 +192,21 @@ export default function EmployeesPage() {
     const position = form.position.trim();
     const email = form.email.trim().toLowerCase();
     const phone = form.phone.trim();
+    const schedule = buildSchedule(form.scheduleStart, form.scheduleEnd);
 
     if (!name || !position) {
       addToast({
         title: "Заполните карточку сотрудника",
         description: "Для создания сотрудника нужны ФИО и должность.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (form.status !== "dayOff" && !isValidSchedule(form.scheduleStart, form.scheduleEnd)) {
+      addToast({
+        title: "Проверьте график",
+        description: "Укажите начало и конец смены в 24-часовом формате. Конец должен быть позже начала.",
         variant: "warning"
       });
       return;
@@ -195,7 +227,7 @@ export default function EmployeesPage() {
       email,
       position,
       status: form.status,
-      schedule: form.schedule || "09:00-18:00",
+      schedule,
       role: form.role,
       loadPercent: Number(form.loadPercent) || 0,
       revenue: Number(form.revenue) || 0,
@@ -438,9 +470,15 @@ export default function EmployeesPage() {
                 <option value="employee">Сотрудник</option>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>График</Label>
-              <Input value={form.schedule} onChange={(event) => setForm({ ...form, schedule: event.target.value })} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Начало смены</Label>
+                <Input type="time" value={form.scheduleStart} onChange={(event) => setForm({ ...form, scheduleStart: event.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label>Конец смены</Label>
+                <Input type="time" value={form.scheduleEnd} onChange={(event) => setForm({ ...form, scheduleEnd: event.target.value })} />
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Схема оплаты</Label>
@@ -513,7 +551,7 @@ export default function EmployeesPage() {
                         <option value="working">Работает</option>
                         <option value="dayOff">Выходной</option>
                         <option value="vacation">Отпуск</option>
-                        <option value="dismissed">Уволен</option>
+                        {selected.role !== "owner" ? <option value="dismissed">Уволен</option> : null}
                       </Select>
                     </div>
                     <div className="space-y-2">
@@ -543,14 +581,24 @@ export default function EmployeesPage() {
               ) : null}
               {tab === "schedule" ? (
                 <>
-                  <div className="space-y-2">
-                    <Label>График</Label>
-                    <Input value={form.schedule} onChange={(event) => setForm({ ...form, schedule: event.target.value })} />
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Начало смены</Label>
+                      <Input type="time" value={form.scheduleStart} onChange={(event) => setForm({ ...form, scheduleStart: event.target.value, status: "working" })} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Конец смены</Label>
+                      <Input type="time" value={form.scheduleEnd} onChange={(event) => setForm({ ...form, scheduleEnd: event.target.value, status: "working" })} />
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm sm:col-span-2">
+                      <span className="text-muted-foreground">Выбранный режим: </span>
+                      <span className="font-medium">{getEmployeeStatusLabel(form.status)}</span>
+                    </div>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-3">
-                    <Button type="button" variant="outline" onClick={() => setForm({ ...form, schedule: "09:00-18:00", status: "working" })}>Дневная смена</Button>
-                    <Button type="button" variant="outline" onClick={() => setForm({ ...form, schedule: "11:00-20:00", status: "working" })}>Вечерняя смена</Button>
-                    <Button type="button" variant="outline" onClick={() => setForm({ ...form, status: "dayOff" })}>Выходной</Button>
+                    <Button type="button" variant={form.scheduleStart === "09:00" && form.scheduleEnd === "18:00" && form.status === "working" ? "default" : "outline"} onClick={() => setForm({ ...form, scheduleStart: "09:00", scheduleEnd: "18:00", status: "working" })}>Дневная смена</Button>
+                    <Button type="button" variant={form.scheduleStart === "11:00" && form.scheduleEnd === "20:00" && form.status === "working" ? "default" : "outline"} onClick={() => setForm({ ...form, scheduleStart: "11:00", scheduleEnd: "20:00", status: "working" })}>Вечерняя смена</Button>
+                    <Button type="button" variant={form.status === "dayOff" ? "default" : "outline"} onClick={() => setForm({ ...form, status: "dayOff" })}>Выходной</Button>
                   </div>
                   <Button type="button" onClick={saveEmployee}>Сохранить график</Button>
                 </>
@@ -709,4 +757,27 @@ function getCompensationLabel(employee: Employee) {
     return `${formatCurrency(employee.baseSalary ?? 0)} + ${employee.commissionPercent ?? 0}%`;
   }
   return formatCurrency(employee.baseSalary ?? 0);
+}
+
+function parseSchedule(schedule?: string) {
+  const match = /^(\d{2}:\d{2})-(\d{2}:\d{2})$/.exec(schedule ?? "");
+  return {
+    start: match?.[1] ?? "09:00",
+    end: match?.[2] ?? "18:00"
+  };
+}
+
+function buildSchedule(start: string, end: string) {
+  return `${start}-${end}`;
+}
+
+function isValidSchedule(start: string, end: string) {
+  return /^\d{2}:\d{2}$/.test(start) && /^\d{2}:\d{2}$/.test(end) && end > start;
+}
+
+function getEmployeeStatusLabel(status: Employee["status"]) {
+  if (status === "dayOff") return "выходной";
+  if (status === "vacation") return "отпуск";
+  if (status === "dismissed") return "уволен";
+  return "рабочая смена";
 }
