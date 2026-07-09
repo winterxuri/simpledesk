@@ -8,6 +8,7 @@ export type QuickCreateType =
   | "sale"
   | "product"
   | "material"
+  | "resource"
   | "promotion"
   | "employee";
 

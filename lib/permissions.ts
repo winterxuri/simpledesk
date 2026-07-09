@@ -7,6 +7,7 @@ export type PermissionAction =
   | "updateTaskProgress"
   | "manageEmployees"
   | "manageInventory"
+  | "manageResources"
   | "managePromotions"
   | "manageSettings";
 

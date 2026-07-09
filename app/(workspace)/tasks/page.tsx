@@ -286,6 +286,11 @@ export default function TasksPage() {
     setOpen(false);
   }
 
+  function cancelTaskForm() {
+    setSelectedTask(null);
+    setOpen(false);
+  }
+
   return (
     <div>
       <PageHeader
@@ -489,7 +494,14 @@ export default function TasksPage() {
               placeholder="Каждый пункт с новой строки"
             />
           </div>
-          <Button type="button" className="w-full" onClick={save}>Сохранить</Button>
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button type="button" variant="outline" onClick={cancelTaskForm}>
+              Отмена
+            </Button>
+            <Button type="button" onClick={save}>
+              Сохранить
+            </Button>
+          </div>
         </div>
       </FormDrawer>
     </div>

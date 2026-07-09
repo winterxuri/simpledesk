@@ -119,6 +119,7 @@ export default function InventoryPage() {
   const data = useAppStore((state) => state.data);
   const updateProduct = useAppStore((state) => state.updateProduct);
   const addInventoryMovement = useAppStore((state) => state.addInventoryMovement);
+  const openQuickCreate = useAppStore((state) => state.openQuickCreate);
   const addToast = useAppStore((state) => state.addToast);
   const [tab, setTab] = useState("products");
   const [search, setSearch] = useState("");
@@ -448,6 +449,12 @@ export default function InventoryPage() {
         description="Единый раздел учёта: остатки, движения, категории, поставщики и закупочные действия."
         actions={
           <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              onClick={() => openQuickCreate(tab === "materials" ? "material" : "product")}
+            >
+              {tab === "materials" ? "Добавить расходник" : "Добавить товар"}
+            </Button>
             {[
               ["income", "Поступление"],
               ["writeOff", "Списание"],

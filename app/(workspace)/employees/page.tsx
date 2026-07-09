@@ -567,7 +567,7 @@ export default function EmployeesPage() {
                     <Button type="button" onClick={saveEmployee}>
                       Сохранить профиль
                     </Button>
-                    {selected.status !== "dismissed" ? (
+                    {selected.role === "owner" ? null : selected.status !== "dismissed" ? (
                       <Button type="button" variant="outline" onClick={fireEmployee}>
                         Уволить
                       </Button>

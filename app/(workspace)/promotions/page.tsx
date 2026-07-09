@@ -189,6 +189,11 @@ export default function PromotionsPage() {
     setCreateOpen(false);
   }
 
+  function cancelCreate() {
+    setForm(createEmptyPromotionForm());
+    setCreateOpen(false);
+  }
+
   function saveSelected() {
     if (!selected || !validatePromotion(editForm, { allowPastDates: true })) {
       return;
@@ -323,7 +328,14 @@ export default function PromotionsPage() {
               }))}
             </span>
           </div>
-          <Button type="button" className="w-full" onClick={save}>Сохранить</Button>
+          <div className="flex justify-end gap-2 border-t border-border pt-4">
+            <Button type="button" variant="outline" onClick={cancelCreate}>
+              Отмена
+            </Button>
+            <Button type="button" onClick={save}>
+              Сохранить
+            </Button>
+          </div>
         </div>
       </FormDrawer>
 

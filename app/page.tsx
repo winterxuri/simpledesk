@@ -10,7 +10,7 @@ import {
   UsersRound
 } from "lucide-react";
 import { ProductMark } from "@/components/layout/product-logo";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PublicSite } from "@/components/layout/public-site";
 import { PRODUCT_NAME } from "@/config/product";
@@ -101,7 +101,7 @@ export default function LandingPage() {
                 <p className="text-sm text-muted-foreground">Сегодня</p>
                 <p className="text-xl font-semibold">Рабочая панель</p>
               </div>
-              <Button type="button" size="sm">Создать</Button>
+              <span className={buttonVariants({ size: "sm" })}>Создать</span>
             </div>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               {[
@@ -135,9 +135,9 @@ export default function LandingPage() {
                   <div className="flex justify-between"><span>Расходы</span><span>0 ₽</span></div>
                   <div className="flex justify-between"><span>Новые клиенты</span><span>0</span></div>
                 </div>
-                <Button type="button" variant="outline" className="mt-4 w-full" size="sm">
+                <span className={buttonVariants({ variant: "outline", size: "sm", className: "mt-4 w-full" })}>
                   Сохранить отчёт
-                </Button>
+                </span>
               </div>
             </div>
           </div>

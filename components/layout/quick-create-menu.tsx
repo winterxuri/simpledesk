@@ -11,17 +11,20 @@ import { FormDrawer } from "@/components/modules/form-drawer";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
 import { canPerformAction, type PermissionAction } from "@/lib/permissions";
-import { getLocalDateKey } from "@/lib/utils";
-import type { Employee, Priority, Product, ProductStatus, QuickCreateType } from "@/types";
+import { resolvePromotionStatus, type PromotionManualMode } from "@/lib/promotion-status";
+import { formatDate, getLocalDateKey } from "@/lib/utils";
+import type { AppointmentStatus, ClientStatus, Employee, ModuleCode, Priority, Product, ProductStatus, QuickCreateType, ResourceStatus } from "@/types";
 
-const createItems: { type: QuickCreateType; label: string; icon: string; action: PermissionAction }[] = [
-  { type: "client", label: "Клиент", icon: "UsersRound", action: "manageClients" },
-  { type: "appointment", label: "Запись", icon: "CalendarDays", action: "manageAppointments" },
-  { type: "task", label: "Задача", icon: "ListTodo", action: "manageTasks" },
-  { type: "sale", label: "Продажа", icon: "CreditCard", action: "manageInventory" },
-  { type: "product", label: "Товар", icon: "Boxes", action: "manageInventory" },
-  { type: "material", label: "Расходник", icon: "PackagePlus", action: "manageInventory" },
-  { type: "employee", label: "Сотрудник", icon: "UserRoundCog", action: "manageEmployees" }
+const createItems: { type: QuickCreateType; label: string; icon: string; action: PermissionAction; module: ModuleCode }[] = [
+  { type: "client", label: "Клиент", icon: "UsersRound", action: "manageClients", module: "clients" },
+  { type: "appointment", label: "Запись", icon: "CalendarDays", action: "manageAppointments", module: "calendar" },
+  { type: "task", label: "Задача", icon: "ListTodo", action: "manageTasks", module: "tasks" },
+  { type: "sale", label: "Продажа", icon: "CreditCard", action: "manageInventory", module: "inventory" },
+  { type: "product", label: "Товар", icon: "Boxes", action: "manageInventory", module: "inventory" },
+  { type: "material", label: "Расходник", icon: "PackagePlus", action: "manageInventory", module: "inventory" },
+  { type: "resource", label: "Ресурс", icon: "Wrench", action: "manageResources", module: "resources" },
+  { type: "promotion", label: "Акция", icon: "BadgePercent", action: "managePromotions", module: "promotions" },
+  { type: "employee", label: "Сотрудник", icon: "UserRoundCog", action: "manageEmployees", module: "employees" }
 ];
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,10 +35,40 @@ const priorityOptions: { value: Priority; label: string }[] = [
   { value: "high", label: "Высокий" }
 ];
 
+const clientStatusOptions: { value: ClientStatus; label: string }[] = [
+  { value: "active", label: "Активный" },
+  { value: "new", label: "Новый" },
+  { value: "loyal", label: "Постоянный" },
+  { value: "inactive", label: "Давно не возвращался" },
+  { value: "attention", label: "Требует внимания" }
+];
+
+const appointmentStatusOptions: { value: AppointmentStatus; label: string }[] = [
+  { value: "planned", label: "Запланирована" },
+  { value: "confirmed", label: "Подтверждена" },
+  { value: "inProgress", label: "В работе" },
+  { value: "completed", label: "Завершена" },
+  { value: "cancelled", label: "Отменена" },
+  { value: "noShow", label: "Не пришёл" }
+];
+
 const productTypeOptions: { value: Product["type"]; label: string }[] = [
   { value: "product", label: "Товар" },
   { value: "material", label: "Расходник" },
   { value: "part", label: "Запчасть" }
+];
+
+const resourceStatusOptions: { value: ResourceStatus; label: string }[] = [
+  { value: "free", label: "Свободен" },
+  { value: "busy", label: "Занят" },
+  { value: "maintenance", label: "Обслуживание" },
+  { value: "unavailable", label: "Недоступен" }
+];
+
+const manualStatusOptions: { value: PromotionManualMode; label: string }[] = [
+  { value: "auto", label: "Автоматически по датам" },
+  { value: "draft", label: "Черновик" },
+  { value: "paused", label: "На паузе" }
 ];
 
 const roleOptions: { value: Employee["role"]; label: string }[] = [
@@ -57,6 +90,7 @@ type QuickCreateForm = {
   clientMiddleName: string;
   clientPhone: string;
   clientEmail: string;
+  clientStatus: ClientStatus;
   clientResponsibleId: string;
   clientNextAppointment: string;
   clientSource: string;
@@ -68,6 +102,7 @@ type QuickCreateForm = {
   appointmentTime: string;
   appointmentDuration: string;
   appointmentPrice: string;
+  appointmentStatus: AppointmentStatus;
   appointmentPaid: boolean;
   appointmentComment: string;
   taskTitle: string;
@@ -92,6 +127,20 @@ type QuickCreateForm = {
   productMinStock: string;
   productPurchasePrice: string;
   productSalePrice: string;
+  resourceName: string;
+  resourceType: string;
+  resourceStatus: ResourceStatus;
+  resourceLoadPercent: string;
+  resourceCondition: string;
+  resourceComment: string;
+  promotionName: string;
+  promotionDescription: string;
+  promotionDiscount: string;
+  promotionAudience: string;
+  promotionPromocode: string;
+  promotionStartDate: string;
+  promotionEndDate: string;
+  promotionManualStatus: PromotionManualMode;
   employeeName: string;
   employeePhone: string;
   employeeEmail: string;
@@ -117,6 +166,7 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     clientMiddleName: "",
     clientPhone: "",
     clientEmail: "",
+    clientStatus: "new",
     clientResponsibleId: firstEmployeeId,
     clientNextAppointment: "",
     clientSource: "",
@@ -128,6 +178,7 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     appointmentTime: "12:00",
     appointmentDuration: "60",
     appointmentPrice: "0",
+    appointmentStatus: "planned",
     appointmentPaid: false,
     appointmentComment: "",
     taskTitle: "",
@@ -152,6 +203,20 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     productMinStock: "1",
     productPurchasePrice: "",
     productSalePrice: productType === "material" ? "0" : "",
+    resourceName: "",
+    resourceType: "кабинет",
+    resourceStatus: "free",
+    resourceLoadPercent: "0",
+    resourceCondition: "исправно",
+    resourceComment: "",
+    promotionName: "",
+    promotionDescription: "",
+    promotionDiscount: "10",
+    promotionAudience: "",
+    promotionPromocode: "",
+    promotionStartDate: today,
+    promotionEndDate: today,
+    promotionManualStatus: "auto",
     employeeName: "",
     employeePhone: "",
     employeeEmail: "",
@@ -176,16 +241,26 @@ export function QuickCreateMenu() {
   const addAppointment = useAppStore((state) => state.addAppointment);
   const addEmployee = useAppStore((state) => state.addEmployee);
   const addProduct = useAppStore((state) => state.addProduct);
+  const addResource = useAppStore((state) => state.addResource);
+  const addPromotion = useAppStore((state) => state.addPromotion);
   const updateProduct = useAppStore((state) => state.updateProduct);
   const addInventoryMovement = useAppStore((state) => state.addInventoryMovement);
   const addFinancialOperation = useAppStore((state) => state.addFinancialOperation);
   const addToast = useAppStore((state) => state.addToast);
   const data = useAppStore((state) => state.data);
   const role = useAppStore((state) => state.role);
+  const companyModules = useAppStore((state) => state.companyModules);
   const [form, setForm] = useState<QuickCreateForm>(() => createInitialForm(data));
 
   const item = createItems.find((entry) => entry.type === drawerType);
-  const availableItems = createItems.filter((entry) => canPerformAction(role, entry.action));
+  const visibleModules = new Set(
+    companyModules
+      .filter((module) => module.visible && module.status === "enabled")
+      .map((module) => module.code)
+  );
+  const availableItems = createItems.filter((entry) =>
+    canPerformAction(role, entry.action) && visibleModules.has(entry.module)
+  );
 
   useEffect(() => {
     if (quickCreateOpen && drawerType) {
@@ -222,6 +297,12 @@ export function QuickCreateMenu() {
       return;
     }
     if ((drawerType === "product" || drawerType === "material") && !saveProduct()) {
+      return;
+    }
+    if (drawerType === "resource" && !saveResource()) {
+      return;
+    }
+    if (drawerType === "promotion" && !savePromotion()) {
       return;
     }
     if (drawerType === "employee" && !saveEmployee()) {
@@ -272,7 +353,7 @@ export function QuickCreateMenu() {
       name,
       phone,
       email,
-      status: "new",
+      status: form.clientStatus,
       responsibleId: form.clientResponsibleId || data.employees[0]?.id || "employee-1",
       nextAppointment: form.clientNextAppointment || undefined,
       source: form.clientSource || "Быстрое создание",
@@ -349,7 +430,7 @@ export function QuickCreateMenu() {
       time: form.appointmentTime,
       duration,
       price,
-      status: "planned",
+      status: form.appointmentStatus,
       paid: form.appointmentPaid,
       comment: form.appointmentComment.trim()
     });
@@ -556,6 +637,117 @@ export function QuickCreateMenu() {
     return true;
   }
 
+  function saveResource() {
+    const name = form.resourceName.trim();
+    const type = form.resourceType.trim();
+    const loadPercent = Number(form.resourceLoadPercent);
+
+    if (!name) {
+      addToast({
+        title: "Укажите название ресурса",
+        description: "Название нужно для расписания, бронирования и поиска.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!type) {
+      addToast({
+        title: "Укажите тип ресурса",
+        description: "Тип помогает отделять кабинеты, посты, залы и оборудование.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!Number.isFinite(loadPercent) || loadPercent < 0 || loadPercent > 100) {
+      addToast({
+        title: "Проверьте загрузку",
+        description: "Загрузка должна быть числом от 0 до 100.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    addResource({
+      name,
+      type,
+      status: form.resourceStatus,
+      loadPercent,
+      futureBookings: 0,
+      condition: form.resourceCondition.trim() || "не указано",
+      comment: form.resourceComment.trim()
+    });
+    return true;
+  }
+
+  function savePromotion() {
+    const name = form.promotionName.trim();
+    const discount = Number(form.promotionDiscount);
+    const today = getLocalDateKey();
+
+    if (!name) {
+      addToast({
+        title: "Укажите название акции",
+        description: "Название нужно для списка акций, карточки клиента и отчётов.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!Number.isFinite(discount) || discount <= 0 || discount > 100) {
+      addToast({
+        title: "Проверьте скидку",
+        description: "Скидка должна быть числом от 1 до 100%.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!form.promotionStartDate || !form.promotionEndDate) {
+      addToast({
+        title: "Укажите период акции",
+        description: "Дата начала и дата окончания обязательны для автоматического статуса.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (form.promotionStartDate < today || form.promotionEndDate < today) {
+      addToast({
+        title: "Нельзя выбрать прошедший период",
+        description: "Создавайте акцию на сегодня или будущие даты.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (form.promotionEndDate < form.promotionStartDate) {
+      addToast({
+        title: "Период акции некорректный",
+        description: "Дата окончания не может быть раньше даты начала.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    addPromotion({
+      name,
+      period: buildPromotionPeriod(form.promotionStartDate, form.promotionEndDate),
+      startDate: form.promotionStartDate,
+      endDate: form.promotionEndDate,
+      status: resolvePromotionStatus({
+        startDate: form.promotionStartDate,
+        endDate: form.promotionEndDate,
+        manualMode: form.promotionManualStatus,
+        today
+      }),
+      conditions: buildPromotionConditions(form.promotionDiscount, form.promotionAudience, form.promotionPromocode),
+      description: form.promotionDescription.trim()
+    });
+    return true;
+  }
+
   function saveEmployee() {
     const name = form.employeeName.trim();
     const position = form.employeePosition.trim();
@@ -661,6 +853,8 @@ export function QuickCreateMenu() {
           {drawerType === "task" ? renderTaskForm(form, setForm, data) : null}
           {drawerType === "sale" ? renderSaleForm(form, setForm, data) : null}
           {drawerType === "product" || drawerType === "material" ? renderProductForm(form, setForm) : null}
+          {drawerType === "resource" ? renderResourceForm(form, setForm) : null}
+          {drawerType === "promotion" ? renderPromotionForm(form, setForm) : null}
           {drawerType === "employee" ? renderEmployeeForm(form, setForm) : null}
           <div className="flex justify-end gap-2 border-t border-border pt-4">
             <Button type="button" variant="outline" onClick={reset}>
@@ -697,7 +891,14 @@ function renderClientForm(
         <Field id="quick-client-phone" label="Телефон" type="tel" value={form.clientPhone} onChange={(clientPhone) => setForm({ ...form, clientPhone })} />
         <Field id="quick-client-email" label="Email" type="email" value={form.clientEmail} onChange={(clientEmail) => setForm({ ...form, clientEmail })} />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <SelectField
+          id="quick-client-status"
+          label="Статус"
+          value={form.clientStatus}
+          onChange={(clientStatus) => setForm({ ...form, clientStatus: clientStatus as ClientStatus })}
+          options={clientStatusOptions}
+        />
         <SelectField
           id="quick-client-responsible"
           label="Ответственный"
@@ -760,15 +961,24 @@ function renderAppointmentForm(
         <Field id="quick-appointment-duration" label="Минуты" type="number" min="1" value={form.appointmentDuration} onChange={(appointmentDuration) => setForm({ ...form, appointmentDuration })} />
         <Field id="quick-appointment-price" label="Стоимость" type="number" min="0" value={form.appointmentPrice} onChange={(appointmentPrice) => setForm({ ...form, appointmentPrice })} />
       </div>
-      <label className="flex items-center gap-2 rounded-lg border border-border p-3 text-sm">
-        <input
-          type="checkbox"
-          className="h-4 w-4 accent-primary"
-          checked={form.appointmentPaid}
-          onChange={(event) => setForm({ ...form, appointmentPaid: event.target.checked })}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField
+          id="quick-appointment-status"
+          label="Статус"
+          value={form.appointmentStatus}
+          onChange={(appointmentStatus) => setForm({ ...form, appointmentStatus: appointmentStatus as AppointmentStatus })}
+          options={appointmentStatusOptions}
         />
-        Оплачено
-      </label>
+        <label className="flex items-end gap-2 rounded-lg border border-border p-3 text-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-primary"
+            checked={form.appointmentPaid}
+            onChange={(event) => setForm({ ...form, appointmentPaid: event.target.checked })}
+          />
+          Оплачено
+        </label>
+      </div>
       <TextareaField id="quick-appointment-comment" label="Комментарий" value={form.appointmentComment} onChange={(appointmentComment) => setForm({ ...form, appointmentComment })} />
     </div>
   );
@@ -942,6 +1152,118 @@ function renderProductForm(form: QuickCreateForm, setForm: (form: QuickCreateFor
   );
 }
 
+function renderResourceForm(form: QuickCreateForm, setForm: (form: QuickCreateForm) => void) {
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="quick-resource-name" label="Название" value={form.resourceName} onChange={(resourceName) => setForm({ ...form, resourceName })} />
+        <Field id="quick-resource-type" label="Тип" value={form.resourceType} onChange={(resourceType) => setForm({ ...form, resourceType })} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField
+          id="quick-resource-status"
+          label="Статус"
+          value={form.resourceStatus}
+          onChange={(resourceStatus) => {
+            const nextStatus = resourceStatus as ResourceStatus;
+            setForm({
+              ...form,
+              resourceStatus: nextStatus,
+              resourceLoadPercent:
+                nextStatus === "free"
+                  ? "0"
+                  : nextStatus === "busy" && form.resourceLoadPercent === "0"
+                    ? "100"
+                    : form.resourceLoadPercent
+            });
+          }}
+          options={resourceStatusOptions}
+        />
+        <Field
+          id="quick-resource-load"
+          label="Загрузка, %"
+          type="number"
+          min="0"
+          max="100"
+          value={form.resourceLoadPercent}
+          onChange={(resourceLoadPercent) => setForm({ ...form, resourceLoadPercent })}
+        />
+      </div>
+      <Field id="quick-resource-condition" label="Техническое состояние" value={form.resourceCondition} onChange={(resourceCondition) => setForm({ ...form, resourceCondition })} />
+      <TextareaField id="quick-resource-comment" label="Комментарий" value={form.resourceComment} onChange={(resourceComment) => setForm({ ...form, resourceComment })} />
+    </div>
+  );
+}
+
+function renderPromotionForm(form: QuickCreateForm, setForm: (form: QuickCreateForm) => void) {
+  const today = getLocalDateKey();
+  const status = resolvePromotionStatus({
+    startDate: form.promotionStartDate,
+    endDate: form.promotionEndDate,
+    manualMode: form.promotionManualStatus,
+    today
+  });
+
+  return (
+    <div className="space-y-4">
+      <Field id="quick-promotion-name" label="Название" value={form.promotionName} onChange={(promotionName) => setForm({ ...form, promotionName })} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          id="quick-promotion-discount"
+          label="Скидка, %"
+          type="number"
+          min="1"
+          max="100"
+          value={form.promotionDiscount}
+          onChange={(promotionDiscount) => setForm({ ...form, promotionDiscount })}
+        />
+        <SelectField
+          id="quick-promotion-mode"
+          label="Режим"
+          value={form.promotionManualStatus}
+          onChange={(promotionManualStatus) => setForm({ ...form, promotionManualStatus: promotionManualStatus as PromotionManualMode })}
+          options={manualStatusOptions}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field
+          id="quick-promotion-start"
+          label="Дата начала"
+          type="date"
+          min={today}
+          value={form.promotionStartDate}
+          onChange={(promotionStartDate) => {
+            setForm({
+              ...form,
+              promotionStartDate,
+              promotionEndDate:
+                form.promotionEndDate && form.promotionEndDate < promotionStartDate
+                  ? promotionStartDate
+                  : form.promotionEndDate
+            });
+          }}
+        />
+        <Field
+          id="quick-promotion-end"
+          label="Дата окончания"
+          type="date"
+          min={form.promotionStartDate || today}
+          value={form.promotionEndDate}
+          onChange={(promotionEndDate) => setForm({ ...form, promotionEndDate })}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field id="quick-promotion-audience" label="Целевая аудитория" value={form.promotionAudience} onChange={(promotionAudience) => setForm({ ...form, promotionAudience })} />
+        <Field id="quick-promotion-promocode" label="Промокод" value={form.promotionPromocode} onChange={(promotionPromocode) => setForm({ ...form, promotionPromocode })} />
+      </div>
+      <TextareaField id="quick-promotion-description" label="Описание и каналы продвижения" value={form.promotionDescription} onChange={(promotionDescription) => setForm({ ...form, promotionDescription })} />
+      <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+        Итоговый статус после сохранения: <span className="font-medium text-foreground">{getPromotionStatusLabel(status)}</span>
+      </div>
+    </div>
+  );
+}
+
 function renderEmployeeForm(form: QuickCreateForm, setForm: (form: QuickCreateForm) => void) {
   return (
     <div className="space-y-4">
@@ -1103,6 +1425,12 @@ function getDrawerDescription(type: QuickCreateType | null) {
   if (type === "sale") {
     return "Выберите товар для списания со склада или оформите ручную продажу как доход.";
   }
+  if (type === "resource") {
+    return "Добавьте помещение, пост, зал или оборудование, которое можно бронировать вместе с записью.";
+  }
+  if (type === "promotion") {
+    return "Заполните условия, период и режим статуса акции.";
+  }
   if (type === "employee") {
     return "Создайте карточку сотрудника с ролью, графиком и базовыми условиями оплаты.";
   }
@@ -1127,6 +1455,36 @@ function buildFullName(lastName: string, firstName: string, middleName: string) 
     .map((part) => part.trim())
     .filter(Boolean)
     .join(" ");
+}
+
+function buildPromotionPeriod(startDate: string, endDate: string) {
+  if (startDate && endDate) {
+    return `${formatDate(startDate)} - ${formatDate(endDate)}`;
+  }
+  if (startDate) {
+    return `с ${formatDate(startDate)}`;
+  }
+  if (endDate) {
+    return `до ${formatDate(endDate)}`;
+  }
+  return "период не указан";
+}
+
+function buildPromotionConditions(discount: string, audience: string, promocode: string) {
+  return [
+    `${Number(discount)}%`,
+    `аудитория: ${audience.trim() || "все клиенты"}`,
+    promocode.trim() ? `промокод ${promocode.trim()}` : null
+  ].filter(Boolean).join(", ");
+}
+
+function getPromotionStatusLabel(status: ReturnType<typeof resolvePromotionStatus>) {
+  if (status === "draft") return "Черновик";
+  if (status === "paused") return "На паузе";
+  if (status === "scheduled") return "Запланирована";
+  if (status === "ending") return "Скоро завершится";
+  if (status === "finished") return "Завершена";
+  return "Активна";
 }
 
 function buildScheduleFromTimes(start: string, end: string) {

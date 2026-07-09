@@ -45,6 +45,10 @@ export default function ClientsPage() {
   const clients = scopedData.clients;
   const employees = canManageClients ? data.employees : scopedData.employees;
   const segmentOptions = canManageClients ? managerSegments : employeeSegments;
+  const promotionOptions = data.promotions.map((promotion) => ({
+    value: promotion.name,
+    label: promotion.name
+  }));
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [segment, setSegment] = useState("Все");
@@ -53,12 +57,15 @@ export default function ClientsPage() {
   const [selected, setSelected] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
-    name: "",
+    lastName: "",
+    firstName: "",
+    middleName: "",
     phone: "",
     email: "",
     status: "new" as ClientStatus,
     responsibleId: employees[0]?.id ?? "",
     nextAppointment: "",
+    source: "",
     notes: ""
   });
   const [bulk, setBulk] = useState({
@@ -170,7 +177,7 @@ export default function ClientsPage() {
   ];
 
   function saveClient() {
-    const name = form.name.trim();
+    const name = buildFullName(form.lastName, form.firstName, form.middleName);
     const phone = form.phone.trim();
     const email = form.email.trim();
 
@@ -208,17 +215,20 @@ export default function ClientsPage() {
       status: form.status,
       responsibleId: form.responsibleId || employees[0]?.id || "employee-1",
       nextAppointment: form.nextAppointment || undefined,
-      source: "Ручное добавление",
+      source: form.source || "Ручное добавление",
       notes: form.notes
     });
     setOpen(false);
     setForm({
-      name: "",
+      lastName: "",
+      firstName: "",
+      middleName: "",
       phone: "",
       email: "",
       status: "new",
       responsibleId: employees[0]?.id ?? "",
       nextAppointment: "",
+      source: "",
       notes: ""
     });
   }
@@ -438,9 +448,19 @@ export default function ClientsPage() {
         }
       >
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>ФИО</Label>
-            <Input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Фамилия</Label>
+              <Input value={form.lastName} onChange={(event) => setForm({ ...form, lastName: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Имя</Label>
+              <Input value={form.firstName} onChange={(event) => setForm({ ...form, firstName: event.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Отчество</Label>
+              <Input value={form.middleName} onChange={(event) => setForm({ ...form, middleName: event.target.value })} />
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Телефон</Label>
@@ -473,11 +493,27 @@ export default function ClientsPage() {
             <Input type="date" min={getLocalDateKey()} value={form.nextAppointment} onChange={(event) => setForm({ ...form, nextAppointment: event.target.value })} />
           </div>
           <div className="space-y-2">
-            <Label>Заметка</Label>
+            <Label>Акция / источник</Label>
+            <Select value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value })}>
+              <option value="">Без акции</option>
+              {promotionOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Комментарий</Label>
             <Textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
           </div>
         </div>
       </Dialog>
     </div>
   );
+}
+
+function buildFullName(lastName: string, firstName: string, middleName: string) {
+  return [lastName, firstName, middleName]
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join(" ");
 }
