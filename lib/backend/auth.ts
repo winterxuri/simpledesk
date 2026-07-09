@@ -15,6 +15,7 @@ import type {
   DemoData,
   Employee,
   EmployeeInvite,
+  EmployeeShift,
   FinancialOperation,
   InventoryMovement,
   ModuleCode,
@@ -455,6 +456,7 @@ async function loadCompanyData(
   const [
     clients,
     employees,
+    employeeShifts,
     appointments,
     products,
     movements,
@@ -469,6 +471,7 @@ async function loadCompanyData(
   ] = await Promise.all([
     supabase.from("clients").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("employees").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
+    supabase.from("employee_shifts").select("*").eq("company_id", companyId).order("date", { ascending: true }),
     supabase.from("appointments").select("*").eq("company_id", companyId).order("date", { ascending: false }),
     supabase.from("products").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("inventory_movements").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
@@ -500,6 +503,7 @@ async function loadCompanyData(
     employees: rows(employees.data).map(mapEmployee).concat(
       rows(employees.data).length ? [] : base.employees
     ),
+    employeeShifts: rows(employeeShifts.data).map(mapEmployeeShift),
     appointments: rows(appointments.data).map(mapAppointment),
     products: rows(products.data).map(mapProduct),
     inventoryMovements: rows(movements.data).map(mapInventoryMovement),
@@ -532,6 +536,7 @@ async function loadCompanyData(
         (client) => client.responsibleId === ownerEmployeeId || relatedClientIds.has(client.id)
       ),
       employees: mappedData.employees.filter((employee) => employee.id === ownerEmployeeId),
+      employeeShifts: mappedData.employeeShifts.filter((shift) => shift.employeeId === ownerEmployeeId),
       appointments: ownAppointments,
       tasks: ownTasks,
       products: [],
@@ -611,6 +616,18 @@ function mapEmployee(row: LooseRow): Employee {
     baseSalary: num(row, "base_salary"),
     commissionPercent: num(row, "commission_percent"),
     dismissedAt: nullableText(row, "dismissed_at")
+  };
+}
+
+function mapEmployeeShift(row: LooseRow): EmployeeShift {
+  return {
+    id: text(row, "id"),
+    employeeId: text(row, "employee_id"),
+    date: text(row, "date"),
+    type: text(row, "type", "work") as EmployeeShift["type"],
+    startTime: text(row, "start_time").slice(0, 5),
+    endTime: text(row, "end_time").slice(0, 5),
+    comment: text(row, "comment")
   };
 }
 

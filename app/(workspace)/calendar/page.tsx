@@ -14,6 +14,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
+import { getResourceSlotAvailability, hasResourceSlotConflict } from "@/lib/resource-availability";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import type { Appointment } from "@/types";
 
@@ -40,6 +41,7 @@ type AppointmentForm = {
   employeeId: string;
   date: string;
   time: string;
+  resourceId: string;
   title: string;
   duration: string;
   price: string;
@@ -118,6 +120,36 @@ export default function CalendarPage() {
       });
     return map;
   }, [appointments, today]);
+  const resourceById = useMemo(
+    () => new Map(data.resources.map((resource) => [resource.id, resource])),
+    [data.resources]
+  );
+  const selectedResource = form.resourceId ? resourceById.get(form.resourceId) : undefined;
+  const selectedResourceAvailability = selectedResource
+    ? getResourceSlotAvailability({
+        resource: selectedResource,
+        appointments: data.appointments,
+        date: form.date,
+        time: form.time,
+        duration: Number(form.duration) || 60,
+        ignoreAppointmentId: form.id
+      })
+    : null;
+  const resourceOptions = data.resources.map((resource) => {
+    const availability = getResourceSlotAvailability({
+      resource,
+      appointments: data.appointments,
+      date: form.date,
+      time: form.time,
+      duration: Number(form.duration) || 60,
+      ignoreAppointmentId: form.id
+    });
+    return {
+      resource,
+      availability,
+      label: `${resource.name} · ${resource.type} · ${availability.label}`
+    };
+  });
 
   function openCreate(slot?: { time: string; employeeId: string; date?: string }) {
     if (!canManageAppointments) {
@@ -144,6 +176,7 @@ export default function CalendarPage() {
       employeeId: appointment.employeeId,
       date: appointment.date,
       time: appointment.time.slice(0, 5),
+      resourceId: appointment.resourceId ?? "",
       title: appointment.title,
       duration: String(appointment.duration),
       price: String(appointment.price),
@@ -213,10 +246,19 @@ export default function CalendarPage() {
       return;
     }
 
+    if (selectedResourceAvailability && hasResourceSlotConflict(selectedResourceAvailability)) {
+      addToast({
+        title: "Ресурс недоступен",
+        description: selectedResourceAvailability.detail,
+        variant: "warning"
+      });
+      return;
+    }
+
     const payload = {
       clientId: form.clientId,
       employeeId: form.employeeId,
-      resourceId: data.resources[0]?.id,
+      resourceId: form.resourceId || undefined,
       title,
       date: form.date,
       time: form.time,
@@ -377,6 +419,11 @@ export default function CalendarPage() {
                           <p className="mt-1 text-xs">
                             {clients.find((client) => client.id === appointment.clientId)?.name ?? "Клиент"}
                           </p>
+                          {appointment.resourceId ? (
+                            <p className="mt-1 text-xs">
+                              {resourceById.get(appointment.resourceId)?.name ?? "Ресурс"}
+                            </p>
+                          ) : null}
                           <div className="mt-2 flex items-center justify-between gap-2">
                             <StatusBadge status={appointment.status} />
                             <span className="text-xs">{formatCurrency(appointment.price)}</span>
@@ -436,6 +483,26 @@ export default function CalendarPage() {
             <Label>{company.terminology.service}</Label>
             <Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
           </div>
+          <div className="space-y-2">
+            <Label>Помещение или оборудование</Label>
+            <Select value={form.resourceId} onChange={(event) => setForm({ ...form, resourceId: event.target.value })}>
+              <option value="">Не требуется</option>
+              {resourceOptions.map((option) => (
+                <option key={option.resource.id} value={option.resource.id}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            {selectedResourceAvailability ? (
+              <p className={selectedResourceAvailability.state === "available" ? "text-sm text-emerald-600" : "text-sm text-amber-600"}>
+                {selectedResourceAvailability.detail}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Выберите ресурс только если для этой записи нужен кабинет, пост, зал или оборудование.
+              </p>
+            )}
+          </div>
           <div className="grid gap-4 sm:grid-cols-4">
             <div className="space-y-2">
               <Label>Дата</Label>
@@ -494,6 +561,7 @@ function createEmptyForm(
     employeeId,
     date,
     time,
+    resourceId: "",
     title: "",
     duration: "60",
     price: "2500",

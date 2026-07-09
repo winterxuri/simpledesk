@@ -22,6 +22,7 @@ export function createInitialBusinessData(owner: User | null, ownerEmployeeId?: 
   return {
     clients: [],
     employees: [ownerEmployee],
+    employeeShifts: [],
     appointments: [],
     products: [],
     inventoryMovements: [],

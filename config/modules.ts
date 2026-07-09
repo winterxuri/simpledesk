@@ -42,13 +42,23 @@ export const MODULES: ModuleDefinition[] = [
     plan: "basic"
   },
   {
+    code: "schedules",
+    title: "Графики",
+    description: "Смены сотрудников, выходные, отпуска и больничные по дням.",
+    icon: "Clock3",
+    route: "/schedules",
+    dependencies: ["employees", "calendar"],
+    defaultOrder: 5,
+    plan: "basic"
+  },
+  {
     code: "inventory",
     title: "Товары и расходники",
     description: "Остатки, движения, поставщики и закупочные действия.",
     icon: "Boxes",
     route: "/inventory",
     dependencies: [],
-    defaultOrder: 5,
+    defaultOrder: 6,
     plan: "basic"
   },
   {
@@ -58,7 +68,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "CreditCard",
     route: "/sales",
     dependencies: ["clients", "inventory"],
-    defaultOrder: 6,
+    defaultOrder: 7,
     plan: "basic"
   },
   {
@@ -68,7 +78,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "BriefcaseBusiness",
     route: "/finance",
     dependencies: ["sales"],
-    defaultOrder: 7,
+    defaultOrder: 8,
     plan: "basic"
   },
   {
@@ -78,7 +88,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "Wrench",
     route: "/resources",
     dependencies: ["calendar"],
-    defaultOrder: 8,
+    defaultOrder: 9,
     plan: "basic"
   },
   {
@@ -88,7 +98,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "BadgePercent",
     route: "/promotions",
     dependencies: ["clients"],
-    defaultOrder: 9,
+    defaultOrder: 10,
     plan: "basic"
   },
   {
@@ -98,7 +108,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "ListTodo",
     route: "/tasks",
     dependencies: [],
-    defaultOrder: 10,
+    defaultOrder: 11,
     plan: "basic"
   },
   {
@@ -108,7 +118,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "ChartNoAxesCombined",
     route: "/analytics",
     dependencies: [],
-    defaultOrder: 11,
+    defaultOrder: 12,
     plan: "basic"
   },
   {
@@ -118,7 +128,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "ClipboardList",
     route: "/reports",
     dependencies: [],
-    defaultOrder: 12,
+    defaultOrder: 13,
     plan: "basic"
   },
   {
@@ -128,7 +138,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "Cable",
     route: "/settings/integrations",
     dependencies: [],
-    defaultOrder: 13,
+    defaultOrder: 14,
     plan: "pro"
   }
 ];

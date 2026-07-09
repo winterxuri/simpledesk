@@ -17,6 +17,7 @@ export type ModuleCode =
   | "calendar"
   | "clients"
   | "employees"
+  | "schedules"
   | "inventory"
   | "sales"
   | "finance"
@@ -58,6 +59,8 @@ export type SaleStatus = "completed" | "cancelled" | "refunded" | "partiallyRefu
 export type SalePaymentMethod = "cash" | "card" | "transfer" | "online" | "mixed";
 export type SalePaymentStatus = "paid" | "partial" | "unpaid" | "refunded";
 export type FinancialOperationSource = "manual" | "sale" | "refund" | "appointment" | "inventory";
+export type EmployeeStatus = "working" | "dayOff" | "vacation" | "sick" | "dismissed";
+export type EmployeeShiftType = "work" | "dayOff" | "vacation" | "sick";
 export type Priority = "low" | "medium" | "high";
 
 export interface User {
@@ -149,7 +152,7 @@ export interface Employee {
   phone?: string;
   email?: string;
   position: string;
-  status: "working" | "dayOff" | "vacation" | "dismissed";
+  status: EmployeeStatus;
   schedule: string;
   loadPercent: number;
   revenue: number;
@@ -160,6 +163,16 @@ export interface Employee {
   baseSalary?: number;
   commissionPercent?: number;
   dismissedAt?: string;
+}
+
+export interface EmployeeShift {
+  id: string;
+  employeeId: string;
+  date: string;
+  type: EmployeeShiftType;
+  startTime: string;
+  endTime: string;
+  comment: string;
 }
 
 export interface EmployeeInvite {
@@ -377,6 +390,7 @@ export interface DashboardWidget {
 export interface DemoData {
   clients: Client[];
   employees: Employee[];
+  employeeShifts: EmployeeShift[];
   appointments: Appointment[];
   products: Product[];
   inventoryMovements: InventoryMovement[];

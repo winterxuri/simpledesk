@@ -1,9 +1,10 @@
-import type { Appointment, Client, DemoData, Employee, Role, Task, User } from "@/types";
+import type { Appointment, Client, DemoData, Employee, EmployeeShift, Role, Task, User } from "@/types";
 
 type ScopedWorkspaceData = {
   currentEmployee?: Employee;
   clients: Client[];
   appointments: Appointment[];
+  employeeShifts: EmployeeShift[];
   tasks: Task[];
   employees: Employee[];
 };
@@ -38,6 +39,7 @@ export function getScopedWorkspaceData(data: DemoData, user: User | null, role: 
       currentEmployee,
       clients: data.clients,
       appointments: data.appointments,
+      employeeShifts: data.employeeShifts,
       tasks: data.tasks,
       employees: data.employees
     };
@@ -61,6 +63,7 @@ export function getScopedWorkspaceData(data: DemoData, user: User | null, role: 
     currentEmployee,
     clients,
     appointments,
+    employeeShifts: data.employeeShifts.filter((shift) => shift.employeeId === currentEmployee.id),
     tasks,
     employees: [currentEmployee]
   };

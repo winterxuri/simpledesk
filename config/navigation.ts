@@ -7,24 +7,28 @@ export const REQUIRED_MODULES: ModuleCode[] = ["dashboard"];
 const titleByTemplate: Partial<Record<string, Partial<Record<ModuleCode, string>>>> = {
   auto: {
     calendar: "Записи",
+    schedules: "Графики",
     inventory: "Запчасти",
     sales: "Продажи",
     finance: "Финансы",
     resources: "Посты"
   },
   cafe: {
+    schedules: "Графики",
     inventory: "Товары и ингредиенты",
     sales: "Продажи",
     finance: "Финансы",
     clients: "Гости"
   },
   shop: {
+    schedules: "Графики",
     inventory: "Товары и остатки",
     sales: "Продажи",
     finance: "Финансы",
     clients: "Покупатели"
   },
   beauty: {
+    schedules: "Графики",
     inventory: "Расходники",
     sales: "Продажи",
     finance: "Финансы"

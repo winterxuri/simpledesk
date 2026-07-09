@@ -97,7 +97,7 @@ export default function DashboardPage() {
     setPlanHighlight(true);
     window.setTimeout(() => setPlanHighlight(false), 1800);
     addToast({
-      title: isEmployee ? "План дня открыт" : "Рабочий день открыт",
+      title: isEmployee ? "План дня показан" : "План работы показан",
       description: isEmployee ? "Показываю ваши записи и задачи на сегодня." : "Показываю расписание, задачи и события на сегодня.",
       variant: "info"
     });
@@ -145,7 +145,7 @@ export default function DashboardPage() {
         description={isEmployee ? "Ваши записи, задачи и важные события на сегодня." : "Вот что происходит в вашем бизнесе сегодня."}
         actions={
           <Button type="button" onClick={openDayPlan}>
-            Открыть план дня
+            К плану на сегодня
           </Button>
         }
       />

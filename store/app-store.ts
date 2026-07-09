@@ -14,11 +14,13 @@ import { createDemoData } from "@/data/demo-data";
 import { createInitialBusinessData } from "@/data/initial-data";
 import {
   deleteEmployee,
+  deleteEmployeeShift,
   syncAppointment,
   syncClient,
   syncCompany,
   syncCompanyModules,
   syncEmployee,
+  syncEmployeeShift,
   syncFinancialOperation,
   syncInventoryMovement,
   syncProduct,
@@ -37,6 +39,7 @@ import type {
   CompanyModule,
   DemoData,
   Employee,
+  EmployeeShift,
   FinancialOperation,
   InventoryMovement,
   ModuleCode,
@@ -168,6 +171,9 @@ interface AppStore {
   updateAppointment: (id: string, appointment: Partial<Appointment>) => void;
   addEmployee: (employee: Omit<Employee, "id">) => string;
   updateEmployee: (id: string, employee: Partial<Employee>) => void;
+  addEmployeeShift: (shift: Omit<EmployeeShift, "id">) => void;
+  updateEmployeeShift: (id: string, shift: Partial<EmployeeShift>) => void;
+  deleteEmployeeShift: (id: string) => void;
   dismissEmployee: (id: string) => void;
   deleteDismissedEmployee: (id: string) => void;
   addProduct: (product: Omit<Product, "id">) => void;
@@ -581,6 +587,51 @@ export const useAppStore = create<AppStore>()(
             data: {
               ...state.data,
               employees
+            }
+          };
+        }),
+      addEmployeeShift: (shift) =>
+        set((state) => {
+          const nextShift: EmployeeShift = { ...shift, id: createId("shift") };
+          runBackendSync(get, () => syncEmployeeShift(state.company.id, nextShift));
+          return {
+            data: {
+              ...state.data,
+              employeeShifts: [nextShift, ...state.data.employeeShifts]
+            }
+          };
+        }),
+      updateEmployeeShift: (id, shift) =>
+        set((state) => {
+          let changedShift: EmployeeShift | undefined;
+          const employeeShifts = state.data.employeeShifts.map((item) => {
+            if (item.id !== id) {
+              return item;
+            }
+            changedShift = { ...item, ...shift };
+            return changedShift;
+          });
+          if (changedShift) {
+            const shiftToSync = changedShift;
+            runBackendSync(get, () => syncEmployeeShift(state.company.id, shiftToSync));
+          }
+          return {
+            data: {
+              ...state.data,
+              employeeShifts
+            }
+          };
+        }),
+      deleteEmployeeShift: (id) =>
+        set((state) => {
+          const shift = state.data.employeeShifts.find((item) => item.id === id);
+          if (shift) {
+            runBackendSync(get, () => deleteEmployeeShift(state.company.id, id));
+          }
+          return {
+            data: {
+              ...state.data,
+              employeeShifts: state.data.employeeShifts.filter((item) => item.id !== id)
             }
           };
         }),
@@ -1333,7 +1384,7 @@ export const useAppStore = create<AppStore>()(
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 3,
+      version: 4,
       migrate: (persisted) => {
         if (!persisted || typeof persisted !== "object") {
           return persisted;
@@ -1359,6 +1410,9 @@ export const useAppStore = create<AppStore>()(
           data: state.data
             ? {
               ...state.data,
+              employeeShifts: Array.isArray(state.data.employeeShifts)
+                ? state.data.employeeShifts
+                : [],
               sales: Array.isArray(state.data.sales)
                 ? state.data.sales.map((sale) => ({
                     ...sale,

@@ -7,6 +7,7 @@ import type {
   DashboardWidget,
   DemoData,
   Employee,
+  EmployeeShift,
   FinancialOperation,
   InventoryMovement,
   Notification,
@@ -206,6 +207,30 @@ function makeEmployees(templateId: string): Employee[] {
     baseSalary: index === 0 ? 80000 : index % 2 === 0 ? 45000 : 0,
     commissionPercent: index === 0 ? 10 : index % 2 === 0 ? 0 : 30
   }));
+}
+
+function makeEmployeeShifts(): EmployeeShift[] {
+  const shiftTypes: EmployeeShift["type"][] = ["work", "work", "work", "work", "dayOff", "vacation"];
+  return Array.from({ length: 18 }, (_, index) => {
+    const employeeIndex = index % 6;
+    const type = index === 11 ? "sick" : shiftTypes[employeeIndex];
+    return {
+      id: `shift-${index + 1}`,
+      employeeId: `employee-${employeeIndex + 1}`,
+      date: isoDate(Math.floor(index / 6)),
+      type,
+      startTime: type === "work" ? (employeeIndex % 2 === 0 ? "09:00" : "11:00") : "",
+      endTime: type === "work" ? (employeeIndex % 2 === 0 ? "18:00" : "20:00") : "",
+      comment:
+        type === "dayOff"
+          ? "Плановый выходной"
+          : type === "vacation"
+            ? "Отпуск"
+            : type === "sick"
+              ? "Больничный"
+              : ""
+    };
+  });
 }
 
 function makeAppointments(templateId: string): Appointment[] {
@@ -539,6 +564,7 @@ export function createDemoData(templateId: string): DemoData {
   return {
     clients: makeClients(),
     employees: makeEmployees(templateId),
+    employeeShifts: makeEmployeeShifts(),
     appointments: makeAppointments(templateId),
     products: makeProducts(templateId),
     inventoryMovements: makeMovements(),

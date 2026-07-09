@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 import { Tabs } from "@/components/ui/tabs";
 import { PageHeader } from "@/components/modules/page-header";
 import { StatusBadge } from "@/components/modules/status-badge";
+import { getEmployeeStatusForDate, getShiftLabel } from "@/lib/employee-status";
 import { createEmployeeInvite, loadEmployeeInvites } from "@/lib/backend/auth";
 import { syncEmployee } from "@/lib/backend/sync";
 import { useAppStore } from "@/store/app-store";
@@ -63,6 +64,7 @@ export default function EmployeesPage() {
   const [form, setForm] = useState(() => employeeToForm());
   const [invites, setInvites] = useState<EmployeeInvite[]>([]);
   const [latestInvite, setLatestInvite] = useState<EmployeeInvite | null>(null);
+  const today = getLocalDateKey();
 
   useEffect(() => {
     if (sessionMode !== "registered") {
@@ -419,10 +421,11 @@ export default function EmployeesPage() {
                   <p className="font-semibold">{employee.name}</p>
                   <p className="mt-1 text-sm text-muted-foreground">{employee.position}</p>
                 </div>
-                <StatusBadge status={employee.status === "working" ? "active" : employee.status} />
+                <StatusBadge status={getEmployeeStatusForDate(employee, data.employeeShifts, today) === "working" ? "active" : getEmployeeStatusForDate(employee, data.employeeShifts, today)} />
               </div>
               <div className="mt-5 space-y-3 text-sm">
-                <Row label="Расписание" value={employee.schedule} />
+                <Row label="Сегодня" value={getShiftLabel(data.employeeShifts.find((shift) => shift.employeeId === employee.id && shift.date === today))} />
+                <Row label="Базовый график" value={employee.schedule} />
                 <Row label="Контакт" value={employee.phone || employee.email || "не указан"} />
                 <Row label="Выручка" value={formatCurrency(employee.revenue)} />
                 <Row label="Записей" value={String(employee.appointmentsCount)} />
@@ -551,6 +554,7 @@ export default function EmployeesPage() {
                         <option value="working">Работает</option>
                         <option value="dayOff">Выходной</option>
                         <option value="vacation">Отпуск</option>
+                        <option value="sick">Больничный</option>
                         {selected.role !== "owner" ? <option value="dismissed">Уволен</option> : null}
                       </Select>
                     </div>
@@ -595,10 +599,12 @@ export default function EmployeesPage() {
                       <span className="font-medium">{getEmployeeStatusLabel(form.status)}</span>
                     </div>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="grid gap-2 sm:grid-cols-4">
                     <Button type="button" variant={form.scheduleStart === "09:00" && form.scheduleEnd === "18:00" && form.status === "working" ? "default" : "outline"} onClick={() => setForm({ ...form, scheduleStart: "09:00", scheduleEnd: "18:00", status: "working" })}>Дневная смена</Button>
                     <Button type="button" variant={form.scheduleStart === "11:00" && form.scheduleEnd === "20:00" && form.status === "working" ? "default" : "outline"} onClick={() => setForm({ ...form, scheduleStart: "11:00", scheduleEnd: "20:00", status: "working" })}>Вечерняя смена</Button>
                     <Button type="button" variant={form.status === "dayOff" ? "default" : "outline"} onClick={() => setForm({ ...form, status: "dayOff" })}>Выходной</Button>
+                    <Button type="button" variant={form.status === "vacation" ? "default" : "outline"} onClick={() => setForm({ ...form, status: "vacation" })}>Отпуск</Button>
+                    <Button type="button" variant={form.status === "sick" ? "default" : "outline"} onClick={() => setForm({ ...form, status: "sick" })}>Больничный</Button>
                   </div>
                   <Button type="button" onClick={saveEmployee}>Сохранить график</Button>
                 </>

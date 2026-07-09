@@ -7,6 +7,7 @@ import type {
   Company,
   CompanyModule,
   Employee,
+  EmployeeShift,
   FinancialOperation,
   InventoryMovement,
   Product,
@@ -142,6 +143,33 @@ export async function deleteEmployee(companyId: string, employeeId: string) {
       .delete()
       .eq("company_id", companyId)
       .eq("id", employeeId)
+  );
+}
+
+export async function syncEmployeeShift(companyId: string, shift: EmployeeShift) {
+  if (!canSync(companyId) || !canSync(shift.id) || !canSync(shift.employeeId)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("employee_shifts").upsert({
+      id: shift.id,
+      company_id: companyId,
+      employee_id: shift.employeeId,
+      date: shift.date,
+      type: shift.type,
+      start_time: shift.startTime || null,
+      end_time: shift.endTime || null,
+      comment: shift.comment
+    })
+  );
+}
+
+export async function deleteEmployeeShift(companyId: string, shiftId: string) {
+  if (!canSync(companyId) || !canSync(shiftId)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient()
+      .from("employee_shifts")
+      .delete()
+      .eq("company_id", companyId)
+      .eq("id", shiftId)
   );
 }
 

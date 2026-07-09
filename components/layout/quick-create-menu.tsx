@@ -12,6 +12,7 @@ import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
 import { canPerformAction, type PermissionAction } from "@/lib/permissions";
 import { resolvePromotionStatus, type PromotionManualMode } from "@/lib/promotion-status";
+import { getResourceSlotAvailability, hasResourceSlotConflict } from "@/lib/resource-availability";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { AppointmentStatus, ClientStatus, Employee, ModuleCode, Priority, Product, ProductStatus, QuickCreateType, ResourceStatus, SalePaymentMethod, SalePaymentStatus } from "@/types";
 
@@ -114,6 +115,7 @@ type QuickCreateForm = {
   appointmentTitle: string;
   appointmentDate: string;
   appointmentTime: string;
+  appointmentResourceId: string;
   appointmentDuration: string;
   appointmentPrice: string;
   appointmentStatus: AppointmentStatus;
@@ -196,6 +198,7 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     appointmentTitle: "",
     appointmentDate: today,
     appointmentTime: "12:00",
+    appointmentResourceId: "",
     appointmentDuration: "60",
     appointmentPrice: "0",
     appointmentStatus: "planned",
@@ -445,10 +448,31 @@ export function QuickCreateMenu() {
       return false;
     }
 
+    if (form.appointmentResourceId) {
+      const resource = data.resources.find((item) => item.id === form.appointmentResourceId);
+      if (resource) {
+        const availability = getResourceSlotAvailability({
+          resource,
+          appointments: data.appointments,
+          date: form.appointmentDate,
+          time: form.appointmentTime,
+          duration
+        });
+        if (hasResourceSlotConflict(availability)) {
+          addToast({
+            title: "Ресурс недоступен",
+            description: availability.detail,
+            variant: "warning"
+          });
+          return false;
+        }
+      }
+    }
+
     addAppointment({
       clientId: form.appointmentClientId,
       employeeId: form.appointmentEmployeeId,
-      resourceId: data.resources[0]?.id,
+      resourceId: form.appointmentResourceId || undefined,
       title,
       date: form.appointmentDate,
       time: form.appointmentTime,
@@ -990,6 +1014,31 @@ function renderAppointmentForm(
   setForm: (form: QuickCreateForm) => void,
   data: WorkspaceData
 ) {
+  const duration = Number(form.appointmentDuration) || 60;
+  const resourceOptions = data.resources.map((resource) => {
+    const availability = getResourceSlotAvailability({
+      resource,
+      appointments: data.appointments,
+      date: form.appointmentDate,
+      time: form.appointmentTime,
+      duration
+    });
+    return {
+      value: resource.id,
+      label: `${resource.name} · ${resource.type} · ${availability.label}`
+    };
+  });
+  const selectedResource = data.resources.find((resource) => resource.id === form.appointmentResourceId);
+  const selectedAvailability = selectedResource
+    ? getResourceSlotAvailability({
+        resource: selectedResource,
+        appointments: data.appointments,
+        date: form.appointmentDate,
+        time: form.appointmentTime,
+        duration
+      })
+    : null;
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
@@ -1016,6 +1065,26 @@ function renderAppointmentForm(
         <Field id="quick-appointment-time" label="Время" type="time" value={form.appointmentTime} onChange={(appointmentTime) => setForm({ ...form, appointmentTime })} />
         <Field id="quick-appointment-duration" label="Минуты" type="number" min="1" value={form.appointmentDuration} onChange={(appointmentDuration) => setForm({ ...form, appointmentDuration })} />
         <Field id="quick-appointment-price" label="Стоимость" type="number" min="0" value={form.appointmentPrice} onChange={(appointmentPrice) => setForm({ ...form, appointmentPrice })} />
+      </div>
+      <div className="space-y-2">
+        <SelectField
+          id="quick-appointment-resource"
+          label="Помещение или оборудование"
+          value={form.appointmentResourceId}
+          onChange={(appointmentResourceId) => setForm({ ...form, appointmentResourceId })}
+          options={resourceOptions}
+          emptyLabel="Не требуется"
+          allowEmpty
+        />
+        {selectedAvailability ? (
+          <p className={selectedAvailability.state === "available" ? "text-sm text-emerald-600" : "text-sm text-amber-600"}>
+            {selectedAvailability.detail}
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Выбирайте ресурс только если запись занимает кабинет, пост, зал или оборудование.
+          </p>
+        )}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
