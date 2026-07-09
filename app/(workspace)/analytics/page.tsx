@@ -57,11 +57,11 @@ export default function AnalyticsPage() {
     const expenses = sumOperations(currentOperations, "expense");
     const previousIncome = sumOperations(previousOperations, "income");
     const periodSales = (data.sales ?? []).filter((sale) =>
-      sale.status === "completed" && isDateInRange(sale.date, periodStart, today)
+      (sale.status === "completed" || sale.status === "partiallyRefunded") && isDateInRange(sale.date, periodStart, today)
     );
     const salesCount = periodSales.length || currentOperations.filter((operation) => operation.type === "income").length;
     const salesIncome = periodSales.length
-      ? periodSales.reduce((sum, sale) => sum + sale.amount, 0)
+      ? periodSales.reduce((sum, sale) => sum + Math.max(0, sale.amount - (sale.refundedAmount ?? 0)), 0)
       : income;
 
     return {

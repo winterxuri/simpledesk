@@ -82,9 +82,26 @@ const defaultCompany: Company = {
 
 type AddSaleInput = Omit<
   Sale,
-  "id" | "financialOperationId" | "inventoryMovementId" | "status" | "cancelReason" | "cancelledAt"
+  | "id"
+  | "financialOperationId"
+  | "inventoryMovementId"
+  | "status"
+  | "paymentStatus"
+  | "refundedAmount"
+  | "refundedQuantity"
+  | "cancelReason"
+  | "cancelledAt"
 > & {
   status?: Sale["status"];
+  paymentStatus?: Sale["paymentStatus"];
+  refundedAmount?: number;
+  refundedQuantity?: number;
+};
+
+type RefundSaleInput = {
+  amount: number;
+  quantity?: number;
+  reason?: string;
 };
 
 function createBlankRegisteredCompany(name: string, id?: string): Company {
@@ -158,6 +175,7 @@ interface AppStore {
   addInventoryMovement: (movement: Omit<InventoryMovement, "id">) => void;
   addFinancialOperation: (operation: Omit<FinancialOperation, "id">) => void;
   addSale: (sale: AddSaleInput) => void;
+  refundSale: (id: string, refund: RefundSaleInput) => void;
   cancelSale: (id: string, reason?: string) => void;
   addResource: (resource: Omit<Resource, "id">) => void;
   updateResource: (id: string, resource: Partial<Resource>) => void;
@@ -759,11 +777,22 @@ export const useAppStore = create<AppStore>()(
             ? state.data.products.find((item) => item.id === sale.productId)
             : undefined;
           const status = sale.status ?? "completed";
+          const discountPercent = Math.max(0, sale.discountPercent ?? 0);
+          const discountAmount = Math.max(0, sale.discountAmount ?? 0);
 
           if (!Number.isFinite(sale.amount) || sale.amount <= 0) {
             get().addToast({
               title: "Укажите сумму продажи",
               description: "Сумма должна быть больше нуля.",
+              variant: "warning"
+            });
+            return state;
+          }
+
+          if (discountPercent > 100 || discountAmount > sale.amount + discountAmount) {
+            get().addToast({
+              title: "Проверьте скидку",
+              description: "Скидка не может быть больше суммы продажи.",
               variant: "warning"
             });
             return state;
@@ -805,10 +834,16 @@ export const useAppStore = create<AppStore>()(
             productName,
             quantity,
             unitPrice,
+            paymentMethod: sale.paymentMethod ?? "cash",
+            paymentStatus: sale.paymentStatus ?? "paid",
+            discountPercent,
+            discountAmount,
             status,
             financialOperationId,
             inventoryMovementId,
-            comment: sale.comment.trim()
+            comment: sale.comment.trim(),
+            refundedAmount: sale.refundedAmount ?? 0,
+            refundedQuantity: sale.refundedQuantity ?? 0
           };
           const nextOperation: FinancialOperation | undefined = financialOperationId
             ? {
@@ -919,22 +954,65 @@ export const useAppStore = create<AppStore>()(
             }
           };
         }),
-      cancelSale: (id, reason) =>
+      refundSale: (id, refund) =>
         set((state) => {
           const currentSale = (state.data.sales ?? []).find((sale) => sale.id === id);
-          if (!currentSale || currentSale.status !== "completed") {
+          if (
+            !currentSale ||
+            currentSale.status === "cancelled" ||
+            currentSale.status === "refunded"
+          ) {
             return state;
           }
 
-          const cancelDate = getLocalDateKey();
+          const alreadyRefundedAmount = currentSale.refundedAmount ?? 0;
+          const alreadyRefundedQuantity = currentSale.refundedQuantity ?? 0;
+          const remainingAmount = Math.max(0, currentSale.amount - alreadyRefundedAmount);
+          const remainingQuantity = Math.max(0, currentSale.quantity - alreadyRefundedQuantity);
+          const refundAmount = Math.round(refund.amount);
+          const refundQuantity = currentSale.productId
+            ? Number(refund.quantity ?? remainingQuantity)
+            : 0;
+
+          if (!Number.isFinite(refundAmount) || refundAmount <= 0 || refundAmount > remainingAmount) {
+            get().addToast({
+              title: "Проверьте сумму возврата",
+              description: `Можно вернуть от 1 до ${remainingAmount}.`,
+              variant: "warning"
+            });
+            return state;
+          }
+
+          if (
+            currentSale.productId &&
+            (!Number.isFinite(refundQuantity) || refundQuantity <= 0 || refundQuantity > remainingQuantity)
+          ) {
+            get().addToast({
+              title: "Проверьте количество возврата",
+              description: `Можно вернуть от 1 до ${remainingQuantity} шт.`,
+              variant: "warning"
+            });
+            return state;
+          }
+
+          const refundDate = getLocalDateKey();
+          const nextRefundedAmount = alreadyRefundedAmount + refundAmount;
+          const nextRefundedQuantity = alreadyRefundedQuantity + refundQuantity;
+          const fullAmountRefunded = nextRefundedAmount >= currentSale.amount;
+          const fullQuantityRefunded = currentSale.productId
+            ? nextRefundedQuantity >= currentSale.quantity
+            : true;
+          const nextStatus: Sale["status"] = fullAmountRefunded && fullQuantityRefunded
+            ? "refunded"
+            : "partiallyRefunded";
           const refundOperation: FinancialOperation = {
             id: createId("operation"),
             type: "expense",
             category: "Возврат продажи",
-            amount: currentSale.amount,
-            date: cancelDate,
-            comment: reason?.trim()
-              ? `Возврат продажи: ${reason.trim()}`
+            amount: refundAmount,
+            date: refundDate,
+            comment: refund.reason?.trim()
+              ? `Возврат продажи: ${refund.reason?.trim()}`
               : `Возврат продажи: ${currentSale.productName}`,
             clientId: currentSale.clientId,
             employeeId: currentSale.employeeId
@@ -947,8 +1025,8 @@ export const useAppStore = create<AppStore>()(
                 id: createId("movement"),
                 productId: product.id,
                 type: "income",
-                quantity: currentSale.quantity,
-                date: cancelDate,
+                quantity: refundQuantity,
+                date: refundDate,
                 comment: `Возврат продажи: ${currentSale.productName}`
               }
             : undefined;
@@ -963,9 +1041,12 @@ export const useAppStore = create<AppStore>()(
             }
             changedSale = {
               ...sale,
-              status: "refunded",
-              cancelReason: reason?.trim() || "Возврат продажи",
-              cancelledAt: cancelDate
+              status: nextStatus,
+              paymentStatus: nextStatus === "refunded" ? "refunded" : "partial",
+              refundedAmount: nextRefundedAmount,
+              refundedQuantity: nextRefundedQuantity,
+              cancelReason: refund.reason?.trim() || "Возврат продажи",
+              cancelledAt: refundDate
             };
             return changedSale;
           });
@@ -975,7 +1056,7 @@ export const useAppStore = create<AppStore>()(
                   if (item.id !== product.id) {
                     return item;
                   }
-                  const nextStock = item.currentStock + currentSale.quantity;
+                  const nextStock = item.currentStock + refundQuantity;
                   changedProduct = {
                     ...item,
                     currentStock: nextStock,
@@ -991,8 +1072,8 @@ export const useAppStore = create<AppStore>()(
                 }
                 changedClient = {
                   ...client,
-                  totalSpent: Math.max(0, client.totalSpent - currentSale.amount),
-                  visits: Math.max(0, client.visits - 1)
+                  totalSpent: Math.max(0, client.totalSpent - refundAmount),
+                  visits: nextStatus === "refunded" ? Math.max(0, client.visits - 1) : client.visits
                 };
                 return changedClient;
               })
@@ -1004,32 +1085,35 @@ export const useAppStore = create<AppStore>()(
                 }
                 changedEmployee = {
                   ...employee,
-                  revenue: Math.max(0, employee.revenue - currentSale.amount)
+                  revenue: Math.max(0, employee.revenue - refundAmount)
                 };
                 return changedEmployee;
               })
             : state.data.employees;
 
-          if (changedSale) {
-            const saleToSync = changedSale;
-            runBackendSync(get, () => syncSale(state.company.id, saleToSync));
-          }
-          runBackendSync(get, () => syncFinancialOperation(state.company.id, refundOperation));
-          if (returnMovement) {
-            runBackendSync(get, () => syncInventoryMovement(state.company.id, returnMovement));
-          }
-          if (changedProduct) {
-            const productToSync = changedProduct;
-            runBackendSync(get, () => syncProduct(state.company.id, productToSync));
-          }
-          if (changedClient) {
-            const clientToSync = changedClient;
-            runBackendSync(get, () => syncClient(state.company.id, clientToSync));
-          }
-          if (changedEmployee) {
-            const employeeToSync = changedEmployee;
-            runBackendSync(get, () => syncEmployee(state.company.id, employeeToSync));
-          }
+          const companyId = state.company.id;
+          const saleToSync = changedSale;
+          const productToSync = changedProduct;
+          const clientToSync = changedClient;
+          const employeeToSync = changedEmployee;
+          runBackendSync(get, async () => {
+            await syncFinancialOperation(companyId, refundOperation);
+            if (returnMovement) {
+              await syncInventoryMovement(companyId, returnMovement);
+            }
+            if (saleToSync) {
+              await syncSale(companyId, saleToSync);
+            }
+            if (productToSync) {
+              await syncProduct(companyId, productToSync);
+            }
+            if (clientToSync) {
+              await syncClient(companyId, clientToSync);
+            }
+            if (employeeToSync) {
+              await syncEmployee(companyId, employeeToSync);
+            }
+          });
 
           return {
             data: {
@@ -1045,6 +1129,17 @@ export const useAppStore = create<AppStore>()(
             }
           };
         }),
+      cancelSale: (id, reason) => {
+        const sale = get().data.sales.find((item) => item.id === id);
+        if (!sale) {
+          return;
+        }
+        get().refundSale(id, {
+          amount: Math.max(0, sale.amount - (sale.refundedAmount ?? 0)),
+          quantity: Math.max(0, sale.quantity - (sale.refundedQuantity ?? 0)),
+          reason
+        });
+      },
       addResource: (resource) =>
         set((state) => {
           const nextResource = { ...resource, id: createId("resource") };
@@ -1254,9 +1349,19 @@ export const useAppStore = create<AppStore>()(
             : state.companyModules,
           data: state.data
             ? {
-                ...state.data,
-                sales: Array.isArray(state.data.sales) ? state.data.sales : []
-              }
+              ...state.data,
+              sales: Array.isArray(state.data.sales)
+                ? state.data.sales.map((sale) => ({
+                    ...sale,
+                    paymentMethod: sale.paymentMethod ?? "cash",
+                    paymentStatus: sale.paymentStatus ?? (sale.status === "refunded" ? "refunded" : "paid"),
+                    discountPercent: sale.discountPercent ?? 0,
+                    discountAmount: sale.discountAmount ?? 0,
+                    refundedAmount: sale.refundedAmount ?? (sale.status === "refunded" ? sale.amount : 0),
+                    refundedQuantity: sale.refundedQuantity ?? (sale.status === "refunded" ? sale.quantity : 0)
+                  }))
+                : []
+            }
             : state.data
         };
       },

@@ -287,9 +287,24 @@ function makeSales(templateId: string): Sale[] {
     const status: Sale["status"] =
       index % 11 === 0
         ? "refunded"
+        : index % 7 === 0
+          ? "partiallyRefunded"
         : index % 13 === 0
           ? "cancelled"
           : "completed";
+    const discountPercent = index % 4 === 0 ? 10 : 0;
+    const discountAmount = discountPercent ? Math.round(quantity * unitPrice * discountPercent / 100) : 0;
+    const amount = quantity * unitPrice - discountAmount;
+    const refundedAmount = status === "refunded"
+      ? amount
+      : status === "partiallyRefunded"
+        ? Math.round(amount / 2)
+        : 0;
+    const refundedQuantity = status === "refunded"
+      ? quantity
+      : status === "partiallyRefunded"
+        ? 1
+        : 0;
 
     return {
       id: `sale-${index + 1}`,
@@ -298,14 +313,21 @@ function makeSales(templateId: string): Sale[] {
       productName: names[productIndex],
       quantity,
       unitPrice,
-      amount: quantity * unitPrice,
+      amount,
       category: ["Товары", "Услуги", "Дополнительные продажи"][index % 3],
+      paymentMethod: ["cash", "card", "transfer", "online"][index % 4] as Sale["paymentMethod"],
+      paymentStatus: status === "refunded" ? "refunded" : status === "partiallyRefunded" ? "partial" : "paid",
+      discountPercent,
+      discountAmount,
+      promotionId: discountPercent ? `promotion-${(index % 3) + 1}` : undefined,
       clientId: `client-${(index % 20) + 1}`,
       employeeId: `employee-${(index % 6) + 1}`,
       financialOperationId: `operation-${index + 1}`,
       inventoryMovementId: `movement-${index + 1}`,
       status,
       comment: status === "completed" ? "Демо-продажа" : "Демо-продажа с изменённым статусом",
+      refundedAmount,
+      refundedQuantity,
       cancelReason: status !== "completed" ? "Демонстрационный возврат" : undefined,
       cancelledAt: status !== "completed" ? isoDate(-index + 1) : undefined
     };

@@ -12,8 +12,8 @@ import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
 import { canPerformAction, type PermissionAction } from "@/lib/permissions";
 import { resolvePromotionStatus, type PromotionManualMode } from "@/lib/promotion-status";
-import { formatDate, getLocalDateKey } from "@/lib/utils";
-import type { AppointmentStatus, ClientStatus, Employee, ModuleCode, Priority, Product, ProductStatus, QuickCreateType, ResourceStatus } from "@/types";
+import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
+import type { AppointmentStatus, ClientStatus, Employee, ModuleCode, Priority, Product, ProductStatus, QuickCreateType, ResourceStatus, SalePaymentMethod, SalePaymentStatus } from "@/types";
 
 const createItems: { type: QuickCreateType; label: string; icon: string; action: PermissionAction; module: ModuleCode }[] = [
   { type: "client", label: "Клиент", icon: "UsersRound", action: "manageClients", module: "clients" },
@@ -76,6 +76,20 @@ const roleOptions: { value: Employee["role"]; label: string }[] = [
   { value: "employee", label: "Сотрудник" }
 ];
 
+const paymentMethodOptions: { value: SalePaymentMethod; label: string }[] = [
+  { value: "cash", label: "Наличные" },
+  { value: "card", label: "Карта" },
+  { value: "transfer", label: "Перевод" },
+  { value: "online", label: "Онлайн" },
+  { value: "mixed", label: "Смешанная оплата" }
+];
+
+const paymentStatusOptions: { value: SalePaymentStatus; label: string }[] = [
+  { value: "paid", label: "Оплачено" },
+  { value: "partial", label: "Частично оплачено" },
+  { value: "unpaid", label: "Не оплачено" }
+];
+
 const compensationOptions: { value: NonNullable<Employee["compensationType"]>; label: string }[] = [
   { value: "fixed", label: "Фикс" },
   { value: "commission", label: "Процент" },
@@ -113,9 +127,15 @@ type QuickCreateForm = {
   taskChecklist: string;
   saleAmount: string;
   saleProductId: string;
+  saleItemName: string;
   saleQuantity: string;
   saleCategory: string;
   saleDate: string;
+  salePaymentMethod: SalePaymentMethod;
+  salePaymentStatus: SalePaymentStatus;
+  saleDiscountPercent: string;
+  saleDiscountAmount: string;
+  salePromotionId: string;
   saleClientId: string;
   saleEmployeeId: string;
   saleComment: string;
@@ -189,9 +209,15 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     taskChecklist: "Проверить детали\nПодтвердить выполнение",
     saleAmount: firstSaleProduct ? String(firstSaleProduct.salePrice) : "",
     saleProductId: firstSaleProduct?.id ?? "",
+    saleItemName: "",
     saleQuantity: "1",
     saleCategory: "Продажа",
     saleDate: today,
+    salePaymentMethod: "cash",
+    salePaymentStatus: "paid",
+    saleDiscountPercent: "0",
+    saleDiscountAmount: "0",
+    salePromotionId: "",
     saleClientId: firstClientId,
     saleEmployeeId: firstEmployeeId,
     saleComment: "",
@@ -484,14 +510,28 @@ export function QuickCreateMenu() {
   }
 
   function saveSale() {
-    const amount = Number(form.saleAmount);
     const quantity = Number(form.saleQuantity);
     const product = data.products.find((item) => item.id === form.saleProductId);
+    const itemName = product?.name ?? form.saleItemName.trim();
+    const subtotal = getSaleSubtotal(form, product);
+    const discountPercent = Number(form.saleDiscountPercent);
+    const manualDiscountAmount = Number(form.saleDiscountAmount);
+    const discountAmount = getSaleDiscountAmount(subtotal, discountPercent, manualDiscountAmount);
+    const amount = Math.max(0, subtotal - discountAmount);
 
     if (!form.saleDate) {
       addToast({
         title: "Укажите дату продажи",
         description: "Дата нужна для отчётов, выручки и истории клиента.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!product && !itemName) {
+      addToast({
+        title: "Укажите, что продаёте",
+        description: "Для ручной продажи нужно название услуги, работы или позиции.",
         variant: "warning"
       });
       return false;
@@ -517,10 +557,35 @@ export function QuickCreateMenu() {
       }
     }
 
+    if (!Number.isFinite(subtotal) || subtotal <= 0) {
+      addToast({
+        title: "Укажите сумму продажи",
+        description: "Сумма до скидки должна быть больше нуля.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (
+      !Number.isFinite(discountPercent) ||
+      !Number.isFinite(manualDiscountAmount) ||
+      discountPercent < 0 ||
+      discountPercent > 100 ||
+      manualDiscountAmount < 0 ||
+      discountAmount >= subtotal
+    ) {
+      addToast({
+        title: "Проверьте скидку",
+        description: "Скидка должна быть от 0 до 100% и меньше суммы продажи.",
+        variant: "warning"
+      });
+      return false;
+    }
+
     if (!Number.isFinite(amount) || amount <= 0) {
       addToast({
         title: "Укажите сумму продажи",
-        description: "Сумма должна быть больше нуля.",
+        description: "Итог к оплате после скидки должен быть больше нуля.",
         variant: "warning"
       });
       return false;
@@ -540,10 +605,15 @@ export function QuickCreateMenu() {
       amount,
       date: form.saleDate,
       productId: product?.id,
-      productName: product?.name ?? form.saleCategory.trim(),
+      productName: itemName,
       quantity: product ? quantity : 0,
-      unitPrice: product && quantity > 0 ? amount / quantity : amount,
-      comment: form.saleComment.trim() || (product ? `Продажа: ${product.name} x ${quantity}` : "Продажа через быстрое создание"),
+      unitPrice: product && quantity > 0 ? subtotal / quantity : subtotal,
+      paymentMethod: form.salePaymentMethod,
+      paymentStatus: form.salePaymentStatus,
+      discountPercent: Number.isFinite(discountPercent) ? discountPercent : 0,
+      discountAmount,
+      promotionId: form.salePromotionId || undefined,
+      comment: form.saleComment.trim() || (product ? `Продажа: ${product.name} x ${quantity}` : `Продажа: ${itemName}`),
       clientId: form.saleClientId || undefined,
       employeeId: form.saleEmployeeId || undefined
     });
@@ -1015,9 +1085,18 @@ function renderSaleForm(
 ) {
   const product = data.products.find((item) => item.id === form.saleProductId);
   const quantity = Number(form.saleQuantity);
+  const subtotal = getSaleSubtotal(form, product);
+  const discountPercent = Number(form.saleDiscountPercent);
+  const manualDiscountAmount = Number(form.saleDiscountAmount);
+  const discountAmount = getSaleDiscountAmount(subtotal, discountPercent, manualDiscountAmount);
+  const total = Math.max(0, subtotal - discountAmount);
   const productOptions = data.products.map((item) => ({
     value: item.id,
     label: `${item.name} · остаток ${item.currentStock}`
+  }));
+  const promotionOptions = data.promotions.map((promotion) => ({
+    value: promotion.id,
+    label: promotion.name
   }));
 
   return (
@@ -1032,6 +1111,7 @@ function renderSaleForm(
             setForm({
               ...form,
               saleProductId,
+              saleItemName: nextProduct ? "" : form.saleItemName,
               saleCategory: nextProduct?.category ?? form.saleCategory,
               saleAmount:
                 nextProduct && Number.isFinite(quantity) && quantity > 0
@@ -1043,6 +1123,15 @@ function renderSaleForm(
           emptyLabel={data.products.length ? "Ручная продажа без товара" : "Товаров нет"}
           allowEmpty
         />
+        <Field
+          id="quick-sale-item-name"
+          label="Услуга / ручная позиция"
+          value={form.saleItemName}
+          onChange={(saleItemName) => setForm({ ...form, saleItemName })}
+          placeholder={product ? "Заполнится товаром" : "Например: консультация"}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field
           id="quick-sale-quantity"
           label="Количество"
@@ -1061,11 +1150,60 @@ function renderSaleForm(
             });
           }}
         />
+        <Field
+          id="quick-sale-amount"
+          label={product ? "Сумма до скидки" : "Сумма до скидки"}
+          type="number"
+          min="1"
+          value={form.saleAmount}
+          onChange={(saleAmount) => setForm({ ...form, saleAmount })}
+        />
+        <Field id="quick-sale-date" label="Дата" type="date" value={form.saleDate} onChange={(saleDate) => setForm({ ...form, saleDate })} />
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
-        <Field id="quick-sale-amount" label="Сумма" type="number" min="1" value={form.saleAmount} onChange={(saleAmount) => setForm({ ...form, saleAmount })} />
         <Field id="quick-sale-category" label="Категория дохода" value={form.saleCategory} onChange={(saleCategory) => setForm({ ...form, saleCategory })} />
-        <Field id="quick-sale-date" label="Дата" type="date" value={form.saleDate} onChange={(saleDate) => setForm({ ...form, saleDate })} />
+        <SelectField
+          id="quick-sale-payment-method"
+          label="Способ оплаты"
+          value={form.salePaymentMethod}
+          onChange={(salePaymentMethod) => setForm({ ...form, salePaymentMethod: salePaymentMethod as SalePaymentMethod })}
+          options={paymentMethodOptions}
+        />
+        <SelectField
+          id="quick-sale-payment-status"
+          label="Статус оплаты"
+          value={form.salePaymentStatus}
+          onChange={(salePaymentStatus) => setForm({ ...form, salePaymentStatus: salePaymentStatus as SalePaymentStatus })}
+          options={paymentStatusOptions}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field
+          id="quick-sale-discount-percent"
+          label="Скидка, %"
+          type="number"
+          min="0"
+          max="100"
+          value={form.saleDiscountPercent}
+          onChange={(saleDiscountPercent) => setForm({ ...form, saleDiscountPercent })}
+        />
+        <Field
+          id="quick-sale-discount-amount"
+          label="Скидка суммой"
+          type="number"
+          min="0"
+          value={form.saleDiscountAmount}
+          onChange={(saleDiscountAmount) => setForm({ ...form, saleDiscountAmount })}
+        />
+        <SelectField
+          id="quick-sale-promotion"
+          label="Акция"
+          value={form.salePromotionId}
+          onChange={(salePromotionId) => setForm({ ...form, salePromotionId })}
+          options={promotionOptions}
+          emptyLabel="Без акции"
+          allowEmpty
+        />
       </div>
       {product ? (
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
@@ -1076,6 +1214,20 @@ function renderSaleForm(
           Ручная продажа попадёт в журнал продаж и финансы, но остатки склада не изменит.
         </div>
       )}
+      <div className="rounded-lg border border-border bg-card p-3 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted-foreground">До скидки</span>
+          <span className="font-medium">{Number.isFinite(subtotal) ? formatCurrency(subtotal) : "—"}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3">
+          <span className="text-muted-foreground">Скидка</span>
+          <span className="font-medium">{Number.isFinite(discountAmount) ? formatCurrency(discountAmount) : "—"}</span>
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3 border-t border-border pt-2">
+          <span className="font-medium">К оплате</span>
+          <span className="text-base font-semibold">{Number.isFinite(total) ? formatCurrency(total) : "—"}</span>
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
           id="quick-sale-client"
@@ -1438,6 +1590,26 @@ function getProductStatus(currentStock: number, minStock: number): ProductStatus
     return "low";
   }
   return "ok";
+}
+
+function getSaleSubtotal(form: QuickCreateForm, product?: Product) {
+  const quantity = Number(form.saleQuantity);
+  if (product && Number.isFinite(quantity) && quantity > 0) {
+    return product.salePrice * quantity;
+  }
+  return Number(form.saleAmount);
+}
+
+function getSaleDiscountAmount(subtotal: number, discountPercent: number, manualDiscountAmount: number) {
+  const percentDiscount =
+    Number.isFinite(discountPercent) && discountPercent > 0
+      ? subtotal * discountPercent / 100
+      : 0;
+  const fixedDiscount =
+    Number.isFinite(manualDiscountAmount) && manualDiscountAmount > 0
+      ? manualDiscountAmount
+      : 0;
+  return Math.min(subtotal, Math.round(percentDiscount + fixedDiscount));
 }
 
 function buildFullName(lastName: string, firstName: string, middleName: string) {

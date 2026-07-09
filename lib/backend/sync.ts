@@ -227,6 +227,11 @@ export async function syncSale(companyId: string, sale: Sale) {
       unit_price: sale.unitPrice,
       amount: sale.amount,
       category: sale.category,
+      payment_method: sale.paymentMethod,
+      payment_status: sale.paymentStatus,
+      discount_percent: sale.discountPercent,
+      discount_amount: sale.discountAmount,
+      promotion_id: sale.promotionId && canSync(sale.promotionId) ? sale.promotionId : null,
       client_id: sale.clientId && canSync(sale.clientId) ? sale.clientId : null,
       employee_id: sale.employeeId && canSync(sale.employeeId) ? sale.employeeId : null,
       financial_operation_id:
@@ -239,6 +244,8 @@ export async function syncSale(companyId: string, sale: Sale) {
           : null,
       status: sale.status,
       comment: sale.comment,
+      refunded_amount: sale.refundedAmount,
+      refunded_quantity: sale.refundedQuantity,
       cancel_reason: sale.cancelReason ?? null,
       cancelled_at: sale.cancelledAt ?? null
     })

@@ -3,6 +3,9 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { DataTable, type DataTableColumn } from "@/components/modules/data-table";
 import { EmptyState } from "@/components/modules/empty-state";
 import { MetricCard } from "@/components/modules/metric-card";
@@ -16,19 +19,41 @@ import type { Sale, SaleStatus } from "@/types";
 const statusOptions: { value: SaleStatus | "all"; label: string }[] = [
   { value: "all", label: "Все статусы" },
   { value: "completed", label: "Завершённые" },
+  { value: "partiallyRefunded", label: "Частичные возвраты" },
   { value: "refunded", label: "Возвраты" },
   { value: "cancelled", label: "Отменённые" }
 ];
 
+const paymentMethodLabels: Record<string, string> = {
+  cash: "Наличные",
+  card: "Карта",
+  transfer: "Перевод",
+  online: "Онлайн",
+  mixed: "Смешанная"
+};
+
+const paymentStatusLabels: Record<string, string> = {
+  paid: "оплачено",
+  partial: "частично",
+  unpaid: "не оплачено",
+  refunded: "возврат"
+};
+
 export default function SalesPage() {
   const data = useAppStore((state) => state.data);
   const openQuickCreate = useAppStore((state) => state.openQuickCreate);
-  const cancelSale = useAppStore((state) => state.cancelSale);
+  const refundSale = useAppStore((state) => state.refundSale);
   const addToast = useAppStore((state) => state.addToast);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<SaleStatus | "all">("all");
   const [category, setCategory] = useState("all");
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
+  const [refundTarget, setRefundTarget] = useState<Sale | null>(null);
+  const [refundForm, setRefundForm] = useState({
+    amount: "",
+    quantity: "",
+    reason: ""
+  });
 
   const sales = data.sales ?? [];
   const clientById = useMemo(
@@ -42,6 +67,10 @@ export default function SalesPage() {
   const productById = useMemo(
     () => new Map(data.products.map((product) => [product.id, product])),
     [data.products]
+  );
+  const promotionById = useMemo(
+    () => new Map(data.promotions.map((promotion) => [promotion.id, promotion])),
+    [data.promotions]
   );
   const categories = useMemo(
     () => Array.from(new Set(sales.map((sale) => sale.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ru")),
@@ -80,12 +109,11 @@ export default function SalesPage() {
         .sort((first, second) => second.date.localeCompare(first.date)),
     [category, clientById, employeeById, normalizedSearch, sales, status]
   );
-  const completedSales = sales.filter((sale) => sale.status === "completed");
-  const refundedSales = sales.filter((sale) => sale.status === "refunded");
-  const totalRevenue = completedSales.reduce((sum, sale) => sum + sale.amount, 0);
-  const refundAmount = refundedSales.reduce((sum, sale) => sum + sale.amount, 0);
-  const averageCheck = completedSales.length ? Math.round(totalRevenue / completedSales.length) : 0;
-  const unitsSold = completedSales.reduce((sum, sale) => sum + sale.quantity, 0);
+  const paidSales = sales.filter((sale) => sale.status === "completed" || sale.status === "partiallyRefunded");
+  const totalRevenue = paidSales.reduce((sum, sale) => sum + getSaleNetAmount(sale), 0);
+  const refundAmount = sales.reduce((sum, sale) => sum + (sale.refundedAmount ?? 0), 0);
+  const averageCheck = paidSales.length ? Math.round(totalRevenue / paidSales.length) : 0;
+  const unitsSold = paidSales.reduce((sum, sale) => sum + Math.max(0, sale.quantity - (sale.refundedQuantity ?? 0)), 0);
 
   const columns: DataTableColumn<Sale>[] = [
     {
@@ -122,12 +150,29 @@ export default function SalesPage() {
     {
       key: "quantity",
       header: "Кол-во",
-      cell: (sale) => sale.quantity ? `${formatQuantity(sale.quantity)} шт.` : "ручная"
+      cell: (sale) => sale.quantity ? `${formatQuantity(Math.max(0, sale.quantity - (sale.refundedQuantity ?? 0)))} шт.` : "ручная"
+    },
+    {
+      key: "payment",
+      header: "Оплата",
+      cell: (sale) => (
+        <div>
+          <p>{paymentMethodLabels[sale.paymentMethod] ?? "Наличные"}</p>
+          <p className="text-xs text-muted-foreground">{paymentStatusLabels[sale.paymentStatus] ?? "оплачено"}</p>
+        </div>
+      )
     },
     {
       key: "amount",
       header: "Сумма",
-      cell: (sale) => formatCurrency(sale.amount),
+      cell: (sale) => (
+        <div className="text-right">
+          <p>{formatCurrency(getSaleNetAmount(sale))}</p>
+          {(sale.refundedAmount ?? 0) > 0 ? (
+            <p className="text-xs text-muted-foreground">возврат {formatCurrency(sale.refundedAmount ?? 0)}</p>
+          ) : null}
+        </div>
+      ),
       className: "text-right"
     },
     {
@@ -147,16 +192,34 @@ export default function SalesPage() {
     }
   ];
 
-  function handleCancelSale(sale: Sale) {
-    const reason = window.prompt("Причина отмены или возврата", "Возврат клиенту");
-    if (reason === null) {
+  function openRefundDialog(sale: Sale) {
+    const remainingAmount = Math.max(0, sale.amount - (sale.refundedAmount ?? 0));
+    const remainingQuantity = Math.max(0, sale.quantity - (sale.refundedQuantity ?? 0));
+    setRefundTarget(sale);
+    setRefundForm({
+      amount: String(remainingAmount),
+      quantity: sale.productId ? String(remainingQuantity) : "0",
+      reason: "Возврат клиенту"
+    });
+  }
+
+  function saveRefund() {
+    if (!refundTarget) {
       return;
     }
 
-    cancelSale(sale.id, reason);
+    const amount = Number(refundForm.amount);
+    const quantity = Number(refundForm.quantity);
+
+    refundSale(refundTarget.id, {
+      amount,
+      quantity: refundTarget.productId ? quantity : 0,
+      reason: refundForm.reason
+    });
+    setRefundTarget(null);
     setSelectedSale(null);
     addToast({
-      title: "Продажа возвращена",
+      title: "Возврат проведён",
       description: "Создан расход на возврат, а товар возвращён на склад, если он был связан с продажей.",
       variant: "success"
     });
@@ -178,7 +241,7 @@ export default function SalesPage() {
         <MetricCard
           title="Выручка"
           value={formatCurrency(totalRevenue)}
-          hint={`${completedSales.length} ${plural(completedSales.length, ["продажа", "продажи", "продаж"])}`}
+          hint={`${paidSales.length} ${plural(paidSales.length, ["продажа", "продажи", "продаж"])}`}
           icon="ChartNoAxesCombined"
           tone="success"
         />
@@ -197,9 +260,9 @@ export default function SalesPage() {
         <MetricCard
           title="Возвраты"
           value={formatCurrency(refundAmount)}
-          hint={`${refundedSales.length} ${plural(refundedSales.length, ["операция", "операции", "операций"])}`}
+          hint={`${sales.filter((sale) => (sale.refundedAmount ?? 0) > 0).length} ${plural(sales.filter((sale) => (sale.refundedAmount ?? 0) > 0).length, ["операция", "операции", "операций"])}`}
           icon="BadgePercent"
-          tone={refundedSales.length ? "warning" : "default"}
+          tone={refundAmount ? "warning" : "default"}
         />
       </div>
 
@@ -251,10 +314,10 @@ export default function SalesPage() {
               <Button
                 type="button"
                 variant="destructive"
-                disabled={selectedSale.status !== "completed"}
-                onClick={() => handleCancelSale(selectedSale)}
+                disabled={!canRefundSale(selectedSale)}
+                onClick={() => openRefundDialog(selectedSale)}
               >
-                Отменить / вернуть
+                Возврат
               </Button>
             </>
           ) : null
@@ -272,9 +335,13 @@ export default function SalesPage() {
               <DetailRow label="Клиент" value={selectedSale.clientId ? clientById.get(selectedSale.clientId)?.name ?? "Клиент удалён" : "Без клиента"} />
               <DetailRow label="Сотрудник" value={selectedSale.employeeId ? employeeById.get(selectedSale.employeeId)?.name ?? "Не указан" : "Не указан"} />
               <DetailRow label="Товар" value={selectedSale.productId ? productById.get(selectedSale.productId)?.name ?? selectedSale.productName : "Ручная продажа"} />
-              <DetailRow label="Количество" value={selectedSale.quantity ? `${formatQuantity(selectedSale.quantity)} шт.` : "не списывалось"} />
+              <DetailRow label="Количество" value={selectedSale.quantity ? `${formatQuantity(Math.max(0, selectedSale.quantity - (selectedSale.refundedQuantity ?? 0)))} из ${formatQuantity(selectedSale.quantity)} шт.` : "не списывалось"} />
               <DetailRow label="Цена за ед." value={selectedSale.quantity ? formatCurrency(selectedSale.unitPrice) : "не указана"} />
-              <DetailRow label="Сумма" value={formatCurrency(selectedSale.amount)} />
+              <DetailRow label="Оплата" value={`${paymentMethodLabels[selectedSale.paymentMethod] ?? "Наличные"} · ${paymentStatusLabels[selectedSale.paymentStatus] ?? "оплачено"}`} />
+              <DetailRow label="Скидка" value={selectedSale.discountAmount || selectedSale.discountPercent ? `${selectedSale.discountPercent}% · ${formatCurrency(selectedSale.discountAmount)}` : "без скидки"} />
+              <DetailRow label="Акция" value={selectedSale.promotionId ? promotionById.get(selectedSale.promotionId)?.name ?? "Акция удалена" : "без акции"} />
+              <DetailRow label="Сумма" value={`${formatCurrency(getSaleNetAmount(selectedSale))} из ${formatCurrency(selectedSale.amount)}`} />
+              <DetailRow label="Возвращено" value={(selectedSale.refundedAmount ?? 0) > 0 ? `${formatCurrency(selectedSale.refundedAmount ?? 0)}${selectedSale.productId ? ` · ${formatQuantity(selectedSale.refundedQuantity ?? 0)} шт.` : ""}` : "возвратов нет"} />
             </div>
             <DetailRow label="Комментарий" value={selectedSale.comment || "Комментарий не указан"} wide />
             {selectedSale.status !== "completed" ? (
@@ -287,11 +354,69 @@ export default function SalesPage() {
                 wide
               />
             ) : null}
-            {selectedSale.status === "completed" ? (
+            {canRefundSale(selectedSale) ? (
               <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-                Отмена создаст расход на сумму продажи. Если продажа связана с товаром, остаток будет возвращён на склад.
+                Возврат создаст расход на выбранную сумму. Если продажа связана с товаром, выбранное количество вернётся на склад.
               </div>
             ) : null}
+          </div>
+        ) : null}
+      </Dialog>
+
+      <Dialog
+        open={Boolean(refundTarget)}
+        onOpenChange={(open) => !open && setRefundTarget(null)}
+        title="Возврат продажи"
+        description={refundTarget ? refundTarget.productName : undefined}
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setRefundTarget(null)}>
+              Отмена
+            </Button>
+            <Button type="button" variant="destructive" onClick={saveRefund}>
+              Провести возврат
+            </Button>
+          </>
+        }
+      >
+        {refundTarget ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Доступно к возврату: {formatCurrency(Math.max(0, refundTarget.amount - (refundTarget.refundedAmount ?? 0)))}
+              {refundTarget.productId ? ` · ${formatQuantity(Math.max(0, refundTarget.quantity - (refundTarget.refundedQuantity ?? 0)))} шт.` : ""}
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="sale-refund-amount">Сумма возврата</Label>
+                <Input
+                  id="sale-refund-amount"
+                  type="number"
+                  min="1"
+                  value={refundForm.amount}
+                  onChange={(event) => setRefundForm({ ...refundForm, amount: event.target.value })}
+                />
+              </div>
+              {refundTarget.productId ? (
+                <div className="space-y-2">
+                  <Label htmlFor="sale-refund-quantity">Количество к возврату</Label>
+                  <Input
+                    id="sale-refund-quantity"
+                    type="number"
+                    min="1"
+                    value={refundForm.quantity}
+                    onChange={(event) => setRefundForm({ ...refundForm, quantity: event.target.value })}
+                  />
+                </div>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="sale-refund-reason">Причина</Label>
+              <Textarea
+                id="sale-refund-reason"
+                value={refundForm.reason}
+                onChange={(event) => setRefundForm({ ...refundForm, reason: event.target.value })}
+              />
+            </div>
           </div>
         ) : null}
       </Dialog>
@@ -312,6 +437,18 @@ function formatQuantity(value: number) {
   return new Intl.NumberFormat("ru-RU", {
     maximumFractionDigits: 2
   }).format(value);
+}
+
+function getSaleNetAmount(sale: Sale) {
+  return Math.max(0, sale.amount - (sale.refundedAmount ?? 0));
+}
+
+function canRefundSale(sale: Sale) {
+  return (
+    sale.status !== "cancelled" &&
+    sale.status !== "refunded" &&
+    getSaleNetAmount(sale) > 0
+  );
 }
 
 function plural(value: number, forms: [string, string, string]) {

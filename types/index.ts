@@ -53,7 +53,9 @@ export type PromotionStatus =
   | "finished"
   | "paused";
 export type TaskStatus = "new" | "inProgress" | "waiting" | "done" | "overdue" | "cancelled";
-export type SaleStatus = "completed" | "cancelled" | "refunded";
+export type SaleStatus = "completed" | "cancelled" | "refunded" | "partiallyRefunded";
+export type SalePaymentMethod = "cash" | "card" | "transfer" | "online" | "mixed";
+export type SalePaymentStatus = "paid" | "partial" | "unpaid" | "refunded";
 export type Priority = "low" | "medium" | "high";
 
 export interface User {
@@ -272,12 +274,19 @@ export interface Sale {
   unitPrice: number;
   amount: number;
   category: string;
+  paymentMethod: SalePaymentMethod;
+  paymentStatus: SalePaymentStatus;
+  discountPercent: number;
+  discountAmount: number;
+  promotionId?: string;
   clientId?: string;
   employeeId?: string;
   financialOperationId?: string;
   inventoryMovementId?: string;
   status: SaleStatus;
   comment: string;
+  refundedAmount: number;
+  refundedQuantity: number;
   cancelReason?: string;
   cancelledAt?: string;
 }
