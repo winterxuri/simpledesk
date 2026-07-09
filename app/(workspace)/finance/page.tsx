@@ -154,8 +154,13 @@ export default function FinancePage() {
   );
 
   const completedSales = sales.filter((sale) => sale.status !== "cancelled");
-  const netSalesRevenue = completedSales.reduce((sum, sale) => sum + getSaleNetAmount(sale), 0);
-  const refundAmount = sales.reduce((sum, sale) => sum + (sale.refundedAmount ?? 0), 0);
+  const grossSalesRevenue = completedSales.reduce((sum, sale) => sum + sale.amount, 0);
+  const saleRefundAmount = completedSales.reduce((sum, sale) => sum + (sale.refundedAmount ?? 0), 0);
+  const operationRefundAmount = financeRows
+    .filter((operation) => operation.type === "expense" && operation.source === "refund")
+    .reduce((sum, operation) => sum + operation.amount, 0);
+  const refundAmount = Math.max(saleRefundAmount, operationRefundAmount);
+  const netSalesRevenue = Math.max(0, grossSalesRevenue - refundAmount);
   const costOfGoods = completedSales.reduce(
     (sum, sale) => sum + getSaleCostOfGoods(sale, productById),
     0
@@ -334,7 +339,7 @@ export default function FinancePage() {
         <MetricCard
           title="Оценка прибыли"
           value={formatCurrency(estimatedProfit, company.currency)}
-          hint="выручка минус себестоимость и расходы"
+          hint="чистая выручка минус себестоимость и расходы"
           icon="ChartNoAxesCombined"
           tone={estimatedProfit >= 0 ? "success" : "danger"}
         />
@@ -492,13 +497,6 @@ function getOperationSource(operation: FinancialOperation, sale?: Sale): Financi
     return "refund";
   }
   return "manual";
-}
-
-function getSaleNetAmount(sale: Sale) {
-  if (sale.status === "cancelled") {
-    return 0;
-  }
-  return Math.max(0, sale.amount - (sale.refundedAmount ?? 0));
 }
 
 function getSaleCostOfGoods(sale: Sale, productById: Map<string, Product>) {
