@@ -25,6 +25,7 @@ import {
   syncPromotion,
   syncReportSnapshot,
   syncResource,
+  syncSale,
   deleteReportSnapshot,
   syncTask
 } from "@/lib/backend/sync";
@@ -45,6 +46,7 @@ import type {
   ReportSnapshot,
   Resource,
   Role,
+  Sale,
   Task,
   ThemeMode,
   ToastMessage,
@@ -76,6 +78,13 @@ const defaultCompany: Company = {
     end: "20:00"
   },
   terminology: getBusinessTemplate(defaultTemplateId).terminology
+};
+
+type AddSaleInput = Omit<
+  Sale,
+  "id" | "financialOperationId" | "inventoryMovementId" | "status" | "cancelReason" | "cancelledAt"
+> & {
+  status?: Sale["status"];
 };
 
 function createBlankRegisteredCompany(name: string, id?: string): Company {
@@ -148,6 +157,8 @@ interface AppStore {
   updateProduct: (id: string, product: Partial<Product>) => void;
   addInventoryMovement: (movement: Omit<InventoryMovement, "id">) => void;
   addFinancialOperation: (operation: Omit<FinancialOperation, "id">) => void;
+  addSale: (sale: AddSaleInput) => void;
+  cancelSale: (id: string, reason?: string) => void;
   addResource: (resource: Omit<Resource, "id">) => void;
   updateResource: (id: string, resource: Partial<Resource>) => void;
   saveReportSnapshot: (snapshot: ReportSnapshot) => void;
@@ -184,6 +195,19 @@ function runBackendSync(get: () => AppStore, action: () => Promise<void>) {
       variant: "error"
     });
   });
+}
+
+function getProductStatus(currentStock: number, minStock: number): Product["status"] {
+  if (currentStock <= 0) {
+    return "out";
+  }
+  if (currentStock <= minStock / 2) {
+    return "critical";
+  }
+  if (currentStock <= minStock) {
+    return "low";
+  }
+  return "ok";
 }
 
 export const useAppStore = create<AppStore>()(
@@ -604,6 +628,11 @@ export const useAppStore = create<AppStore>()(
                 operation.employeeId === id
                   ? { ...operation, employeeId: undefined }
                   : operation
+              ),
+              sales: (state.data.sales ?? []).map((sale) =>
+                sale.employeeId === id
+                  ? { ...sale, employeeId: undefined }
+                  : sale
               )
             }
           };
@@ -720,7 +749,299 @@ export const useAppStore = create<AppStore>()(
                           }
                         : employee
                     )
-                  : state.data.employees
+              : state.data.employees
+            }
+          };
+        }),
+      addSale: (sale) =>
+        set((state) => {
+          const product = sale.productId
+            ? state.data.products.find((item) => item.id === sale.productId)
+            : undefined;
+          const status = sale.status ?? "completed";
+
+          if (!Number.isFinite(sale.amount) || sale.amount <= 0) {
+            get().addToast({
+              title: "Укажите сумму продажи",
+              description: "Сумма должна быть больше нуля.",
+              variant: "warning"
+            });
+            return state;
+          }
+
+          if (product && (!Number.isFinite(sale.quantity) || sale.quantity <= 0)) {
+            get().addToast({
+              title: "Укажите количество",
+              description: "Количество товара должно быть больше нуля.",
+              variant: "warning"
+            });
+            return state;
+          }
+
+          if (status === "completed" && product && sale.quantity > product.currentStock) {
+            get().addToast({
+              title: "Недостаточно остатка",
+              description: `Сейчас по позиции "${product.name}" доступно ${product.currentStock} шт.`,
+              variant: "warning"
+            });
+            return state;
+          }
+
+          const saleId = createId("sale");
+          const financialOperationId = status === "completed" ? createId("operation") : undefined;
+          const inventoryMovementId = status === "completed" && product ? createId("movement") : undefined;
+          const productName = sale.productName.trim() || product?.name || sale.category;
+          const quantity = product ? sale.quantity : 0;
+          const unitPrice =
+            sale.unitPrice > 0
+              ? sale.unitPrice
+              : quantity > 0
+                ? Math.round(sale.amount / quantity)
+                : sale.amount;
+          const nextSale: Sale = {
+            ...sale,
+            id: saleId,
+            productId: product?.id,
+            productName,
+            quantity,
+            unitPrice,
+            status,
+            financialOperationId,
+            inventoryMovementId,
+            comment: sale.comment.trim()
+          };
+          const nextOperation: FinancialOperation | undefined = financialOperationId
+            ? {
+                id: financialOperationId,
+                type: "income",
+                category: sale.category,
+                amount: sale.amount,
+                date: sale.date,
+                comment: nextSale.comment || `Продажа: ${productName}`,
+                clientId: sale.clientId,
+                employeeId: sale.employeeId
+              }
+            : undefined;
+          const nextMovement: InventoryMovement | undefined = inventoryMovementId && product
+            ? {
+                id: inventoryMovementId,
+                productId: product.id,
+                type: "writeOff",
+                quantity,
+                date: sale.date,
+                comment: `Продажа: ${productName}${sale.clientId ? " клиенту" : ""}`
+              }
+            : undefined;
+          let changedProduct: Product | undefined;
+          let changedClient: Client | undefined;
+          let changedEmployee: Employee | undefined;
+
+          const products =
+            status === "completed" && product
+              ? state.data.products.map((item) => {
+                  if (item.id !== product.id) {
+                    return item;
+                  }
+                  const nextStock = Math.max(0, item.currentStock - quantity);
+                  changedProduct = {
+                    ...item,
+                    currentStock: nextStock,
+                    status: getProductStatus(nextStock, item.minStock)
+                  };
+                  return changedProduct;
+                })
+              : state.data.products;
+          const clients =
+            status === "completed" && sale.clientId
+              ? state.data.clients.map((client) => {
+                  if (client.id !== sale.clientId) {
+                    return client;
+                  }
+                  changedClient = {
+                    ...client,
+                    totalSpent: client.totalSpent + sale.amount,
+                    visits: client.visits + 1,
+                    lastVisit: sale.date
+                  };
+                  return changedClient;
+                })
+              : state.data.clients;
+          const employees =
+            status === "completed" && sale.employeeId
+              ? state.data.employees.map((employee) => {
+                  if (employee.id !== sale.employeeId) {
+                    return employee;
+                  }
+                  changedEmployee = {
+                    ...employee,
+                    revenue: employee.revenue + sale.amount
+                  };
+                  return changedEmployee;
+                })
+              : state.data.employees;
+
+          const companyId = state.company.id;
+          const productToSync = changedProduct;
+          const clientToSync = changedClient;
+          const employeeToSync = changedEmployee;
+          runBackendSync(get, async () => {
+            if (nextOperation) {
+              await syncFinancialOperation(companyId, nextOperation);
+            }
+            if (nextMovement) {
+              await syncInventoryMovement(companyId, nextMovement);
+            }
+            await syncSale(companyId, nextSale);
+            if (productToSync) {
+              await syncProduct(companyId, productToSync);
+            }
+            if (clientToSync) {
+              await syncClient(companyId, clientToSync);
+            }
+            if (employeeToSync) {
+              await syncEmployee(companyId, employeeToSync);
+            }
+          });
+
+          return {
+            data: {
+              ...state.data,
+              sales: [nextSale, ...(state.data.sales ?? [])],
+              financialOperations: nextOperation
+                ? [nextOperation, ...state.data.financialOperations]
+                : state.data.financialOperations,
+              inventoryMovements: nextMovement
+                ? [nextMovement, ...state.data.inventoryMovements]
+                : state.data.inventoryMovements,
+              products,
+              clients,
+              employees
+            }
+          };
+        }),
+      cancelSale: (id, reason) =>
+        set((state) => {
+          const currentSale = (state.data.sales ?? []).find((sale) => sale.id === id);
+          if (!currentSale || currentSale.status !== "completed") {
+            return state;
+          }
+
+          const cancelDate = getLocalDateKey();
+          const refundOperation: FinancialOperation = {
+            id: createId("operation"),
+            type: "expense",
+            category: "Возврат продажи",
+            amount: currentSale.amount,
+            date: cancelDate,
+            comment: reason?.trim()
+              ? `Возврат продажи: ${reason.trim()}`
+              : `Возврат продажи: ${currentSale.productName}`,
+            clientId: currentSale.clientId,
+            employeeId: currentSale.employeeId
+          };
+          const product = currentSale.productId
+            ? state.data.products.find((item) => item.id === currentSale.productId)
+            : undefined;
+          const returnMovement: InventoryMovement | undefined = product
+            ? {
+                id: createId("movement"),
+                productId: product.id,
+                type: "income",
+                quantity: currentSale.quantity,
+                date: cancelDate,
+                comment: `Возврат продажи: ${currentSale.productName}`
+              }
+            : undefined;
+          let changedProduct: Product | undefined;
+          let changedClient: Client | undefined;
+          let changedEmployee: Employee | undefined;
+          let changedSale: Sale | undefined;
+
+          const sales = (state.data.sales ?? []).map((sale) => {
+            if (sale.id !== id) {
+              return sale;
+            }
+            changedSale = {
+              ...sale,
+              status: "refunded",
+              cancelReason: reason?.trim() || "Возврат продажи",
+              cancelledAt: cancelDate
+            };
+            return changedSale;
+          });
+          const products =
+            product && returnMovement
+              ? state.data.products.map((item) => {
+                  if (item.id !== product.id) {
+                    return item;
+                  }
+                  const nextStock = item.currentStock + currentSale.quantity;
+                  changedProduct = {
+                    ...item,
+                    currentStock: nextStock,
+                    status: getProductStatus(nextStock, item.minStock)
+                  };
+                  return changedProduct;
+                })
+              : state.data.products;
+          const clients = currentSale.clientId
+            ? state.data.clients.map((client) => {
+                if (client.id !== currentSale.clientId) {
+                  return client;
+                }
+                changedClient = {
+                  ...client,
+                  totalSpent: Math.max(0, client.totalSpent - currentSale.amount),
+                  visits: Math.max(0, client.visits - 1)
+                };
+                return changedClient;
+              })
+            : state.data.clients;
+          const employees = currentSale.employeeId
+            ? state.data.employees.map((employee) => {
+                if (employee.id !== currentSale.employeeId) {
+                  return employee;
+                }
+                changedEmployee = {
+                  ...employee,
+                  revenue: Math.max(0, employee.revenue - currentSale.amount)
+                };
+                return changedEmployee;
+              })
+            : state.data.employees;
+
+          if (changedSale) {
+            const saleToSync = changedSale;
+            runBackendSync(get, () => syncSale(state.company.id, saleToSync));
+          }
+          runBackendSync(get, () => syncFinancialOperation(state.company.id, refundOperation));
+          if (returnMovement) {
+            runBackendSync(get, () => syncInventoryMovement(state.company.id, returnMovement));
+          }
+          if (changedProduct) {
+            const productToSync = changedProduct;
+            runBackendSync(get, () => syncProduct(state.company.id, productToSync));
+          }
+          if (changedClient) {
+            const clientToSync = changedClient;
+            runBackendSync(get, () => syncClient(state.company.id, clientToSync));
+          }
+          if (changedEmployee) {
+            const employeeToSync = changedEmployee;
+            runBackendSync(get, () => syncEmployee(state.company.id, employeeToSync));
+          }
+
+          return {
+            data: {
+              ...state.data,
+              sales,
+              financialOperations: [refundOperation, ...state.data.financialOperations],
+              inventoryMovements: returnMovement
+                ? [returnMovement, ...state.data.inventoryMovements]
+                : state.data.inventoryMovements,
+              products,
+              clients,
+              employees
             }
           };
         }),
@@ -908,7 +1229,7 @@ export const useAppStore = create<AppStore>()(
     {
       name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
-      version: 2,
+      version: 3,
       migrate: (persisted) => {
         if (!persisted || typeof persisted !== "object") {
           return persisted;
@@ -925,7 +1246,19 @@ export const useAppStore = create<AppStore>()(
             data: createInitialBusinessData(null)
           };
         }
-        return persisted;
+        const templateId = state.company?.businessTemplateId ?? defaultTemplateId;
+        return {
+          ...state,
+          companyModules: state.companyModules
+            ? normalizeCompanyModules(state.companyModules, templateId)
+            : state.companyModules,
+          data: state.data
+            ? {
+                ...state.data,
+                sales: Array.isArray(state.data.sales) ? state.data.sales : []
+              }
+            : state.data
+        };
       },
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

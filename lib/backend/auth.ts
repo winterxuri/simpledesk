@@ -28,6 +28,8 @@ import type {
   Resource,
   ResourceStatus,
   Role,
+  Sale,
+  SaleStatus,
   Task,
   TaskStatus
 } from "@/types";
@@ -460,6 +462,7 @@ async function loadCompanyData(
     promotions,
     tasks,
     taskChecklistItems,
+    sales,
     financialOperations,
     reportSnapshots,
     notifications
@@ -473,6 +476,7 @@ async function loadCompanyData(
     supabase.from("promotions").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("tasks").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("task_checklist_items").select("*").eq("company_id", companyId).order("sort_order", { ascending: true }),
+    supabase.from("sales").select("*").eq("company_id", companyId).order("date", { ascending: false }),
     supabase.from("financial_operations").select("*").eq("company_id", companyId).order("created_at", { ascending: false }),
     supabase.from("report_snapshots").select("*").eq("company_id", companyId).order("generated_at", { ascending: false }),
     supabase.from("notifications").select("*").eq("company_id", companyId).order("created_at", { ascending: false })
@@ -502,6 +506,7 @@ async function loadCompanyData(
     resources: rows(resources.data).map(mapResource),
     promotions: rows(promotions.data).map(mapPromotion),
     tasks: rows(tasks.data).map((task) => mapTask(task, checklistByTaskId.get(text(task, "id")) ?? [])),
+    sales: rows(sales.data).map(mapSale),
     financialOperations: rows(financialOperations.data).map(mapFinancialOperation),
     reportSnapshots: rows(reportSnapshots.data).map(mapReportSnapshot),
     notifications: rows(notifications.data).map(mapNotification).concat(
@@ -531,6 +536,7 @@ async function loadCompanyData(
       tasks: ownTasks,
       products: [],
       inventoryMovements: [],
+      sales: [],
       promotions: [],
       financialOperations: [],
       reportSnapshots: [],
@@ -715,6 +721,27 @@ function mapFinancialOperation(row: LooseRow): FinancialOperation {
     clientId: nullableText(row, "client_id"),
     employeeId: nullableText(row, "employee_id"),
     appointmentId: nullableText(row, "appointment_id")
+  };
+}
+
+function mapSale(row: LooseRow): Sale {
+  return {
+    id: text(row, "id"),
+    date: text(row, "date"),
+    productId: nullableText(row, "product_id"),
+    productName: text(row, "product_name", "Продажа"),
+    quantity: num(row, "quantity"),
+    unitPrice: num(row, "unit_price"),
+    amount: num(row, "amount"),
+    category: text(row, "category", "Продажа"),
+    clientId: nullableText(row, "client_id"),
+    employeeId: nullableText(row, "employee_id"),
+    financialOperationId: nullableText(row, "financial_operation_id"),
+    inventoryMovementId: nullableText(row, "inventory_movement_id"),
+    status: text(row, "status", "completed") as SaleStatus,
+    comment: text(row, "comment"),
+    cancelReason: nullableText(row, "cancel_reason"),
+    cancelledAt: nullableText(row, "cancelled_at")
   };
 }
 

@@ -56,16 +56,22 @@ export default function AnalyticsPage() {
     const income = sumOperations(currentOperations, "income");
     const expenses = sumOperations(currentOperations, "expense");
     const previousIncome = sumOperations(previousOperations, "income");
-    const salesCount = currentOperations.filter((operation) => operation.type === "income").length;
+    const periodSales = (data.sales ?? []).filter((sale) =>
+      sale.status === "completed" && isDateInRange(sale.date, periodStart, today)
+    );
+    const salesCount = periodSales.length || currentOperations.filter((operation) => operation.type === "income").length;
+    const salesIncome = periodSales.length
+      ? periodSales.reduce((sum, sale) => sum + sale.amount, 0)
+      : income;
 
     return {
       income,
       expenses,
       profit: income - expenses,
-      averageCheck: salesCount ? Math.round(income / salesCount) : 0,
+      averageCheck: salesCount ? Math.round(salesIncome / salesCount) : 0,
       incomeDelta: getDeltaLabel(income, previousIncome)
     };
-  }, [data.financialOperations, periodStart, previousEnd, previousStart, today]);
+  }, [data.financialOperations, data.sales, periodStart, previousEnd, previousStart, today]);
 
   const line = useMemo(
     () => buildFinancialSeries(data.financialOperations, periodDays),

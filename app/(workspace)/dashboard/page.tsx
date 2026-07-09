@@ -341,7 +341,7 @@ function QuickActionsWidget({
     { label: `создать ${appointmentTerm}`, type: "appointment", action: "manageAppointments" },
     { label: `добавить ${productTerm}`, type: "product", action: "manageInventory" },
     { label: "создать задачу", type: "task", action: "manageTasks" },
-    { label: "добавить продажу", type: "sale", action: "manageInventory" }
+    { label: "добавить продажу", type: "sale", action: "manageSales" }
   ] satisfies { label: string; type: QuickCreateType; action: PermissionAction }[];
   const actions = allActions.filter((action) => canPerformAction(role, action.action));
 

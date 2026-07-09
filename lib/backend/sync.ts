@@ -13,6 +13,7 @@ import type {
   Promotion,
   ReportSnapshot,
   Resource,
+  Sale,
   Task
 } from "@/types";
 
@@ -209,6 +210,37 @@ export async function syncFinancialOperation(companyId: string, operation: Finan
       client_id: operation.clientId && canSync(operation.clientId) ? operation.clientId : null,
       employee_id: operation.employeeId && canSync(operation.employeeId) ? operation.employeeId : null,
       appointment_id: operation.appointmentId && canSync(operation.appointmentId) ? operation.appointmentId : null
+    })
+  );
+}
+
+export async function syncSale(companyId: string, sale: Sale) {
+  if (!canSync(companyId) || !canSync(sale.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("sales").upsert({
+      id: sale.id,
+      company_id: companyId,
+      date: sale.date,
+      product_id: sale.productId && canSync(sale.productId) ? sale.productId : null,
+      product_name: sale.productName,
+      quantity: sale.quantity,
+      unit_price: sale.unitPrice,
+      amount: sale.amount,
+      category: sale.category,
+      client_id: sale.clientId && canSync(sale.clientId) ? sale.clientId : null,
+      employee_id: sale.employeeId && canSync(sale.employeeId) ? sale.employeeId : null,
+      financial_operation_id:
+        sale.financialOperationId && canSync(sale.financialOperationId)
+          ? sale.financialOperationId
+          : null,
+      inventory_movement_id:
+        sale.inventoryMovementId && canSync(sale.inventoryMovementId)
+          ? sale.inventoryMovementId
+          : null,
+      status: sale.status,
+      comment: sale.comment,
+      cancel_reason: sale.cancelReason ?? null,
+      cancelled_at: sale.cancelledAt ?? null
     })
   );
 }

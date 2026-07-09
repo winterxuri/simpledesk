@@ -8,7 +8,7 @@ import { buildNavigationItems } from "@/config/navigation";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canAccessNavigationItem } from "@/lib/permissions";
 import { getPromotionDisplayStatus } from "@/lib/promotion-status";
-import { formatDate, getLocalDateKey } from "@/lib/utils";
+import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import { useAppStore } from "@/store/app-store";
 import type { ModuleCode } from "@/types";
 
@@ -126,6 +126,28 @@ export function GlobalSearch() {
       });
     }
 
+    if (role !== "employee" && canSearch("sales")) {
+      (data.sales ?? []).forEach((sale) => {
+        const clientName = data.clients.find((client) => client.id === sale.clientId)?.name;
+        const employeeName = data.employees.find((employee) => employee.id === sale.employeeId)?.name;
+        results.push({
+          id: `sale-${sale.id}`,
+          title: sale.productName || sale.category,
+          description: `${formatDate(sale.date)} · ${clientName ?? "без клиента"} · ${formatCurrency(sale.amount)}`,
+          section: "Продажи",
+          route: "/sales",
+          searchText: joinSearchFields([
+            sale.productName,
+            sale.category,
+            sale.comment,
+            sale.status,
+            clientName,
+            employeeName
+          ])
+        });
+      });
+    }
+
     if (role !== "employee" && canSearch("promotions")) {
       data.promotions.forEach((promotion) => {
         const status = getPromotionDisplayStatus(promotion, today);
@@ -154,7 +176,7 @@ export function GlobalSearch() {
     }
 
     return results;
-  }, [accessibleModules, data.employees, data.products, data.promotions, data.resources, role, scopedData, today]);
+  }, [accessibleModules, data.clients, data.employees, data.products, data.promotions, data.resources, data.sales, role, scopedData, today]);
 
   const results = useMemo(() => {
     if (normalizedQuery.length < 2) {
@@ -169,7 +191,7 @@ export function GlobalSearch() {
   const placeholder =
     role === "employee"
       ? "Поиск по вашим клиентам, задачам, записям"
-      : "Поиск клиентов, задач, записей, сотрудников";
+      : "Поиск клиентов, продаж, задач, записей";
 
   function openResult(result: SearchResult) {
     setQuery("");

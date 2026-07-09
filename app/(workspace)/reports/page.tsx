@@ -479,6 +479,10 @@ function buildReportSnapshot(
   const financialOperations = data.financialOperations.filter((operation) =>
     isDateInRange(operation.date, periodStart, periodEnd)
   );
+  const periodSales = (data.sales ?? []).filter((sale) =>
+    isDateInRange(sale.date, periodStart, periodEnd)
+  );
+  const completedSales = periodSales.filter((sale) => sale.status === "completed");
   const incomeOperations = financialOperations.filter((operation) => operation.type === "income");
   const expenseOperations = financialOperations.filter((operation) => operation.type === "expense");
   const appointments = data.appointments.filter((appointment) =>
@@ -497,12 +501,16 @@ function buildReportSnapshot(
     .reduce((sum, movement) => sum + movement.quantity, 0);
   const income = sumOperations(incomeOperations);
   const expenses = sumOperations(expenseOperations);
+  const salesCount = periodSales.length ? completedSales.length : incomeOperations.length;
+  const salesIncome = periodSales.length
+    ? completedSales.reduce((sum, sale) => sum + sale.amount, 0)
+    : income;
   const summary: ReportSummary = {
     income,
     expenses,
     profit: income - expenses,
-    averageCheck: incomeOperations.length ? Math.round(income / incomeOperations.length) : 0,
-    salesCount: incomeOperations.length,
+    averageCheck: salesCount ? Math.round(salesIncome / salesCount) : 0,
+    salesCount,
     appointments: appointments.length,
     completedAppointments: appointments.filter((appointment) => appointment.status === "completed").length,
     paidAppointments: appointments.filter((appointment) => appointment.paid).length,

@@ -19,7 +19,7 @@ const createItems: { type: QuickCreateType; label: string; icon: string; action:
   { type: "client", label: "Клиент", icon: "UsersRound", action: "manageClients", module: "clients" },
   { type: "appointment", label: "Запись", icon: "CalendarDays", action: "manageAppointments", module: "calendar" },
   { type: "task", label: "Задача", icon: "ListTodo", action: "manageTasks", module: "tasks" },
-  { type: "sale", label: "Продажа", icon: "CreditCard", action: "manageInventory", module: "inventory" },
+  { type: "sale", label: "Продажа", icon: "CreditCard", action: "manageSales", module: "sales" },
   { type: "product", label: "Товар", icon: "Boxes", action: "manageInventory", module: "inventory" },
   { type: "material", label: "Расходник", icon: "PackagePlus", action: "manageInventory", module: "inventory" },
   { type: "resource", label: "Ресурс", icon: "Wrench", action: "manageResources", module: "resources" },
@@ -243,9 +243,7 @@ export function QuickCreateMenu() {
   const addProduct = useAppStore((state) => state.addProduct);
   const addResource = useAppStore((state) => state.addResource);
   const addPromotion = useAppStore((state) => state.addPromotion);
-  const updateProduct = useAppStore((state) => state.updateProduct);
-  const addInventoryMovement = useAppStore((state) => state.addInventoryMovement);
-  const addFinancialOperation = useAppStore((state) => state.addFinancialOperation);
+  const addSale = useAppStore((state) => state.addSale);
   const addToast = useAppStore((state) => state.addToast);
   const data = useAppStore((state) => state.data);
   const role = useAppStore((state) => state.role);
@@ -537,30 +535,18 @@ export function QuickCreateMenu() {
       return false;
     }
 
-    addFinancialOperation({
-      type: "income",
+    addSale({
       category: form.saleCategory.trim(),
       amount,
       date: form.saleDate,
+      productId: product?.id,
+      productName: product?.name ?? form.saleCategory.trim(),
+      quantity: product ? quantity : 0,
+      unitPrice: product && quantity > 0 ? amount / quantity : amount,
       comment: form.saleComment.trim() || (product ? `Продажа: ${product.name} x ${quantity}` : "Продажа через быстрое создание"),
       clientId: form.saleClientId || undefined,
       employeeId: form.saleEmployeeId || undefined
     });
-
-    if (product) {
-      const nextStock = product.currentStock - quantity;
-      addInventoryMovement({
-        productId: product.id,
-        type: "writeOff",
-        quantity,
-        date: form.saleDate,
-        comment: `Продажа через быстрое создание${form.saleClientId ? " клиенту" : ""}`
-      });
-      updateProduct(product.id, {
-        currentStock: nextStock,
-        status: getProductStatus(nextStock, product.minStock)
-      });
-    }
 
     return true;
   }
@@ -1083,9 +1069,13 @@ function renderSaleForm(
       </div>
       {product ? (
         <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-          После сохранения будет создан доход и списано {Number.isFinite(quantity) && quantity > 0 ? quantity : 0} шт. со склада.
+          После сохранения продажа появится в разделе «Продажи», будет создан доход и списано {Number.isFinite(quantity) && quantity > 0 ? quantity : 0} шт. со склада.
         </div>
-      ) : null}
+      ) : (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+          Ручная продажа попадёт в журнал продаж и финансы, но остатки склада не изменит.
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <SelectField
           id="quick-sale-client"
@@ -1423,7 +1413,7 @@ function getDrawerDescription(type: QuickCreateType | null) {
     return "Опишите задачу, назначьте ответственного и срок выполнения.";
   }
   if (type === "sale") {
-    return "Выберите товар для списания со склада или оформите ручную продажу как доход.";
+    return "Создаёт запись в журнале продаж, доход в финансах и списание товара со склада, если выбран товар.";
   }
   if (type === "resource") {
     return "Добавьте помещение, пост, зал или оборудование, которое можно бронировать вместе с записью.";

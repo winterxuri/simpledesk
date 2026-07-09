@@ -18,6 +18,7 @@ export type ModuleCode =
   | "clients"
   | "employees"
   | "inventory"
+  | "sales"
   | "resources"
   | "promotions"
   | "tasks"
@@ -52,6 +53,7 @@ export type PromotionStatus =
   | "finished"
   | "paused";
 export type TaskStatus = "new" | "inProgress" | "waiting" | "done" | "overdue" | "cancelled";
+export type SaleStatus = "completed" | "cancelled" | "refunded";
 export type Priority = "low" | "medium" | "high";
 
 export interface User {
@@ -261,6 +263,25 @@ export interface FinancialOperation {
   appointmentId?: string;
 }
 
+export interface Sale {
+  id: string;
+  date: string;
+  productId?: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  category: string;
+  clientId?: string;
+  employeeId?: string;
+  financialOperationId?: string;
+  inventoryMovementId?: string;
+  status: SaleStatus;
+  comment: string;
+  cancelReason?: string;
+  cancelledAt?: string;
+}
+
 export interface ReportSummary {
   income: number;
   expenses: number;
@@ -346,6 +367,7 @@ export interface DemoData {
   appointments: Appointment[];
   products: Product[];
   inventoryMovements: InventoryMovement[];
+  sales: Sale[];
   resources: Resource[];
   promotions: Promotion[];
   tasks: Task[];

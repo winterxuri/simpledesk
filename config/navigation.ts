@@ -8,18 +8,22 @@ const titleByTemplate: Partial<Record<string, Partial<Record<ModuleCode, string>
   auto: {
     calendar: "Записи",
     inventory: "Запчасти",
+    sales: "Продажи",
     resources: "Посты"
   },
   cafe: {
     inventory: "Товары и ингредиенты",
+    sales: "Продажи",
     clients: "Гости"
   },
   shop: {
     inventory: "Товары и остатки",
+    sales: "Продажи",
     clients: "Покупатели"
   },
   beauty: {
-    inventory: "Расходники"
+    inventory: "Расходники",
+    sales: "Продажи"
   }
 };
 

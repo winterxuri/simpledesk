@@ -13,6 +13,7 @@ import type {
   Product,
   Promotion,
   Resource,
+  Sale,
   Task
 } from "@/types";
 
@@ -276,6 +277,41 @@ function makeMovements(): InventoryMovement[] {
   }));
 }
 
+function makeSales(templateId: string): Sale[] {
+  const names = productByTemplate[templateId] ?? productByTemplate.universal;
+
+  return Array.from({ length: 18 }, (_, index) => {
+    const quantity = 1 + (index % 3);
+    const unitPrice = 900 + index * 170;
+    const productIndex = index % Math.min(names.length, 10);
+    const status: Sale["status"] =
+      index % 11 === 0
+        ? "refunded"
+        : index % 13 === 0
+          ? "cancelled"
+          : "completed";
+
+    return {
+      id: `sale-${index + 1}`,
+      date: isoDate(-index),
+      productId: `product-${productIndex + 1}`,
+      productName: names[productIndex],
+      quantity,
+      unitPrice,
+      amount: quantity * unitPrice,
+      category: ["Товары", "Услуги", "Дополнительные продажи"][index % 3],
+      clientId: `client-${(index % 20) + 1}`,
+      employeeId: `employee-${(index % 6) + 1}`,
+      financialOperationId: `operation-${index + 1}`,
+      inventoryMovementId: `movement-${index + 1}`,
+      status,
+      comment: status === "completed" ? "Демо-продажа" : "Демо-продажа с изменённым статусом",
+      cancelReason: status !== "completed" ? "Демонстрационный возврат" : undefined,
+      cancelledAt: status !== "completed" ? isoDate(-index + 1) : undefined
+    };
+  });
+}
+
 function makeResources(templateId: string): Resource[] {
   const namesByTemplate: Record<string, string[]> = {
     beauty: [
@@ -482,6 +518,7 @@ export function createDemoData(templateId: string): DemoData {
     appointments: makeAppointments(templateId),
     products: makeProducts(templateId),
     inventoryMovements: makeMovements(),
+    sales: makeSales(templateId),
     resources: makeResources(templateId),
     promotions: makePromotions(templateId),
     tasks: makeTasks(),
