@@ -19,6 +19,7 @@ export type ModuleCode =
   | "employees"
   | "inventory"
   | "sales"
+  | "finance"
   | "resources"
   | "promotions"
   | "tasks"
@@ -56,6 +57,7 @@ export type TaskStatus = "new" | "inProgress" | "waiting" | "done" | "overdue" |
 export type SaleStatus = "completed" | "cancelled" | "refunded" | "partiallyRefunded";
 export type SalePaymentMethod = "cash" | "card" | "transfer" | "online" | "mixed";
 export type SalePaymentStatus = "paid" | "partial" | "unpaid" | "refunded";
+export type FinancialOperationSource = "manual" | "sale" | "refund" | "appointment" | "inventory";
 export type Priority = "low" | "medium" | "high";
 
 export interface User {
@@ -260,6 +262,8 @@ export interface FinancialOperation {
   amount: number;
   date: string;
   comment: string;
+  paymentMethod?: SalePaymentMethod;
+  source?: FinancialOperationSource;
   clientId?: string;
   employeeId?: string;
   appointmentId?: string;

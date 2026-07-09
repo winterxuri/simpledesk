@@ -207,6 +207,8 @@ export async function syncFinancialOperation(companyId: string, operation: Finan
       amount: operation.amount,
       date: operation.date,
       comment: operation.comment,
+      payment_method: operation.paymentMethod ?? null,
+      source: operation.source ?? "manual",
       client_id: operation.clientId && canSync(operation.clientId) ? operation.clientId : null,
       employee_id: operation.employeeId && canSync(operation.employeeId) ? operation.employeeId : null,
       appointment_id: operation.appointmentId && canSync(operation.appointmentId) ? operation.appointmentId : null

@@ -8,6 +8,7 @@ export type PermissionAction =
   | "manageEmployees"
   | "manageInventory"
   | "manageSales"
+  | "manageFinance"
   | "manageResources"
   | "managePromotions"
   | "manageSettings";
@@ -20,6 +21,7 @@ const roleModuleAccess: Record<Role, Array<ModuleCode | "settings">> = {
     "employees",
     "inventory",
     "sales",
+    "finance",
     "resources",
     "promotions",
     "tasks",
@@ -35,6 +37,7 @@ const roleModuleAccess: Record<Role, Array<ModuleCode | "settings">> = {
     "employees",
     "inventory",
     "sales",
+    "finance",
     "resources",
     "promotions",
     "tasks",
@@ -54,6 +57,7 @@ const routeAccess: Array<{
   { pattern: /^\/employees(?:\/|$)/, roles: ["owner", "admin"] },
   { pattern: /^\/inventory(?:\/|$)/, roles: ["owner", "admin"] },
   { pattern: /^\/sales(?:\/|$)/, roles: ["owner", "admin"] },
+  { pattern: /^\/finance(?:\/|$)/, roles: ["owner", "admin"] },
   { pattern: /^\/resources(?:\/|$)/, roles: ["owner", "admin"] },
   { pattern: /^\/promotions(?:\/|$)/, roles: ["owner", "admin"] }
 ];

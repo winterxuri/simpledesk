@@ -62,13 +62,23 @@ export const MODULES: ModuleDefinition[] = [
     plan: "basic"
   },
   {
+    code: "finance",
+    title: "Финансы",
+    description: "Касса, доходы, расходы, возвраты, способы оплаты и прибыль.",
+    icon: "BriefcaseBusiness",
+    route: "/finance",
+    dependencies: ["sales"],
+    defaultOrder: 7,
+    plan: "basic"
+  },
+  {
     code: "resources",
     title: "Помещения и оборудование",
     description: "Кабинеты, посты, залы, техника и другое, что нужно бронировать вместе с записью.",
     icon: "Wrench",
     route: "/resources",
     dependencies: ["calendar"],
-    defaultOrder: 7,
+    defaultOrder: 8,
     plan: "basic"
   },
   {
@@ -78,7 +88,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "BadgePercent",
     route: "/promotions",
     dependencies: ["clients"],
-    defaultOrder: 8,
+    defaultOrder: 9,
     plan: "basic"
   },
   {
@@ -88,7 +98,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "ListTodo",
     route: "/tasks",
     dependencies: [],
-    defaultOrder: 9,
+    defaultOrder: 10,
     plan: "basic"
   },
   {
@@ -98,7 +108,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "ChartNoAxesCombined",
     route: "/analytics",
     dependencies: [],
-    defaultOrder: 10,
+    defaultOrder: 11,
     plan: "basic"
   },
   {
@@ -108,7 +118,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "ClipboardList",
     route: "/reports",
     dependencies: [],
-    defaultOrder: 11,
+    defaultOrder: 12,
     plan: "basic"
   },
   {
@@ -118,7 +128,7 @@ export const MODULES: ModuleDefinition[] = [
     icon: "Cable",
     route: "/settings/integrations",
     dependencies: [],
-    defaultOrder: 12,
+    defaultOrder: 13,
     plan: "pro"
   }
 ];

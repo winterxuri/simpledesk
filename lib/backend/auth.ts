@@ -718,6 +718,8 @@ function mapFinancialOperation(row: LooseRow): FinancialOperation {
     amount: num(row, "amount"),
     date: text(row, "date"),
     comment: text(row, "comment"),
+    paymentMethod: nullableText(row, "payment_method") as FinancialOperation["paymentMethod"],
+    source: text(row, "source", "manual") as FinancialOperation["source"],
     clientId: nullableText(row, "client_id"),
     employeeId: nullableText(row, "employee_id"),
     appointmentId: nullableText(row, "appointment_id")

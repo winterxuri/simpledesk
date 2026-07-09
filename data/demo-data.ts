@@ -491,7 +491,9 @@ function makeFinance(): FinancialOperation[] {
         : ["Услуги", "Товары", "Повторные клиенты"][index % 3],
     amount: index % 5 === 0 ? 3500 + index * 480 : 4200 + index * 710,
     date: isoDate(-index),
-    comment: index % 5 === 0 ? "Расходная операция" : "Оплата клиента"
+    comment: index % 5 === 0 ? "Расходная операция" : "Оплата клиента",
+    paymentMethod: ["cash", "card", "transfer", "online"][index % 4] as FinancialOperation["paymentMethod"],
+    source: index % 5 === 0 ? "manual" : "sale"
   }));
 }
 

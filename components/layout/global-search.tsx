@@ -29,6 +29,19 @@ function joinSearchFields(fields: Array<string | number | undefined>) {
   return normalize(fields.filter((field) => field !== undefined && field !== "").join(" "));
 }
 
+const operationTypeLabels = {
+  income: "Доход",
+  expense: "Расход"
+} as const;
+
+const paymentMethodLabels = {
+  cash: "Наличные",
+  card: "Карта",
+  transfer: "Перевод",
+  online: "Онлайн",
+  mixed: "Смешанная"
+} as const;
+
 export function GlobalSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -148,6 +161,35 @@ export function GlobalSearch() {
       });
     }
 
+    if (role !== "employee" && canSearch("finance")) {
+      data.financialOperations.forEach((operation) => {
+        const clientName = data.clients.find((client) => client.id === operation.clientId)?.name;
+        const employeeName = data.employees.find((employee) => employee.id === operation.employeeId)?.name;
+        const typeLabel = operationTypeLabels[operation.type];
+        const paymentMethod = operation.paymentMethod ? paymentMethodLabels[operation.paymentMethod] : undefined;
+        results.push({
+          id: `finance-${operation.id}`,
+          title: operation.category,
+          description: [
+            formatDate(operation.date),
+            typeLabel,
+            formatCurrency(operation.amount, company.currency)
+          ].join(" · "),
+          section: "Финансы",
+          route: "/finance",
+          searchText: joinSearchFields([
+            operation.category,
+            operation.comment,
+            operation.date,
+            typeLabel,
+            paymentMethod,
+            clientName,
+            employeeName
+          ])
+        });
+      });
+    }
+
     if (role !== "employee" && canSearch("promotions")) {
       data.promotions.forEach((promotion) => {
         const status = getPromotionDisplayStatus(promotion, today);
@@ -176,7 +218,7 @@ export function GlobalSearch() {
     }
 
     return results;
-  }, [accessibleModules, data.clients, data.employees, data.products, data.promotions, data.resources, data.sales, role, scopedData, today]);
+  }, [accessibleModules, company.currency, data.clients, data.employees, data.financialOperations, data.products, data.promotions, data.resources, data.sales, role, scopedData, today]);
 
   const results = useMemo(() => {
     if (normalizedQuery.length < 2) {
@@ -191,7 +233,7 @@ export function GlobalSearch() {
   const placeholder =
     role === "employee"
       ? "Поиск по вашим клиентам, задачам, записям"
-      : "Поиск клиентов, продаж, задач, записей";
+      : "Поиск клиентов, продаж, финансов, задач";
 
   function openResult(result: SearchResult) {
     setQuery("");

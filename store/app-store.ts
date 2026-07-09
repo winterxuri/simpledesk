@@ -735,7 +735,12 @@ export const useAppStore = create<AppStore>()(
         }),
       addFinancialOperation: (operation) =>
         set((state) => {
-          const nextOperation = { ...operation, id: createId("operation") };
+          const nextOperation: FinancialOperation = {
+            ...operation,
+            id: createId("operation"),
+            paymentMethod: operation.paymentMethod ?? "cash",
+            source: operation.source ?? "manual"
+          };
           runBackendSync(get, () => syncFinancialOperation(state.company.id, nextOperation));
           return {
             data: {
@@ -853,6 +858,8 @@ export const useAppStore = create<AppStore>()(
                 amount: sale.amount,
                 date: sale.date,
                 comment: nextSale.comment || `Продажа: ${productName}`,
+                paymentMethod: nextSale.paymentMethod,
+                source: "sale",
                 clientId: sale.clientId,
                 employeeId: sale.employeeId
               }
@@ -1014,6 +1021,8 @@ export const useAppStore = create<AppStore>()(
             comment: refund.reason?.trim()
               ? `Возврат продажи: ${refund.reason?.trim()}`
               : `Возврат продажи: ${currentSale.productName}`,
+            paymentMethod: currentSale.paymentMethod,
+            source: "refund",
             clientId: currentSale.clientId,
             employeeId: currentSale.employeeId
           };
