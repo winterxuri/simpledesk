@@ -1,6 +1,6 @@
 import type { Notification, Role } from "@/types";
 
-const employeeNotificationCategories = new Set<Notification["category"]>(["tasks"]);
+const employeeNotificationCategories = new Set<Notification["category"]>(["tasks", "resources"]);
 
 export function getVisibleNotifications(notifications: Notification[], role: Role) {
   if (role === "owner" || role === "admin") {
@@ -16,6 +16,7 @@ export function getNotificationFilters(role: Role) {
   const common = [
     { value: "all", label: "Все" },
     { value: "important", label: "Важные" },
+    { value: "resources", label: "Ресурсы" },
     { value: "tasks", label: "Задачи" }
   ];
 
@@ -28,6 +29,7 @@ export function getNotificationFilters(role: Role) {
     { value: "clients", label: "Клиенты" },
     { value: "inventory", label: "Склад" },
     common[2],
+    common[3],
     { value: "finance", label: "Финансы" },
     { value: "system", label: "Система" }
   ];

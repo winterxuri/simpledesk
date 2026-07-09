@@ -26,7 +26,8 @@ const shiftTypeOptions: { value: EmployeeShiftType; label: string }[] = [
 type ShiftForm = {
   id?: string;
   employeeId: string;
-  date: string;
+  startDate: string;
+  endDate: string;
   type: EmployeeShiftType;
   startTime: string;
   endTime: string;
@@ -43,12 +44,13 @@ export default function SchedulesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<ShiftForm>(() => createShiftForm(data.employees[0]?.id ?? "", getLocalDateKey()));
   const today = getLocalDateKey();
+  const [weekStart, setWeekStart] = useState(today);
 
   const employees = data.employees.filter((employee) => employee.status !== "dismissed");
   const visibleEmployees = employeeFilter === "all"
     ? employees
     : employees.filter((employee) => employee.id === employeeFilter);
-  const weekDays = useMemo(() => getWeekDays(), []);
+  const weekDays = useMemo(() => getWeekDays(weekStart), [weekStart]);
   const shiftByEmployeeAndDate = useMemo(() => {
     const map = new Map<string, EmployeeShift>();
     data.employeeShifts.forEach((shift) => {
@@ -68,16 +70,42 @@ export default function SchedulesPage() {
   ).length;
 
   function openShift(employee: Employee, date: string) {
+    if (date < today) {
+      addToast({
+        title: "Нельзя менять прошлые даты",
+        description: "График редактируется только на сегодня и будущие дни.",
+        variant: "warning"
+      });
+      return;
+    }
     const existing = shiftByEmployeeAndDate.get(`${employee.id}-${date}`);
     setForm(existing ? shiftToForm(existing) : createShiftForm(employee.id, date, employee.schedule));
     setDialogOpen(true);
   }
 
   function saveShift() {
-    if (!form.employeeId || !form.date) {
+    if (!form.employeeId || !form.startDate || !form.endDate) {
       addToast({
-        title: "Выберите сотрудника и дату",
-        description: "Смена должна быть привязана к конкретному дню.",
+        title: "Выберите сотрудника и период",
+        description: "Смена должна быть привязана к конкретным датам.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (form.startDate < today || form.endDate < today) {
+      addToast({
+        title: "Нельзя выбрать прошлые даты",
+        description: "Выберите сегодняшний или будущий период.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (form.endDate < form.startDate) {
+      addToast({
+        title: "Проверьте период",
+        description: "Дата окончания не может быть раньше даты начала.",
         variant: "warning"
       });
       return;
@@ -92,32 +120,41 @@ export default function SchedulesPage() {
       return;
     }
 
-    const payload: Omit<EmployeeShift, "id"> = {
-      employeeId: form.employeeId,
-      date: form.date,
-      type: form.type,
-      startTime: form.type === "work" ? form.startTime : "",
-      endTime: form.type === "work" ? form.endTime : "",
-      comment: form.comment.trim()
-    };
+    const dates = getDateRange(form.startDate, form.endDate);
+    if (dates.length > 31) {
+      addToast({
+        title: "Период слишком длинный",
+        description: "За один раз можно сохранить до 31 дня.",
+        variant: "warning"
+      });
+      return;
+    }
 
-    if (form.id) {
-      updateEmployeeShift(form.id, payload);
-    } else {
+    dates.forEach((date) => {
+      const payload: Omit<EmployeeShift, "id"> = {
+        employeeId: form.employeeId,
+        date,
+        type: form.type,
+        startTime: form.type === "work" ? form.startTime : "",
+        endTime: form.type === "work" ? form.endTime : "",
+        comment: form.comment.trim()
+      };
       const duplicate = data.employeeShifts.find(
-        (shift) => shift.employeeId === form.employeeId && shift.date === form.date
+        (shift) => shift.employeeId === form.employeeId && shift.date === date
       );
-      if (duplicate) {
+      if (form.id && dates.length === 1) {
+        updateEmployeeShift(form.id, payload);
+      } else if (duplicate) {
         updateEmployeeShift(duplicate.id, payload);
       } else {
         addEmployeeShift(payload);
       }
-    }
+    });
 
     setDialogOpen(false);
     addToast({
       title: "График сохранён",
-      description: "Статус сотрудника на выбранную дату обновится по смене.",
+      description: dates.length === 1 ? "Статус сотрудника на выбранную дату обновится по смене." : `Сохранено дней: ${dates.length}.`,
       variant: "success"
     });
   }
@@ -163,20 +200,44 @@ export default function SchedulesPage() {
       </div>
 
       <Card className="mt-6 p-3">
-        <div className="max-w-xs space-y-2">
-          <Label htmlFor="schedule-employee-filter">Сотрудник</Label>
-          <Select
-            id="schedule-employee-filter"
-            value={employeeFilter}
-            onChange={(event) => setEmployeeFilter(event.target.value)}
-          >
-            <option value="all">Все сотрудники</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </Select>
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-xs flex-1 space-y-2">
+            <Label htmlFor="schedule-employee-filter">Сотрудник</Label>
+            <Select
+              id="schedule-employee-filter"
+              value={employeeFilter}
+              onChange={(event) => setEmployeeFilter(event.target.value)}
+            >
+              <option value="all">Все сотрудники</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Неделя</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={weekStart <= today}
+                onClick={() => setWeekStart((current) => maxDateKey(addDaysToKey(current, -7), today))}
+              >
+                Назад
+              </Button>
+              <span className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
+                {formatDate(weekDays[0].date, "d MMM")} - {formatDate(weekDays[6].date, "d MMM")}
+              </span>
+              <Button type="button" variant="outline" onClick={() => setWeekStart((current) => addDaysToKey(current, 7))}>
+                Вперёд
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => setWeekStart(today)}>
+                Сегодня
+              </Button>
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -226,7 +287,7 @@ export default function SchedulesPage() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         title={form.id ? "Редактировать смену" : "Добавить смену"}
-        description={form.date ? formatDate(form.date, "d MMMM yyyy") : undefined}
+        description={form.startDate === form.endDate ? formatDate(form.startDate, "d MMMM yyyy") : `${formatDate(form.startDate, "d MMMM")} - ${formatDate(form.endDate, "d MMMM yyyy")}`}
         footer={
           <>
             {form.id ? (
@@ -259,12 +320,30 @@ export default function SchedulesPage() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="shift-date">Дата</Label>
+            <Label htmlFor="shift-start-date">Начало периода</Label>
             <Input
-              id="shift-date"
+              id="shift-start-date"
               type="date"
-              value={form.date}
-              onChange={(event) => setForm({ ...form, date: event.target.value })}
+              min={today}
+              value={form.startDate}
+              onChange={(event) => {
+                const startDate = event.target.value;
+                setForm({
+                  ...form,
+                  startDate,
+                  endDate: form.endDate < startDate ? startDate : form.endDate
+                });
+              }}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="shift-end-date">Конец периода</Label>
+            <Input
+              id="shift-end-date"
+              type="date"
+              min={form.startDate || today}
+              value={form.endDate}
+              onChange={(event) => setForm({ ...form, endDate: event.target.value })}
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
@@ -305,17 +384,21 @@ export default function SchedulesPage() {
             <Label htmlFor="shift-comment">Комментарий</Label>
             <Textarea id="shift-comment" value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} placeholder="Причина, примечание или замена" />
           </div>
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground sm:col-span-2">
+            Будет сохранено дней: {getDateRange(form.startDate, form.endDate).length}
+          </div>
         </div>
       </Dialog>
     </div>
   );
 }
 
-function getWeekDays() {
+function getWeekDays(startDate: string) {
   const formatter = new Intl.DateTimeFormat("ru-RU", { weekday: "short" });
+  const start = parseDateKey(startDate);
   return Array.from({ length: 7 }, (_, index) => {
-    const date = new Date();
-    date.setDate(date.getDate() + index);
+    const date = new Date(start);
+    date.setDate(start.getDate() + index);
     const key = getLocalDateKey(date);
     return {
       date: key,
@@ -328,7 +411,8 @@ function createShiftForm(employeeId: string, date: string, employeeSchedule = "0
   const [startTime = "09:00", endTime = "18:00"] = employeeSchedule.split("-");
   return {
     employeeId,
-    date,
+    startDate: date,
+    endDate: date,
     type: "work",
     startTime,
     endTime,
@@ -340,7 +424,8 @@ function shiftToForm(shift: EmployeeShift): ShiftForm {
   return {
     id: shift.id,
     employeeId: shift.employeeId,
-    date: shift.date,
+    startDate: shift.date,
+    endDate: shift.date,
     type: shift.type,
     startTime: shift.startTime || "09:00",
     endTime: shift.endTime || "18:00",
@@ -350,4 +435,34 @@ function shiftToForm(shift: EmployeeShift): ShiftForm {
 
 function isValidWorkTime(startTime: string, endTime: string) {
   return Boolean(startTime && endTime && startTime < endTime);
+}
+
+function getDateRange(startDate: string, endDate: string) {
+  if (!startDate || !endDate || endDate < startDate) {
+    return [];
+  }
+
+  const dates: string[] = [];
+  const cursor = parseDateKey(startDate);
+  const end = parseDateKey(endDate);
+  while (cursor <= end) {
+    dates.push(getLocalDateKey(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+function addDaysToKey(dateKey: string, days: number) {
+  const date = parseDateKey(dateKey);
+  date.setDate(date.getDate() + days);
+  return getLocalDateKey(date);
+}
+
+function maxDateKey(first: string, second: string) {
+  return first > second ? first : second;
+}
+
+function parseDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Date(year, month - 1, day);
 }

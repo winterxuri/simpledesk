@@ -545,7 +545,9 @@ async function loadCompanyData(
       promotions: [],
       financialOperations: [],
       reportSnapshots: [],
-      notifications: []
+      notifications: mappedData.notifications.filter((notification) =>
+        notification.category === "resources" || notification.category === "tasks"
+      )
     };
   }
 

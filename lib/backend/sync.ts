@@ -10,6 +10,7 @@ import type {
   EmployeeShift,
   FinancialOperation,
   InventoryMovement,
+  Notification,
   Product,
   Promotion,
   ReportSnapshot,
@@ -149,16 +150,19 @@ export async function deleteEmployee(companyId: string, employeeId: string) {
 export async function syncEmployeeShift(companyId: string, shift: EmployeeShift) {
   if (!canSync(companyId) || !canSync(shift.id) || !canSync(shift.employeeId)) return;
   await safeSync(() =>
-    createSupabaseBrowserClient().from("employee_shifts").upsert({
-      id: shift.id,
-      company_id: companyId,
-      employee_id: shift.employeeId,
-      date: shift.date,
-      type: shift.type,
-      start_time: shift.startTime || null,
-      end_time: shift.endTime || null,
-      comment: shift.comment
-    })
+    createSupabaseBrowserClient().from("employee_shifts").upsert(
+      {
+        id: shift.id,
+        company_id: companyId,
+        employee_id: shift.employeeId,
+        date: shift.date,
+        type: shift.type,
+        start_time: shift.startTime || null,
+        end_time: shift.endTime || null,
+        comment: shift.comment
+      },
+      { onConflict: "company_id,employee_id,date" }
+    )
   );
 }
 
@@ -220,6 +224,22 @@ export async function syncResource(companyId: string, resource: Resource) {
       future_bookings: resource.futureBookings,
       resource_condition: resource.condition,
       comment: resource.comment
+    })
+  );
+}
+
+export async function syncNotification(companyId: string, notification: Notification) {
+  if (!canSync(companyId) || !canSync(notification.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("notifications").upsert({
+      id: notification.id,
+      company_id: companyId,
+      title: notification.title,
+      description: notification.description,
+      category: notification.category,
+      important: notification.important,
+      date: notification.date,
+      read: notification.read
     })
   );
 }

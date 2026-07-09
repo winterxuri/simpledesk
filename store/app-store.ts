@@ -23,6 +23,7 @@ import {
   syncEmployeeShift,
   syncFinancialOperation,
   syncInventoryMovement,
+  syncNotification,
   syncProduct,
   syncPromotion,
   syncReportSnapshot,
@@ -43,6 +44,7 @@ import type {
   FinancialOperation,
   InventoryMovement,
   ModuleCode,
+  Notification,
   Product,
   Promotion,
   QuickCreateType,
@@ -193,6 +195,7 @@ interface AppStore {
   addPromotion: (promotion: Omit<Promotion, "id" | "usageCount" | "revenue" | "newClients" | "efficiency">) => void;
   updatePromotion: (id: string, promotion: Partial<Promotion>) => void;
   markNotificationRead: (id: string) => void;
+  addNotification: (notification: Omit<Notification, "id">) => void;
   logout: () => void;
   openQuickCreate: (type: QuickCreateType) => void;
   setQuickCreateOpen: (open: boolean) => void;
@@ -232,6 +235,59 @@ function getProductStatus(currentStock: number, minStock: number): Product["stat
     return "low";
   }
   return "ok";
+}
+
+const resourceStatusLabels: Record<Resource["status"], string> = {
+  free: "Свободен",
+  busy: "Занят",
+  maintenance: "Обслуживание",
+  unavailable: "Недоступен"
+};
+
+function createResourceNotification(previous: Resource, next: Resource): Omit<Notification, "id"> | null {
+  const statusChanged = previous.status !== next.status;
+  const conditionChanged = previous.condition !== next.condition;
+
+  if (!statusChanged && !conditionChanged) {
+    return null;
+  }
+
+  const issueDetected = /неисправ|слом|ремонт|полом/i.test(next.condition);
+  const important = next.status !== "free" || issueDetected;
+  const details = [
+    statusChanged
+      ? `Статус: ${resourceStatusLabels[previous.status]} → ${resourceStatusLabels[next.status]}.`
+      : "",
+    conditionChanged
+      ? `Состояние: ${previous.condition || "не указано"} → ${next.condition || "не указано"}.`
+      : "",
+    next.comment ? `Комментарий: ${next.comment}` : ""
+  ].filter(Boolean);
+
+  return {
+    title: `Ресурс: ${next.name}`,
+    description: details.join(" "),
+    category: "resources",
+    important,
+    date: getLocalDateKey(),
+    read: false
+  };
+}
+
+function createNewResourceNotification(resource: Resource): Omit<Notification, "id"> | null {
+  const issueDetected = /неисправ|слом|ремонт|полом/i.test(resource.condition);
+  if (resource.status === "free" && !issueDetected) {
+    return null;
+  }
+
+  return {
+    title: `Ресурс: ${resource.name}`,
+    description: `Добавлен ресурс со статусом «${resourceStatusLabels[resource.status]}». ${resource.condition ? `Состояние: ${resource.condition}.` : ""}${resource.comment ? ` Комментарий: ${resource.comment}` : ""}`,
+    category: "resources",
+    important: resource.status !== "free" || issueDetected,
+    date: getLocalDateKey(),
+    read: false
+  };
 }
 
 export const useAppStore = create<AppStore>()(
@@ -592,6 +648,21 @@ export const useAppStore = create<AppStore>()(
         }),
       addEmployeeShift: (shift) =>
         set((state) => {
+          const existingShift = state.data.employeeShifts.find(
+            (item) => item.employeeId === shift.employeeId && item.date === shift.date
+          );
+          if (existingShift) {
+            const updatedShift: EmployeeShift = { ...existingShift, ...shift };
+            runBackendSync(get, () => syncEmployeeShift(state.company.id, updatedShift));
+            return {
+              data: {
+                ...state.data,
+                employeeShifts: state.data.employeeShifts.map((item) =>
+                  item.id === existingShift.id ? updatedShift : item
+                )
+              }
+            };
+          }
           const nextShift: EmployeeShift = { ...shift, id: createId("shift") };
           runBackendSync(get, () => syncEmployeeShift(state.company.id, nextShift));
           return {
@@ -1203,32 +1274,61 @@ export const useAppStore = create<AppStore>()(
       addResource: (resource) =>
         set((state) => {
           const nextResource = { ...resource, id: createId("resource") };
-          runBackendSync(get, () => syncResource(state.company.id, nextResource));
+          const notification = createNewResourceNotification(nextResource);
+          const nextNotification: Notification | null = notification
+            ? { ...notification, id: createId("notification") }
+            : null;
+          runBackendSync(get, async () => {
+            await syncResource(state.company.id, nextResource);
+            if (nextNotification) {
+              await syncNotification(state.company.id, nextNotification);
+            }
+          });
           return {
             data: {
               ...state.data,
-              resources: [nextResource, ...state.data.resources]
+              resources: [nextResource, ...state.data.resources],
+              notifications: nextNotification
+                ? [nextNotification, ...state.data.notifications]
+                : state.data.notifications
             }
           };
         }),
       updateResource: (id, resource) =>
         set((state) => {
+          let previousResource: Resource | undefined;
           let changedResource: Resource | undefined;
           const resources = state.data.resources.map((item) => {
             if (item.id !== id) {
               return item;
             }
+            previousResource = item;
             changedResource = { ...item, ...resource };
             return changedResource;
           });
+          const notification =
+            previousResource && changedResource
+              ? createResourceNotification(previousResource, changedResource)
+              : null;
+          const nextNotification: Notification | null = notification
+            ? { ...notification, id: createId("notification") }
+            : null;
           if (changedResource) {
             const resourceToSync = changedResource;
-            runBackendSync(get, () => syncResource(state.company.id, resourceToSync));
+            runBackendSync(get, async () => {
+              await syncResource(state.company.id, resourceToSync);
+              if (nextNotification) {
+                await syncNotification(state.company.id, nextNotification);
+              }
+            });
           }
           return {
             data: {
               ...state.data,
-              resources
+              resources,
+              notifications: nextNotification
+                ? [nextNotification, ...state.data.notifications]
+                : state.data.notifications
             }
           };
         }),
@@ -1334,6 +1434,20 @@ export const useAppStore = create<AppStore>()(
             )
           }
         })),
+      addNotification: (notification) =>
+        set((state) => {
+          const nextNotification: Notification = {
+            ...notification,
+            id: createId("notification")
+          };
+          runBackendSync(get, () => syncNotification(state.company.id, nextNotification));
+          return {
+            data: {
+              ...state.data,
+              notifications: [nextNotification, ...state.data.notifications]
+            }
+          };
+        }),
       logout: () =>
         set({
           user: null,

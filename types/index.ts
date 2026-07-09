@@ -373,7 +373,7 @@ export interface Notification {
   id: string;
   title: string;
   description: string;
-  category: "clients" | "inventory" | "tasks" | "system" | "finance";
+  category: "clients" | "inventory" | "tasks" | "system" | "finance" | "resources";
   important: boolean;
   date: string;
   read: boolean;
