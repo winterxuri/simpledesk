@@ -270,6 +270,7 @@ export async function syncSale(companyId: string, sale: Sale) {
       promotion_id: sale.promotionId && canSync(sale.promotionId) ? sale.promotionId : null,
       client_id: sale.clientId && canSync(sale.clientId) ? sale.clientId : null,
       employee_id: sale.employeeId && canSync(sale.employeeId) ? sale.employeeId : null,
+      appointment_id: sale.appointmentId && canSync(sale.appointmentId) ? sale.appointmentId : null,
       financial_operation_id:
         sale.financialOperationId && canSync(sale.financialOperationId)
           ? sale.financialOperationId

@@ -299,6 +299,7 @@ export interface Sale {
   promotionId?: string;
   clientId?: string;
   employeeId?: string;
+  appointmentId?: string;
   financialOperationId?: string;
   inventoryMovementId?: string;
   status: SaleStatus;

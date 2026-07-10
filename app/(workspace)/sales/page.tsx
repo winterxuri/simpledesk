@@ -14,7 +14,7 @@ import { SearchAndFilters } from "@/components/modules/search-and-filters";
 import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { Sale, SaleStatus } from "@/types";
+import type { Appointment, Sale, SaleStatus } from "@/types";
 
 const statusOptions: { value: SaleStatus | "all"; label: string }[] = [
   { value: "all", label: "Все статусы" },
@@ -72,6 +72,10 @@ export default function SalesPage() {
     () => new Map(data.promotions.map((promotion) => [promotion.id, promotion])),
     [data.promotions]
   );
+  const appointmentById = useMemo(
+    () => new Map(data.appointments.map((appointment) => [appointment.id, appointment])),
+    [data.appointments]
+  );
   const categories = useMemo(
     () => Array.from(new Set(sales.map((sale) => sale.category).filter(Boolean))).sort((a, b) => a.localeCompare(b, "ru")),
     [sales]
@@ -92,6 +96,7 @@ export default function SalesPage() {
           }
           const client = sale.clientId ? clientById.get(sale.clientId) : undefined;
           const employee = sale.employeeId ? employeeById.get(sale.employeeId) : undefined;
+          const appointment = sale.appointmentId ? appointmentById.get(sale.appointmentId) : undefined;
           return [
             sale.productName,
             sale.category,
@@ -99,7 +104,9 @@ export default function SalesPage() {
             sale.date,
             client?.name,
             client?.phone,
-            employee?.name
+            employee?.name,
+            appointment?.title,
+            appointment?.date
           ]
             .filter(Boolean)
             .join(" ")
@@ -107,7 +114,7 @@ export default function SalesPage() {
             .includes(normalizedSearch);
         })
         .sort((first, second) => second.date.localeCompare(first.date)),
-    [category, clientById, employeeById, normalizedSearch, sales, status]
+    [appointmentById, category, clientById, employeeById, normalizedSearch, sales, status]
   );
   const paidSales = sales.filter((sale) => sale.status === "completed" || sale.status === "partiallyRefunded");
   const totalRevenue = paidSales.reduce((sum, sale) => sum + getSaleNetAmount(sale), 0);
@@ -132,7 +139,7 @@ export default function SalesPage() {
         >
           {sale.productName || sale.category}
           <span className="block truncate text-xs font-normal text-muted-foreground">
-            {sale.category}
+            {sale.appointmentId ? "из записи" : sale.category}
           </span>
         </button>
       )
@@ -334,6 +341,14 @@ export default function SalesPage() {
             <div className="grid gap-3 sm:grid-cols-2">
               <DetailRow label="Клиент" value={selectedSale.clientId ? clientById.get(selectedSale.clientId)?.name ?? "Клиент удалён" : "Без клиента"} />
               <DetailRow label="Сотрудник" value={selectedSale.employeeId ? employeeById.get(selectedSale.employeeId)?.name ?? "Не указан" : "Не указан"} />
+              <DetailRow
+                label="Запись"
+                value={
+                  selectedSale.appointmentId
+                    ? formatAppointmentLink(selectedSale.appointmentId, appointmentById)
+                    : "не связана"
+                }
+              />
               <DetailRow label="Товар" value={selectedSale.productId ? productById.get(selectedSale.productId)?.name ?? selectedSale.productName : "Ручная продажа"} />
               <DetailRow label="Количество" value={selectedSale.quantity ? `${formatQuantity(Math.max(0, selectedSale.quantity - (selectedSale.refundedQuantity ?? 0)))} из ${formatQuantity(selectedSale.quantity)} шт.` : "не списывалось"} />
               <DetailRow label="Цена за ед." value={selectedSale.quantity ? formatCurrency(selectedSale.unitPrice) : "не указана"} />
@@ -431,6 +446,14 @@ function DetailRow({ label, value, wide }: { label: string; value: string; wide?
       <p className="mt-1 font-medium">{value}</p>
     </div>
   );
+}
+
+function formatAppointmentLink(appointmentId: string, appointmentById: Map<string, Appointment>) {
+  const appointment = appointmentById.get(appointmentId);
+  if (!appointment) {
+    return "запись удалена";
+  }
+  return `${appointment.title} · ${formatDate(appointment.date, "dd.MM.yyyy")} · ${appointment.time}`;
 }
 
 function formatQuantity(value: number) {

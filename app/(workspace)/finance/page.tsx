@@ -19,6 +19,7 @@ import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type {
   FinancialOperation,
   FinancialOperationSource,
+  Appointment,
   Product,
   Sale,
   SalePaymentMethod
@@ -88,6 +89,7 @@ export default function FinancePage() {
   const sales = data.sales ?? [];
   const clientById = useMemo(() => new Map(data.clients.map((client) => [client.id, client])), [data.clients]);
   const employeeById = useMemo(() => new Map(data.employees.map((employee) => [employee.id, employee])), [data.employees]);
+  const appointmentById = useMemo(() => new Map(data.appointments.map((appointment) => [appointment.id, appointment])), [data.appointments]);
   const productById = useMemo(() => new Map(data.products.map((product) => [product.id, product])), [data.products]);
   const saleByOperationId = useMemo(() => {
     const map = new Map<string, Sale>();
@@ -134,6 +136,7 @@ export default function FinancePage() {
         }
         const client = operation.clientId ? clientById.get(operation.clientId) : undefined;
         const employee = operation.employeeId ? employeeById.get(operation.employeeId) : undefined;
+        const appointment = operation.appointmentId ? appointmentById.get(operation.appointmentId) : undefined;
         return [
           operation.category,
           operation.comment,
@@ -143,14 +146,16 @@ export default function FinancePage() {
           operation.paymentMethod ? paymentMethodLabels[operation.paymentMethod] : "",
           client?.name,
           client?.phone,
-          employee?.name
+          employee?.name,
+          appointment?.title,
+          appointment?.date
         ]
           .filter(Boolean)
           .join(" ")
           .toLowerCase()
           .includes(normalizedSearch);
       }),
-    [clientById, employeeById, financeRows, normalizedSearch, paymentFilter, sourceFilter, typeFilter]
+    [appointmentById, clientById, employeeById, financeRows, normalizedSearch, paymentFilter, sourceFilter, typeFilter]
   );
 
   const completedSales = sales.filter((sale) => sale.status !== "cancelled");
@@ -214,7 +219,10 @@ export default function FinancePage() {
       cell: (operation) => {
         const client = operation.clientId ? clientById.get(operation.clientId)?.name : "";
         const employee = operation.employeeId ? employeeById.get(operation.employeeId)?.name : "";
-        return [client, employee].filter(Boolean).join(" · ") || "Не указано";
+        const appointment = operation.appointmentId
+          ? formatAppointmentLabel(operation.appointmentId, appointmentById)
+          : "";
+        return [client, employee, appointment].filter(Boolean).join(" · ") || "Не указано";
       }
     },
     {
@@ -497,6 +505,14 @@ function getOperationSource(operation: FinancialOperation, sale?: Sale): Financi
     return "refund";
   }
   return "manual";
+}
+
+function formatAppointmentLabel(appointmentId: string, appointmentById: Map<string, Appointment>) {
+  const appointment = appointmentById.get(appointmentId);
+  if (!appointment) {
+    return "запись удалена";
+  }
+  return `${appointment.title} ${formatDate(appointment.date, "dd.MM.yyyy")}`;
 }
 
 function getSaleCostOfGoods(sale: Sale, productById: Map<string, Product>) {

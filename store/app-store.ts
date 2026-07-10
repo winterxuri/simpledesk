@@ -983,9 +983,10 @@ export const useAppStore = create<AppStore>()(
                 date: sale.date,
                 comment: nextSale.comment || `Продажа: ${productName}`,
                 paymentMethod: nextSale.paymentMethod,
-                source: "sale",
+                source: sale.appointmentId ? "appointment" : "sale",
                 clientId: sale.clientId,
-                employeeId: sale.employeeId
+                employeeId: sale.employeeId,
+                appointmentId: sale.appointmentId
               }
             : undefined;
           const nextMovement: InventoryMovement | undefined = inventoryMovementId && product
@@ -1001,6 +1002,8 @@ export const useAppStore = create<AppStore>()(
           let changedProduct: Product | undefined;
           let changedClient: Client | undefined;
           let changedEmployee: Employee | undefined;
+          let changedAppointment: Appointment | undefined;
+          let changedPromotion: Promotion | undefined;
 
           const products =
             status === "completed" && product
@@ -1045,11 +1048,48 @@ export const useAppStore = create<AppStore>()(
                   return changedEmployee;
                 })
               : state.data.employees;
+          const appointments =
+            status === "completed" && sale.appointmentId
+              ? state.data.appointments.map((appointment) => {
+                  if (appointment.id !== sale.appointmentId) {
+                    return appointment;
+                  }
+                  changedAppointment = {
+                    ...appointment,
+                    price: sale.amount,
+                    status: "completed",
+                    paid: true,
+                    promotionId: sale.promotionId ?? appointment.promotionId
+                  };
+                  return changedAppointment;
+                })
+              : state.data.appointments;
+          const promotions =
+            status === "completed" && sale.promotionId
+              ? state.data.promotions.map((promotion) => {
+                  if (promotion.id !== sale.promotionId) {
+                    return promotion;
+                  }
+                  changedPromotion = {
+                    ...promotion,
+                    usageCount: promotion.usageCount + 1,
+                    revenue: promotion.revenue + sale.amount,
+                    newClients:
+                      sale.clientId &&
+                      state.data.clients.find((client) => client.id === sale.clientId)?.visits === 0
+                        ? promotion.newClients + 1
+                        : promotion.newClients
+                  };
+                  return changedPromotion;
+                })
+              : state.data.promotions;
 
           const companyId = state.company.id;
           const productToSync = changedProduct;
           const clientToSync = changedClient;
           const employeeToSync = changedEmployee;
+          const appointmentToSync = changedAppointment;
+          const promotionToSync = changedPromotion;
           runBackendSync(get, async () => {
             if (nextOperation) {
               await syncFinancialOperation(companyId, nextOperation);
@@ -1067,6 +1107,12 @@ export const useAppStore = create<AppStore>()(
             if (employeeToSync) {
               await syncEmployee(companyId, employeeToSync);
             }
+            if (appointmentToSync) {
+              await syncAppointment(companyId, appointmentToSync);
+            }
+            if (promotionToSync) {
+              await syncPromotion(companyId, promotionToSync);
+            }
           });
 
           return {
@@ -1081,7 +1127,9 @@ export const useAppStore = create<AppStore>()(
                 : state.data.inventoryMovements,
               products,
               clients,
-              employees
+              employees,
+              appointments,
+              promotions
             }
           };
         }),

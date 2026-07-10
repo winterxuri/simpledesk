@@ -17,7 +17,7 @@ import { canPerformAction } from "@/lib/permissions";
 import { getSelectablePromotions } from "@/lib/promotion-status";
 import { getResourceSlotAvailability, hasResourceSlotConflict } from "@/lib/resource-availability";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { Appointment, Client } from "@/types";
+import type { Appointment, Client, Sale, SalePaymentMethod } from "@/types";
 
 const viewTabs = [
   { value: "day", label: "День" },
@@ -36,6 +36,14 @@ const statusOptions: { value: Appointment["status"]; label: string }[] = [
   { value: "noShow", label: "Неявка" }
 ];
 
+const paymentMethodOptions: { value: SalePaymentMethod; label: string }[] = [
+  { value: "cash", label: "Наличные" },
+  { value: "card", label: "Карта" },
+  { value: "transfer", label: "Перевод" },
+  { value: "online", label: "Онлайн" },
+  { value: "mixed", label: "Смешанная оплата" }
+];
+
 type AppointmentForm = {
   id?: string;
   clientId: string;
@@ -49,6 +57,17 @@ type AppointmentForm = {
   price: string;
   status: Appointment["status"];
   paid: boolean;
+  comment: string;
+};
+
+type AppointmentSaleForm = {
+  appointmentId: string;
+  amount: string;
+  discountPercent: string;
+  discountAmount: string;
+  paymentMethod: SalePaymentMethod;
+  category: string;
+  promotionId: string;
   comment: string;
 };
 
@@ -84,9 +103,11 @@ export default function CalendarPage() {
   const role = useAppStore((state) => state.role);
   const addAppointment = useAppStore((state) => state.addAppointment);
   const updateAppointment = useAppStore((state) => state.updateAppointment);
+  const addSale = useAppStore((state) => state.addSale);
   const addToast = useAppStore((state) => state.addToast);
   const [view, setView] = useState("day");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [saleDialogOpen, setSaleDialogOpen] = useState(false);
   const today = isoDate();
   const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
   const employees = scopedData.employees.slice(0, 5);
@@ -94,8 +115,10 @@ export default function CalendarPage() {
   const clients = scopedData.clients;
   const currentEmployee = scopedData.currentEmployee;
   const [form, setForm] = useState<AppointmentForm>(() => createEmptyForm(clients, today, employees[0]?.id));
+  const [saleForm, setSaleForm] = useState<AppointmentSaleForm>(() => createEmptySaleForm());
   const canManageAppointments = canPerformAction(role, "manageAppointments");
   const canCreateAppointments = canPerformAction(role, "createAppointments");
+  const canManageSales = canPerformAction(role, "manageSales");
   const scheduleGridClass = employees.length <= 1
     ? "grid min-w-[320px] grid-cols-[96px_minmax(180px,1fr)]"
     : "grid min-w-[900px] grid-cols-[96px_repeat(5,minmax(150px,1fr))]";
@@ -132,10 +155,20 @@ export default function CalendarPage() {
     () => new Map(data.promotions.map((promotion) => [promotion.id, promotion])),
     [data.promotions]
   );
+  const saleByAppointmentId = useMemo(() => {
+    const map = new Map<string, Sale>();
+    (data.sales ?? [])
+      .filter((sale) => sale.appointmentId && sale.status !== "cancelled")
+      .forEach((sale) => {
+        map.set(sale.appointmentId ?? "", sale);
+      });
+    return map;
+  }, [data.sales]);
   const selectablePromotions = useMemo(
     () => getSelectablePromotions(data.promotions, today),
     [data.promotions, today]
   );
+  const currentAppointmentSale = form.id ? saleByAppointmentId.get(form.id) : undefined;
   const selectedResource = form.resourceId ? resourceById.get(form.resourceId) : undefined;
   const selectedResourceAvailability = selectedResource
     ? getResourceSlotAvailability({
@@ -174,6 +207,15 @@ export default function CalendarPage() {
       label: promotion.name
     }));
   }, [form.promotionId, promotionById, selectablePromotions]);
+  const saleSubtotal = Number(saleForm.amount);
+  const saleDiscountPercent = Number(saleForm.discountPercent);
+  const saleManualDiscountAmount = Number(saleForm.discountAmount);
+  const saleDiscountAmount = getSaleDiscountAmount(
+    saleSubtotal,
+    saleDiscountPercent,
+    saleManualDiscountAmount
+  );
+  const saleTotal = Number.isFinite(saleSubtotal) ? Math.max(0, saleSubtotal - saleDiscountAmount) : 0;
 
   function openCreate(slot?: { time: string; employeeId: string; date?: string }) {
     if (!canCreateAppointments) {
@@ -355,6 +397,176 @@ export default function CalendarPage() {
       addAppointment(payload);
     }
     setDialogOpen(false);
+  }
+
+  function openSaleDialog() {
+    if (!form.id) {
+      return;
+    }
+
+    if (!canManageSales) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Создание продажи доступно владельцу или администратору.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (currentAppointmentSale) {
+      addToast({
+        title: "Продажа уже создана",
+        description: "Эта запись уже связана с продажей, повторно закрывать её нельзя.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    const promotion = form.promotionId ? promotionById.get(form.promotionId) : undefined;
+    const amount = Number(form.price);
+    const discountPercent = promotion ? extractPromotionDiscountPercent(promotion.conditions) : 0;
+    const discountAmount =
+      Number.isFinite(amount) && amount > 0 && discountPercent > 0
+        ? Math.round((amount * discountPercent) / 100)
+        : 0;
+
+    setSaleForm({
+      appointmentId: form.id,
+      amount: Number.isFinite(amount) && amount > 0 ? String(amount) : "",
+      discountPercent: discountPercent ? String(discountPercent) : "0",
+      discountAmount: discountAmount ? String(discountAmount) : "0",
+      paymentMethod: "cash",
+      category: "Записи",
+      promotionId: form.promotionId,
+      comment: `Оплата записи: ${form.title.trim() || company.terminology.appointment}`
+    });
+    setDialogOpen(false);
+    setSaleDialogOpen(true);
+  }
+
+  function saveSaleFromAppointment() {
+    const appointmentId = saleForm.appointmentId || form.id;
+    const title = form.title.trim();
+    const duration = Number(form.duration);
+    const subtotal = Number(saleForm.amount);
+    const discountPercent = Number(saleForm.discountPercent);
+    const manualDiscountAmount = Number(saleForm.discountAmount);
+    const discountAmount = getSaleDiscountAmount(subtotal, discountPercent, manualDiscountAmount);
+    const total = Math.max(0, subtotal - discountAmount);
+    const category = saleForm.category.trim() || "Записи";
+    const promotionId = saleForm.promotionId || form.promotionId || undefined;
+
+    if (!appointmentId) {
+      addToast({
+        title: "Запись не найдена",
+        description: "Сначала сохраните запись, затем создайте продажу.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (saleByAppointmentId.has(appointmentId)) {
+      addToast({
+        title: "Продажа уже создана",
+        description: "У этой записи уже есть связанная продажа.",
+        variant: "warning"
+      });
+      setSaleDialogOpen(false);
+      return;
+    }
+
+    if (!form.clientId || !form.employeeId || !title) {
+      addToast({
+        title: "Заполните запись",
+        description: "Для продажи нужны клиент, сотрудник и услуга.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!Number.isFinite(duration) || duration <= 0) {
+      addToast({
+        title: "Длительность некорректна",
+        description: "Проверьте длительность записи перед созданием продажи.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!Number.isFinite(subtotal) || subtotal <= 0) {
+      addToast({
+        title: "Укажите сумму",
+        description: "Сумма до скидки должна быть больше нуля.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (
+      !Number.isFinite(discountPercent) ||
+      !Number.isFinite(manualDiscountAmount) ||
+      discountPercent < 0 ||
+      discountPercent > 100 ||
+      manualDiscountAmount < 0 ||
+      discountAmount >= subtotal
+    ) {
+      addToast({
+        title: "Проверьте скидку",
+        description: "Скидка должна быть от 0 до 100% и меньше суммы записи.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!Number.isFinite(total) || total <= 0) {
+      addToast({
+        title: "Итоговая сумма некорректна",
+        description: "К оплате должна остаться сумма больше нуля.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    updateAppointment(appointmentId, {
+      clientId: form.clientId,
+      employeeId: form.employeeId,
+      resourceId: form.resourceId || undefined,
+      title,
+      date: form.date,
+      time: form.time,
+      duration,
+      price: total,
+      status: "completed",
+      paid: true,
+      promotionId,
+      comment: form.comment
+    });
+
+    addSale({
+      date: form.date,
+      productName: title,
+      quantity: 0,
+      unitPrice: subtotal,
+      amount: total,
+      category,
+      paymentMethod: saleForm.paymentMethod,
+      paymentStatus: "paid",
+      discountPercent: Number.isFinite(discountPercent) ? discountPercent : 0,
+      discountAmount,
+      promotionId,
+      clientId: form.clientId,
+      employeeId: form.employeeId,
+      appointmentId,
+      comment: saleForm.comment.trim() || `Оплата записи: ${title}`
+    });
+
+    addToast({
+      title: "Продажа создана",
+      description: "Запись завершена, оплата попала в продажи и финансы.",
+      variant: "success"
+    });
+    setSaleDialogOpen(false);
+    setSaleForm(createEmptySaleForm());
   }
 
   return (
@@ -540,6 +752,16 @@ export default function CalendarPage() {
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
               Отмена
             </Button>
+            {form.id && canManageSales ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={Boolean(currentAppointmentSale)}
+                onClick={openSaleDialog}
+              >
+                {currentAppointmentSale ? "Продажа создана" : "Создать продажу"}
+              </Button>
+            ) : null}
             <Button type="button" onClick={saveAppointment}>
               Сохранить
             </Button>
@@ -650,9 +872,147 @@ export default function CalendarPage() {
               Запись будет создана в статусе «Запланирована». Стоимость, оплату и перенос сможет изменить администратор или владелец.
             </div>
           )}
+          {form.id && currentAppointmentSale ? (
+            <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-700">
+              По этой записи уже создана продажа на {formatCurrency(currentAppointmentSale.amount)}.
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label>Комментарий</Label>
             <Textarea value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} />
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={saleDialogOpen}
+        onOpenChange={(open) => {
+          setSaleDialogOpen(open);
+          if (!open) {
+            setSaleForm(createEmptySaleForm());
+          }
+        }}
+        title="Создать продажу из записи"
+        description={`${formatDate(form.date)} · ${form.time} · ${form.title || company.terminology.appointment}`}
+        className="max-w-2xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setSaleDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button type="button" onClick={saveSaleFromAppointment}>
+              Создать продажу
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+            Клиент, сотрудник, услуга и акция подтянуты из записи. После сохранения запись станет завершённой и оплаченной.
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Клиент</Label>
+              <Input value={clients.find((client) => client.id === form.clientId)?.name ?? "Клиент"} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>Сотрудник</Label>
+              <Input value={data.employees.find((employee) => employee.id === form.employeeId)?.name ?? "Сотрудник"} disabled />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Услуга</Label>
+              <Input value={form.title} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>Категория дохода</Label>
+              <Input value={saleForm.category} onChange={(event) => setSaleForm({ ...saleForm, category: event.target.value })} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Акция</Label>
+            <Select
+              value={saleForm.promotionId}
+              onChange={(event) => {
+                const promotionId = event.target.value;
+                const promotion = promotionId ? promotionById.get(promotionId) : undefined;
+                const discountPercent = promotion ? extractPromotionDiscountPercent(promotion.conditions) : 0;
+                const amount = Number(saleForm.amount);
+                const discountAmount =
+                  Number.isFinite(amount) && amount > 0 && discountPercent > 0
+                    ? Math.round((amount * discountPercent) / 100)
+                    : 0;
+                setSaleForm({
+                  ...saleForm,
+                  promotionId,
+                  discountPercent: discountPercent ? String(discountPercent) : "0",
+                  discountAmount: discountAmount ? String(discountAmount) : "0"
+                });
+              }}
+            >
+              <option value="">Без акции</option>
+              {promotionOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </Select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label>Сумма до скидки</Label>
+              <Input
+                type="number"
+                min="1"
+                value={saleForm.amount}
+                onChange={(event) => setSaleForm({ ...saleForm, amount: event.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Скидка, %</Label>
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={saleForm.discountPercent}
+                onChange={(event) => setSaleForm({ ...saleForm, discountPercent: event.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Скидка суммой</Label>
+              <Input
+                type="number"
+                min="0"
+                value={saleForm.discountAmount}
+                onChange={(event) => setSaleForm({ ...saleForm, discountAmount: event.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Способ оплаты</Label>
+              <Select
+                value={saleForm.paymentMethod}
+                onChange={(event) => setSaleForm({ ...saleForm, paymentMethod: event.target.value as SalePaymentMethod })}
+              >
+                {paymentMethodOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </Select>
+            </div>
+            <div className="rounded-lg border border-border bg-card p-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-muted-foreground">Скидка</span>
+                <span className="font-medium">{Number.isFinite(saleDiscountAmount) ? formatCurrency(saleDiscountAmount) : "—"}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-3 border-t border-border pt-2">
+                <span className="font-medium">К оплате</span>
+                <span className="text-base font-semibold">{Number.isFinite(saleTotal) ? formatCurrency(saleTotal) : "—"}</span>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Комментарий</Label>
+            <Textarea value={saleForm.comment} onChange={(event) => setSaleForm({ ...saleForm, comment: event.target.value })} />
           </div>
         </div>
       </Dialog>
@@ -681,4 +1041,41 @@ function createEmptyForm(
     paid: false,
     comment: ""
   };
+}
+
+function createEmptySaleForm(): AppointmentSaleForm {
+  return {
+    appointmentId: "",
+    amount: "",
+    discountPercent: "0",
+    discountAmount: "0",
+    paymentMethod: "cash",
+    category: "Записи",
+    promotionId: "",
+    comment: ""
+  };
+}
+
+function getSaleDiscountAmount(subtotal: number, discountPercent: number, manualDiscountAmount: number) {
+  const percentAmount =
+    Number.isFinite(discountPercent) && discountPercent > 0
+      ? (subtotal * discountPercent) / 100
+      : 0;
+  return Math.max(
+    0,
+    Number.isFinite(manualDiscountAmount) ? manualDiscountAmount : 0,
+    percentAmount
+  );
+}
+
+function extractPromotionDiscountPercent(conditions: string) {
+  const match = conditions.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  if (!match) {
+    return 0;
+  }
+  const value = Number(match[1].replace(",", "."));
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, value));
 }

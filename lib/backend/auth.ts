@@ -763,6 +763,7 @@ function mapSale(row: LooseRow): Sale {
     promotionId: nullableText(row, "promotion_id"),
     clientId: nullableText(row, "client_id"),
     employeeId: nullableText(row, "employee_id"),
+    appointmentId: nullableText(row, "appointment_id"),
     financialOperationId: nullableText(row, "financial_operation_id"),
     inventoryMovementId: nullableText(row, "inventory_movement_id"),
     status: text(row, "status", "completed") as SaleStatus,
