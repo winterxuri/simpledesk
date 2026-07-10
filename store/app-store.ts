@@ -1196,7 +1196,8 @@ export const useAppStore = create<AppStore>()(
             paymentMethod: currentSale.paymentMethod,
             source: "refund",
             clientId: currentSale.clientId,
-            employeeId: currentSale.employeeId
+            employeeId: currentSale.employeeId,
+            appointmentId: currentSale.appointmentId
           };
           const product = currentSale.productId
             ? state.data.products.find((item) => item.id === currentSale.productId)

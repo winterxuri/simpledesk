@@ -44,6 +44,13 @@ const paymentMethodOptions: { value: SalePaymentMethod; label: string }[] = [
   { value: "mixed", label: "Смешанная оплата" }
 ];
 
+const cancellationModes = [
+  { value: "fullRefund", label: "Полный возврат" },
+  { value: "partialRefund", label: "Частичный возврат" },
+  { value: "keepPayment", label: "Оставить оплату" },
+  { value: "cancelOnly", label: "Отмена без оплаты" }
+] as const;
+
 type AppointmentForm = {
   id?: string;
   clientId: string;
@@ -57,6 +64,8 @@ type AppointmentForm = {
   price: string;
   status: Appointment["status"];
   paid: boolean;
+  cancellationReason: string;
+  cancelledAt: string;
   comment: string;
 };
 
@@ -69,6 +78,15 @@ type AppointmentSaleForm = {
   category: string;
   promotionId: string;
   comment: string;
+};
+
+type CancellationMode = (typeof cancellationModes)[number]["value"];
+
+type AppointmentCancellationForm = {
+  appointmentId: string;
+  reason: string;
+  mode: CancellationMode;
+  refundAmount: string;
 };
 
 function isoDate(offset = 0) {
@@ -104,10 +122,12 @@ export default function CalendarPage() {
   const addAppointment = useAppStore((state) => state.addAppointment);
   const updateAppointment = useAppStore((state) => state.updateAppointment);
   const addSale = useAppStore((state) => state.addSale);
+  const refundSale = useAppStore((state) => state.refundSale);
   const addToast = useAppStore((state) => state.addToast);
   const [view, setView] = useState("day");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saleDialogOpen, setSaleDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const today = isoDate();
   const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
   const employees = scopedData.employees.slice(0, 5);
@@ -116,6 +136,7 @@ export default function CalendarPage() {
   const currentEmployee = scopedData.currentEmployee;
   const [form, setForm] = useState<AppointmentForm>(() => createEmptyForm(clients, today, employees[0]?.id));
   const [saleForm, setSaleForm] = useState<AppointmentSaleForm>(() => createEmptySaleForm());
+  const [cancellationForm, setCancellationForm] = useState<AppointmentCancellationForm>(() => createEmptyCancellationForm());
   const canManageAppointments = canPerformAction(role, "manageAppointments");
   const canCreateAppointments = canPerformAction(role, "createAppointments");
   const canManageSales = canPerformAction(role, "manageSales");
@@ -216,6 +237,7 @@ export default function CalendarPage() {
     saleManualDiscountAmount
   );
   const saleTotal = Number.isFinite(saleSubtotal) ? Math.max(0, saleSubtotal - saleDiscountAmount) : 0;
+  const remainingSaleAmount = currentAppointmentSale ? getRemainingSaleAmount(currentAppointmentSale) : 0;
 
   function openCreate(slot?: { time: string; employeeId: string; date?: string }) {
     if (!canCreateAppointments) {
@@ -262,6 +284,8 @@ export default function CalendarPage() {
       price: String(appointment.price),
       status: appointment.status,
       paid: appointment.paid,
+      cancellationReason: appointment.cancellationReason ?? "",
+      cancelledAt: appointment.cancelledAt ?? "",
       comment: appointment.comment ?? ""
     });
     setDialogOpen(true);
@@ -354,6 +378,15 @@ export default function CalendarPage() {
       return;
     }
 
+    if (form.status === "cancelled" && !form.cancellationReason.trim()) {
+      addToast({
+        title: "Отмените запись отдельным действием",
+        description: "Для отмены нужна причина и решение по оплате, если продажа уже создана.",
+        variant: "warning"
+      });
+      return;
+    }
+
     if (
       !form.id &&
       form.promotionId &&
@@ -388,6 +421,8 @@ export default function CalendarPage() {
       status: canManageAppointments ? form.status : "planned",
       paid: canManageAppointments ? form.paid : false,
       promotionId: form.promotionId || undefined,
+      cancellationReason: form.status === "cancelled" ? form.cancellationReason.trim() : undefined,
+      cancelledAt: form.status === "cancelled" ? form.cancelledAt || today : undefined,
       comment: form.comment
     };
 
@@ -567,6 +602,125 @@ export default function CalendarPage() {
     });
     setSaleDialogOpen(false);
     setSaleForm(createEmptySaleForm());
+  }
+
+  function openCancelDialog() {
+    if (!form.id) {
+      return;
+    }
+
+    if (!canManageAppointments) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Отмена записи доступна владельцу или администратору.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    const remainingAmount = currentAppointmentSale ? getRemainingSaleAmount(currentAppointmentSale) : 0;
+    setCancellationForm({
+      appointmentId: form.id,
+      reason: form.cancellationReason,
+      mode: currentAppointmentSale && remainingAmount > 0 ? "fullRefund" : "cancelOnly",
+      refundAmount: remainingAmount > 0 ? String(remainingAmount) : "0"
+    });
+    setDialogOpen(false);
+    setCancelDialogOpen(true);
+  }
+
+  function saveAppointmentCancellation() {
+    const appointmentId = cancellationForm.appointmentId || form.id;
+    const reason = cancellationForm.reason.trim();
+    const sale = appointmentId ? saleByAppointmentId.get(appointmentId) : undefined;
+    const remainingAmount = sale ? getRemainingSaleAmount(sale) : 0;
+    const requestedRefundAmount =
+      cancellationForm.mode === "fullRefund"
+        ? remainingAmount
+        : cancellationForm.mode === "partialRefund"
+          ? Number(cancellationForm.refundAmount)
+          : 0;
+
+    if (!appointmentId) {
+      addToast({
+        title: "Запись не найдена",
+        description: "Откройте запись заново и повторите отмену.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!reason) {
+      addToast({
+        title: "Укажите причину отмены",
+        description: "Причина нужна для истории клиента, спорных ситуаций и отчётов.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (sale && cancellationForm.mode === "partialRefund") {
+      if (
+        !Number.isFinite(requestedRefundAmount) ||
+        requestedRefundAmount <= 0 ||
+        requestedRefundAmount >= remainingAmount
+      ) {
+        addToast({
+          title: "Проверьте сумму возврата",
+          description: `Для частичного возврата укажите сумму от 1 до ${Math.max(0, remainingAmount - 1)}.`,
+          variant: "warning"
+        });
+        return;
+      }
+    }
+
+    if (sale && cancellationForm.mode === "fullRefund" && remainingAmount <= 0) {
+      addToast({
+        title: "Возвращать нечего",
+        description: "По продаже уже нет доступной суммы к возврату.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (sale && (cancellationForm.mode === "fullRefund" || cancellationForm.mode === "partialRefund")) {
+      refundSale(sale.id, {
+        amount: requestedRefundAmount,
+        quantity: sale.productId ? Math.max(0, sale.quantity - (sale.refundedQuantity ?? 0)) : 0,
+        reason
+      });
+    }
+
+    const retainedAmount = sale ? Math.max(0, remainingAmount - requestedRefundAmount) : 0;
+    const paidAfterCancellation =
+      Boolean(sale) &&
+      (cancellationForm.mode === "keepPayment"
+        ? remainingAmount > 0
+        : retainedAmount > 0);
+    const nextComment = appendCancellationNote(form.comment, reason);
+
+    updateAppointment(appointmentId, {
+      status: "cancelled",
+      paid: paidAfterCancellation,
+      cancellationReason: reason,
+      cancelledAt: today,
+      comment: nextComment
+    });
+    setForm({
+      ...form,
+      status: "cancelled",
+      paid: paidAfterCancellation,
+      cancellationReason: reason,
+      cancelledAt: today,
+      comment: nextComment
+    });
+    setCancelDialogOpen(false);
+    setCancellationForm(createEmptyCancellationForm());
+    addToast({
+      title: "Запись отменена",
+      description: getCancellationResultText(cancellationForm.mode, requestedRefundAmount),
+      variant: "success"
+    });
   }
 
   return (
@@ -752,11 +906,16 @@ export default function CalendarPage() {
             <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
               Отмена
             </Button>
+            {form.id && canManageAppointments && form.status !== "cancelled" ? (
+              <Button type="button" variant="destructive" onClick={openCancelDialog}>
+                Отменить запись
+              </Button>
+            ) : null}
             {form.id && canManageSales ? (
               <Button
                 type="button"
                 variant="outline"
-                disabled={Boolean(currentAppointmentSale)}
+                disabled={Boolean(currentAppointmentSale) || form.status === "cancelled"}
                 onClick={openSaleDialog}
               >
                 {currentAppointmentSale ? "Продажа создана" : "Создать продажу"}
@@ -852,7 +1011,7 @@ export default function CalendarPage() {
               <div className="space-y-2">
                 <Label>Статус</Label>
                 <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Appointment["status"] })}>
-                  {statusOptions.map((option) => (
+                  {getEditableStatusOptions(form.status).map((option) => (
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </Select>
@@ -877,10 +1036,109 @@ export default function CalendarPage() {
               По этой записи уже создана продажа на {formatCurrency(currentAppointmentSale.amount)}.
             </div>
           ) : null}
+          {form.status === "cancelled" ? (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Отменена{form.cancelledAt ? ` ${formatDate(form.cancelledAt, "dd.MM.yyyy")}` : ""}.
+              {form.cancellationReason ? ` Причина: ${form.cancellationReason}` : ""}
+            </div>
+          ) : null}
           <div className="space-y-2">
             <Label>Комментарий</Label>
             <Textarea value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} />
           </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={cancelDialogOpen}
+        onOpenChange={(open) => {
+          setCancelDialogOpen(open);
+          if (!open) {
+            setCancellationForm(createEmptyCancellationForm());
+          }
+        }}
+        title="Отменить запись"
+        description={`${formatDate(form.date)} · ${form.time} · ${form.title || company.terminology.appointment}`}
+        className="max-w-2xl"
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setCancelDialogOpen(false)}>
+              Назад
+            </Button>
+            <Button type="button" variant="destructive" onClick={saveAppointmentCancellation}>
+              Подтвердить отмену
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4">
+          {currentAppointmentSale ? (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              По записи есть продажа на {formatCurrency(currentAppointmentSale.amount)}.
+              Доступно к возврату: {formatCurrency(remainingSaleAmount)}.
+            </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Продажа по записи ещё не создана, поэтому отмена не изменит финансы.
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>Причина отмены</Label>
+            <Textarea
+              value={cancellationForm.reason}
+              onChange={(event) => setCancellationForm({ ...cancellationForm, reason: event.target.value })}
+              placeholder="Например: клиент перенёс визит, заболел, отменил заказ"
+            />
+          </div>
+          {currentAppointmentSale && remainingSaleAmount > 0 ? (
+            <div className="space-y-3">
+              <Label>Что сделать с оплатой</Label>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {cancellationModes
+                  .filter((mode) => mode.value !== "cancelOnly")
+                  .map((mode) => (
+                    <button
+                      key={mode.value}
+                      type="button"
+                      className={`rounded-lg border p-3 text-left text-sm transition-colors ${
+                        cancellationForm.mode === mode.value
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border bg-background hover:bg-muted/40"
+                      }`}
+                      onClick={() =>
+                        setCancellationForm({
+                          ...cancellationForm,
+                          mode: mode.value,
+                          refundAmount:
+                            mode.value === "fullRefund"
+                              ? String(remainingSaleAmount)
+                              : cancellationForm.refundAmount
+                        })
+                      }
+                    >
+                      {mode.label}
+                    </button>
+                  ))}
+              </div>
+              {cancellationForm.mode === "partialRefund" ? (
+                <div className="space-y-2">
+                  <Label>Сумма возврата</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    max={Math.max(0, remainingSaleAmount - 1)}
+                    value={cancellationForm.refundAmount}
+                    onChange={(event) => setCancellationForm({ ...cancellationForm, refundAmount: event.target.value })}
+                  />
+                </div>
+              ) : null}
+              {cancellationForm.mode === "keepPayment" ? (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-700">
+                  Оплата останется в продажах и финансах, запись будет отменена с сохранением факта оплаты.
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </Dialog>
 
@@ -1039,6 +1297,8 @@ function createEmptyForm(
     price: canManageAppointments ? "2500" : "0",
     status: "planned",
     paid: false,
+    cancellationReason: "",
+    cancelledAt: "",
     comment: ""
   };
 }
@@ -1054,6 +1314,51 @@ function createEmptySaleForm(): AppointmentSaleForm {
     promotionId: "",
     comment: ""
   };
+}
+
+function createEmptyCancellationForm(): AppointmentCancellationForm {
+  return {
+    appointmentId: "",
+    reason: "",
+    mode: "cancelOnly",
+    refundAmount: "0"
+  };
+}
+
+function getEditableStatusOptions(currentStatus: Appointment["status"]) {
+  if (currentStatus === "cancelled") {
+    return statusOptions;
+  }
+  return statusOptions.filter((option) => option.value !== "cancelled");
+}
+
+function getRemainingSaleAmount(sale: Sale) {
+  return Math.max(0, sale.amount - (sale.refundedAmount ?? 0));
+}
+
+function appendCancellationNote(comment: string, reason: string) {
+  const note = `Отмена: ${reason}`;
+  const trimmed = comment.trim();
+  if (!trimmed) {
+    return note;
+  }
+  if (trimmed.includes(note)) {
+    return trimmed;
+  }
+  return `${trimmed}\n${note}`;
+}
+
+function getCancellationResultText(mode: CancellationMode, refundAmount: number) {
+  if (mode === "fullRefund") {
+    return `Создан полный возврат на ${formatCurrency(refundAmount)}.`;
+  }
+  if (mode === "partialRefund") {
+    return `Создан частичный возврат на ${formatCurrency(refundAmount)}.`;
+  }
+  if (mode === "keepPayment") {
+    return "Оплата оставлена в продажах и финансах.";
+  }
+  return "Финансы не изменились.";
 }
 
 function getSaleDiscountAmount(subtotal: number, discountPercent: number, manualDiscountAmount: number) {

@@ -201,6 +201,8 @@ export interface Appointment {
   status: AppointmentStatus;
   paid: boolean;
   promotionId?: string;
+  cancellationReason?: string;
+  cancelledAt?: string;
   comment?: string;
 }
 

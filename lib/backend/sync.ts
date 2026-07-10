@@ -438,6 +438,8 @@ function toAppointmentRow(companyId: string, appointment: Appointment) {
     status: toDbAppointmentStatus(appointment.status),
     paid: appointment.paid,
     promotion_id: appointment.promotionId && canSync(appointment.promotionId) ? appointment.promotionId : null,
+    cancellation_reason: appointment.cancellationReason ?? null,
+    cancelled_at: appointment.cancelledAt ?? null,
     comment: appointment.comment ?? null
   };
 }

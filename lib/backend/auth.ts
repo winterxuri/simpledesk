@@ -647,6 +647,8 @@ function mapAppointment(row: LooseRow): Appointment {
     status: fromDbAppointmentStatus(text(row, "status", "planned")),
     paid: bool(row, "paid"),
     promotionId: nullableText(row, "promotion_id"),
+    cancellationReason: nullableText(row, "cancellation_reason"),
+    cancelledAt: nullableText(row, "cancelled_at"),
     comment: nullableText(row, "comment")
   };
 }
