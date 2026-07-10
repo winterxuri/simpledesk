@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { FormDrawer } from "@/components/modules/form-drawer";
 import { useAppStore } from "@/store/app-store";
 import { AppIcon } from "@/lib/icons";
+import { getCurrentEmployee, getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction, type PermissionAction } from "@/lib/permissions";
-import { resolvePromotionStatus, type PromotionManualMode } from "@/lib/promotion-status";
+import { getSelectablePromotions, resolvePromotionStatus, type PromotionManualMode } from "@/lib/promotion-status";
 import { getResourceSlotAvailability, hasResourceSlotConflict } from "@/lib/resource-availability";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { AppointmentStatus, ClientStatus, Employee, ModuleCode, Priority, Product, ProductStatus, QuickCreateType, ResourceStatus, SalePaymentMethod, SalePaymentStatus } from "@/types";
 
 const createItems: { type: QuickCreateType; label: string; icon: string; action: PermissionAction; module: ModuleCode }[] = [
-  { type: "client", label: "Клиент", icon: "UsersRound", action: "manageClients", module: "clients" },
-  { type: "appointment", label: "Запись", icon: "CalendarDays", action: "manageAppointments", module: "calendar" },
+  { type: "client", label: "Клиент", icon: "UsersRound", action: "createClients", module: "clients" },
+  { type: "appointment", label: "Запись", icon: "CalendarDays", action: "createAppointments", module: "calendar" },
   { type: "task", label: "Задача", icon: "ListTodo", action: "manageTasks", module: "tasks" },
   { type: "sale", label: "Продажа", icon: "CreditCard", action: "manageSales", module: "sales" },
   { type: "product", label: "Товар", icon: "Boxes", action: "manageInventory", module: "inventory" },
@@ -116,6 +117,7 @@ type QuickCreateForm = {
   appointmentDate: string;
   appointmentTime: string;
   appointmentResourceId: string;
+  appointmentPromotionId: string;
   appointmentDuration: string;
   appointmentPrice: string;
   appointmentStatus: AppointmentStatus;
@@ -175,9 +177,13 @@ type QuickCreateForm = {
   employeeCommissionPercent: string;
 };
 
-function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCreateForm {
+function createInitialForm(
+  data: WorkspaceData,
+  type?: QuickCreateType,
+  currentEmployee?: Employee
+): QuickCreateForm {
   const today = getLocalDateKey();
-  const firstEmployeeId = data.employees[0]?.id ?? "";
+  const firstEmployeeId = currentEmployee?.id ?? data.employees[0]?.id ?? "";
   const firstClientId = data.clients[0]?.id ?? "";
   const firstSaleProduct = data.products.find((product) => product.currentStock > 0) ?? data.products[0];
   const productType: Product["type"] = type === "material" ? "material" : "product";
@@ -199,6 +205,7 @@ function createInitialForm(data: WorkspaceData, type?: QuickCreateType): QuickCr
     appointmentDate: today,
     appointmentTime: "12:00",
     appointmentResourceId: "",
+    appointmentPromotionId: "",
     appointmentDuration: "60",
     appointmentPrice: "0",
     appointmentStatus: "planned",
@@ -275,9 +282,23 @@ export function QuickCreateMenu() {
   const addSale = useAppStore((state) => state.addSale);
   const addToast = useAppStore((state) => state.addToast);
   const data = useAppStore((state) => state.data);
+  const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
   const companyModules = useAppStore((state) => state.companyModules);
   const [form, setForm] = useState<QuickCreateForm>(() => createInitialForm(data));
+  const currentEmployee = useMemo(() => getCurrentEmployee(data, user, role), [data, role, user]);
+  const creationData = useMemo(() => {
+    if (role !== "employee") {
+      return data;
+    }
+    const scoped = getScopedWorkspaceData(data, user, role);
+    return {
+      ...data,
+      clients: scoped.clients,
+      appointments: scoped.appointments,
+      employees: scoped.employees
+    };
+  }, [data, role, user]);
 
   const item = createItems.find((entry) => entry.type === drawerType);
   const visibleModules = new Set(
@@ -288,26 +309,40 @@ export function QuickCreateMenu() {
   const availableItems = createItems.filter((entry) =>
     canPerformAction(role, entry.action) && visibleModules.has(entry.module)
   );
+  const canUseDrawer =
+    Boolean(item) &&
+    canPerformAction(role, item?.action ?? "manageSettings") &&
+    visibleModules.has(item?.module ?? "dashboard");
 
   useEffect(() => {
     if (quickCreateOpen && drawerType) {
-      setForm(createInitialForm(data, drawerType));
+      setForm(createInitialForm(creationData, drawerType, currentEmployee));
     }
-  }, [data, drawerType, quickCreateOpen]);
+  }, [creationData, currentEmployee, drawerType, quickCreateOpen]);
 
   function openItem(type: QuickCreateType) {
-    setForm(createInitialForm(data, type));
+    setForm(createInitialForm(creationData, type, currentEmployee));
     openQuickCreate(type);
     setMenuOpen(false);
   }
 
   function reset() {
-    setForm(createInitialForm(data, drawerType ?? undefined));
+    setForm(createInitialForm(creationData, drawerType ?? undefined, currentEmployee));
     setQuickCreateOpen(false);
   }
 
   function save() {
     if (!drawerType) {
+      return;
+    }
+
+    if (!canUseDrawer) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Это действие недоступно для текущей роли.",
+        variant: "warning"
+      });
+      reset();
       return;
     }
 
@@ -348,6 +383,10 @@ export function QuickCreateMenu() {
     const name = buildFullName(form.clientLastName, form.clientFirstName, form.clientMiddleName);
     const phone = form.clientPhone.trim();
     const email = form.clientEmail.trim();
+    const responsibleId =
+      role === "employee"
+        ? currentEmployee?.id ?? ""
+        : form.clientResponsibleId || creationData.employees[0]?.id || "employee-1";
 
     if (!name) {
       addToast({
@@ -376,14 +415,35 @@ export function QuickCreateMenu() {
       return false;
     }
 
+    if (!responsibleId) {
+      addToast({
+        title: "Не найден сотрудник",
+        description: "Создание клиента доступно только сотруднику, привязанному к карточке команды.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (
+      form.clientSource &&
+      !getSelectablePromotions(data.promotions, getLocalDateKey()).some((promotion) => promotion.name === form.clientSource)
+    ) {
+      addToast({
+        title: "Акция недоступна",
+        description: "Выберите активную акцию или оставьте поле пустым.",
+        variant: "warning"
+      });
+      return false;
+    }
+
     addClient({
       name,
       phone,
       email,
-      status: form.clientStatus,
-      responsibleId: form.clientResponsibleId || data.employees[0]?.id || "employee-1",
+      status: role === "employee" ? "new" : form.clientStatus,
+      responsibleId,
       nextAppointment: form.clientNextAppointment || undefined,
-      source: form.clientSource || "Быстрое создание",
+      source: form.clientSource || (role === "employee" ? "Создал сотрудник" : "Быстрое создание"),
       notes: form.clientNotes.trim()
     });
     return true;
@@ -392,9 +452,13 @@ export function QuickCreateMenu() {
   function saveAppointment() {
     const title = form.appointmentTitle.trim();
     const duration = Number(form.appointmentDuration);
-    const price = Number(form.appointmentPrice);
+    const price = role === "employee" ? 0 : Number(form.appointmentPrice);
+    const employeeId =
+      role === "employee"
+        ? currentEmployee?.id ?? ""
+        : form.appointmentEmployeeId;
 
-    if (!data.clients.length || !form.appointmentClientId) {
+    if (!creationData.clients.length || !form.appointmentClientId) {
       addToast({
         title: "Выберите клиента",
         description: "Сначала добавьте клиента или выберите существующего.",
@@ -403,7 +467,16 @@ export function QuickCreateMenu() {
       return false;
     }
 
-    if (!data.employees.length || !form.appointmentEmployeeId) {
+    if (!creationData.clients.some((client) => client.id === form.appointmentClientId)) {
+      addToast({
+        title: "Клиент недоступен",
+        description: "Сотрудник может создавать запись только для клиента из своей рабочей зоны.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (!creationData.employees.length || !employeeId) {
       addToast({
         title: "Выберите сотрудника",
         description: "Запись должна быть назначена на конкретного сотрудника.",
@@ -448,6 +521,18 @@ export function QuickCreateMenu() {
       return false;
     }
 
+    if (
+      form.appointmentPromotionId &&
+      !getSelectablePromotions(data.promotions, getLocalDateKey()).some((promotion) => promotion.id === form.appointmentPromotionId)
+    ) {
+      addToast({
+        title: "Акция недоступна",
+        description: "Для записи можно выбрать только активную текущую акцию.",
+        variant: "warning"
+      });
+      return false;
+    }
+
     if (form.appointmentResourceId) {
       const resource = data.resources.find((item) => item.id === form.appointmentResourceId);
       if (resource) {
@@ -471,15 +556,16 @@ export function QuickCreateMenu() {
 
     addAppointment({
       clientId: form.appointmentClientId,
-      employeeId: form.appointmentEmployeeId,
+      employeeId,
       resourceId: form.appointmentResourceId || undefined,
       title,
       date: form.appointmentDate,
       time: form.appointmentTime,
       duration,
       price,
-      status: form.appointmentStatus,
-      paid: form.appointmentPaid,
+      status: role === "employee" ? "planned" : form.appointmentStatus,
+      paid: role === "employee" ? false : form.appointmentPaid,
+      promotionId: form.appointmentPromotionId || undefined,
       comment: form.appointmentComment.trim()
     });
     return true;
@@ -619,6 +705,18 @@ export function QuickCreateMenu() {
       addToast({
         title: "Укажите категорию продажи",
         description: "Категория нужна для отчетов и аналитики.",
+        variant: "warning"
+      });
+      return false;
+    }
+
+    if (
+      form.salePromotionId &&
+      !getSelectablePromotions(data.promotions, getLocalDateKey()).some((promotion) => promotion.id === form.salePromotionId)
+    ) {
+      addToast({
+        title: "Акция недоступна",
+        description: "Для новой продажи можно выбрать только активную текущую акцию.",
         variant: "warning"
       });
       return false;
@@ -917,7 +1015,7 @@ export function QuickCreateMenu() {
         </div>
       ) : null}
       <FormDrawer
-        open={quickCreateOpen && Boolean(drawerType)}
+        open={quickCreateOpen && Boolean(drawerType) && canUseDrawer}
         onOpenChange={(open) => {
           if (!open) {
             reset();
@@ -928,9 +1026,9 @@ export function QuickCreateMenu() {
         className="max-w-2xl"
       >
         <div className="space-y-5">
-          {drawerType === "client" ? renderClientForm(form, setForm, data) : null}
-          {drawerType === "appointment" ? renderAppointmentForm(form, setForm, data) : null}
-          {drawerType === "task" ? renderTaskForm(form, setForm, data) : null}
+          {drawerType === "client" ? renderClientForm(form, setForm, creationData, role, currentEmployee) : null}
+          {drawerType === "appointment" ? renderAppointmentForm(form, setForm, creationData, role, currentEmployee) : null}
+          {drawerType === "task" ? renderTaskForm(form, setForm, creationData) : null}
           {drawerType === "sale" ? renderSaleForm(form, setForm, data) : null}
           {drawerType === "product" || drawerType === "material" ? renderProductForm(form, setForm) : null}
           {drawerType === "resource" ? renderResourceForm(form, setForm) : null}
@@ -953,9 +1051,11 @@ export function QuickCreateMenu() {
 function renderClientForm(
   form: QuickCreateForm,
   setForm: (form: QuickCreateForm) => void,
-  data: WorkspaceData
+  data: WorkspaceData,
+  role: Employee["role"],
+  currentEmployee?: Employee
 ) {
-  const promotionOptions = data.promotions.map((promotion) => ({
+  const promotionOptions = getSelectablePromotions(data.promotions, getLocalDateKey()).map((promotion) => ({
     value: promotion.name,
     label: promotion.name
   }));
@@ -972,20 +1072,29 @@ function renderClientForm(
         <Field id="quick-client-email" label="Email" type="email" value={form.clientEmail} onChange={(clientEmail) => setForm({ ...form, clientEmail })} />
       </div>
       <div className="grid gap-4 sm:grid-cols-3">
-        <SelectField
-          id="quick-client-status"
-          label="Статус"
-          value={form.clientStatus}
-          onChange={(clientStatus) => setForm({ ...form, clientStatus: clientStatus as ClientStatus })}
-          options={clientStatusOptions}
-        />
-        <SelectField
-          id="quick-client-responsible"
-          label="Ответственный"
-          value={form.clientResponsibleId}
-          onChange={(clientResponsibleId) => setForm({ ...form, clientResponsibleId })}
-          options={data.employees.map((employee) => ({ value: employee.id, label: employee.name }))}
-        />
+        {role === "employee" ? (
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Ответственный</Label>
+            <Input value={currentEmployee?.name ?? "Текущий сотрудник"} disabled />
+          </div>
+        ) : (
+          <>
+            <SelectField
+              id="quick-client-status"
+              label="Статус"
+              value={form.clientStatus}
+              onChange={(clientStatus) => setForm({ ...form, clientStatus: clientStatus as ClientStatus })}
+              options={clientStatusOptions}
+            />
+            <SelectField
+              id="quick-client-responsible"
+              label="Ответственный"
+              value={form.clientResponsibleId}
+              onChange={(clientResponsibleId) => setForm({ ...form, clientResponsibleId })}
+              options={data.employees.map((employee) => ({ value: employee.id, label: employee.name }))}
+            />
+          </>
+        )}
         <Field
           id="quick-client-next"
           label="Следующая запись"
@@ -997,13 +1106,16 @@ function renderClientForm(
       </div>
       <SelectField
         id="quick-client-source"
-        label="Акция / источник"
+        label="Акция / источник привлечения"
         value={form.clientSource}
         onChange={(clientSource) => setForm({ ...form, clientSource })}
         options={promotionOptions}
         emptyLabel="Без акции"
         allowEmpty
       />
+      <p className="text-sm text-muted-foreground">
+        В списке только активные акции. Ручной источник можно указать в комментарии.
+      </p>
       <TextareaField id="quick-client-notes" label="Комментарий" value={form.clientNotes} onChange={(clientNotes) => setForm({ ...form, clientNotes })} />
     </div>
   );
@@ -1012,7 +1124,9 @@ function renderClientForm(
 function renderAppointmentForm(
   form: QuickCreateForm,
   setForm: (form: QuickCreateForm) => void,
-  data: WorkspaceData
+  data: WorkspaceData,
+  role: Employee["role"],
+  currentEmployee?: Employee
 ) {
   const duration = Number(form.appointmentDuration) || 60;
   const resourceOptions = data.resources.map((resource) => {
@@ -1028,6 +1142,10 @@ function renderAppointmentForm(
       label: `${resource.name} · ${resource.type} · ${availability.label}`
     };
   });
+  const promotionOptions = getSelectablePromotions(data.promotions, getLocalDateKey()).map((promotion) => ({
+    value: promotion.id,
+    label: promotion.name
+  }));
   const selectedResource = data.resources.find((resource) => resource.id === form.appointmentResourceId);
   const selectedAvailability = selectedResource
     ? getResourceSlotAvailability({
@@ -1050,21 +1168,39 @@ function renderAppointmentForm(
           options={data.clients.map((client) => ({ value: client.id, label: client.name }))}
           emptyLabel="Нет клиентов"
         />
-        <SelectField
-          id="quick-appointment-employee"
-          label="Сотрудник"
-          value={form.appointmentEmployeeId}
-          onChange={(appointmentEmployeeId) => setForm({ ...form, appointmentEmployeeId })}
-          options={data.employees.map((employee) => ({ value: employee.id, label: employee.name }))}
-          emptyLabel="Нет сотрудников"
-        />
+        {role === "employee" ? (
+          <div className="space-y-2">
+            <Label>Сотрудник</Label>
+            <Input value={currentEmployee?.name ?? "Текущий сотрудник"} disabled />
+          </div>
+        ) : (
+          <SelectField
+            id="quick-appointment-employee"
+            label="Сотрудник"
+            value={form.appointmentEmployeeId}
+            onChange={(appointmentEmployeeId) => setForm({ ...form, appointmentEmployeeId })}
+            options={data.employees.map((employee) => ({ value: employee.id, label: employee.name }))}
+            emptyLabel="Нет сотрудников"
+          />
+        )}
       </div>
       <Field id="quick-appointment-title" label="Услуга / работа" value={form.appointmentTitle} onChange={(appointmentTitle) => setForm({ ...form, appointmentTitle })} />
-      <div className="grid gap-4 sm:grid-cols-4">
+      <SelectField
+        id="quick-appointment-promotion"
+        label="Акция"
+        value={form.appointmentPromotionId}
+        onChange={(appointmentPromotionId) => setForm({ ...form, appointmentPromotionId })}
+        options={promotionOptions}
+        emptyLabel="Без акции"
+        allowEmpty
+      />
+      <div className={`grid gap-4 ${role === "employee" ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}>
         <Field id="quick-appointment-date" label="Дата" type="date" min={getLocalDateKey()} value={form.appointmentDate} onChange={(appointmentDate) => setForm({ ...form, appointmentDate })} />
         <Field id="quick-appointment-time" label="Время" type="time" value={form.appointmentTime} onChange={(appointmentTime) => setForm({ ...form, appointmentTime })} />
         <Field id="quick-appointment-duration" label="Минуты" type="number" min="1" value={form.appointmentDuration} onChange={(appointmentDuration) => setForm({ ...form, appointmentDuration })} />
-        <Field id="quick-appointment-price" label="Стоимость" type="number" min="0" value={form.appointmentPrice} onChange={(appointmentPrice) => setForm({ ...form, appointmentPrice })} />
+        {role !== "employee" ? (
+          <Field id="quick-appointment-price" label="Стоимость" type="number" min="0" value={form.appointmentPrice} onChange={(appointmentPrice) => setForm({ ...form, appointmentPrice })} />
+        ) : null}
       </div>
       <div className="space-y-2">
         <SelectField
@@ -1086,24 +1222,30 @@ function renderAppointmentForm(
           </p>
         )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField
-          id="quick-appointment-status"
-          label="Статус"
-          value={form.appointmentStatus}
-          onChange={(appointmentStatus) => setForm({ ...form, appointmentStatus: appointmentStatus as AppointmentStatus })}
-          options={appointmentStatusOptions}
-        />
-        <label className="flex items-end gap-2 rounded-lg border border-border p-3 text-sm">
-          <input
-            type="checkbox"
-            className="h-4 w-4 accent-primary"
-            checked={form.appointmentPaid}
-            onChange={(event) => setForm({ ...form, appointmentPaid: event.target.checked })}
+      {role !== "employee" ? (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <SelectField
+            id="quick-appointment-status"
+            label="Статус"
+            value={form.appointmentStatus}
+            onChange={(appointmentStatus) => setForm({ ...form, appointmentStatus: appointmentStatus as AppointmentStatus })}
+            options={appointmentStatusOptions}
           />
-          Оплачено
-        </label>
-      </div>
+          <label className="flex items-end gap-2 rounded-lg border border-border p-3 text-sm">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={form.appointmentPaid}
+              onChange={(event) => setForm({ ...form, appointmentPaid: event.target.checked })}
+            />
+            Оплачено
+          </label>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+          Запись будет создана в статусе «Запланирована». Стоимость и оплату сможет указать администратор или владелец.
+        </div>
+      )}
       <TextareaField id="quick-appointment-comment" label="Комментарий" value={form.appointmentComment} onChange={(appointmentComment) => setForm({ ...form, appointmentComment })} />
     </div>
   );
@@ -1163,7 +1305,7 @@ function renderSaleForm(
     value: item.id,
     label: `${item.name} · остаток ${item.currentStock}`
   }));
-  const promotionOptions = data.promotions.map((promotion) => ({
+  const promotionOptions = getSelectablePromotions(data.promotions, getLocalDateKey()).map((promotion) => ({
     value: promotion.id,
     label: promotion.name
   }));

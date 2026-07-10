@@ -72,42 +72,28 @@ export async function syncCompanyModules(companyId: string, modules: CompanyModu
 export async function syncClient(companyId: string, client: Client) {
   if (!canSync(companyId) || !canSync(client.id)) return;
   await safeSync(() =>
-    createSupabaseBrowserClient().from("clients").upsert({
-      id: client.id,
-      company_id: companyId,
-      name: client.name,
-      phone: client.phone,
-      email: client.email,
-      status: client.status,
-      responsible_employee_id: canSync(client.responsibleId) ? client.responsibleId : null,
-      total_spent: client.totalSpent,
-      visits: client.visits,
-      last_visit: client.lastVisit,
-      next_appointment: client.nextAppointment ?? null,
-      source: client.source,
-      notes: client.notes
-    })
+    createSupabaseBrowserClient().from("clients").upsert(toClientRow(companyId, client))
+  );
+}
+
+export async function insertClient(companyId: string, client: Client) {
+  if (!canSync(companyId) || !canSync(client.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("clients").insert(toClientRow(companyId, client))
   );
 }
 
 export async function syncAppointment(companyId: string, appointment: Appointment) {
   if (!canSync(companyId) || !canSync(appointment.id)) return;
   await safeSync(() =>
-    createSupabaseBrowserClient().from("appointments").upsert({
-      id: appointment.id,
-      company_id: companyId,
-      client_id: canSync(appointment.clientId) ? appointment.clientId : null,
-      employee_id: canSync(appointment.employeeId) ? appointment.employeeId : null,
-      resource_id: appointment.resourceId && canSync(appointment.resourceId) ? appointment.resourceId : null,
-      title: appointment.title,
-      date: appointment.date,
-      time: appointment.time,
-      duration_minutes: appointment.duration,
-      price: appointment.price,
-      status: toDbAppointmentStatus(appointment.status),
-      paid: appointment.paid,
-      comment: appointment.comment ?? null
-    })
+    createSupabaseBrowserClient().from("appointments").upsert(toAppointmentRow(companyId, appointment))
+  );
+}
+
+export async function insertAppointment(companyId: string, appointment: Appointment) {
+  if (!canSync(companyId) || !canSync(appointment.id)) return;
+  await safeSync(() =>
+    createSupabaseBrowserClient().from("appointments").insert(toAppointmentRow(companyId, appointment))
   );
 }
 
@@ -416,6 +402,43 @@ function formatSupabaseError(error: unknown) {
   const hint = typeof record.hint === "string" ? record.hint : "";
   const code = typeof record.code === "string" ? record.code : "";
   return [message, code ? `code: ${code}` : "", details, hint].filter(Boolean).join(" | ");
+}
+
+function toClientRow(companyId: string, client: Client) {
+  return {
+    id: client.id,
+    company_id: companyId,
+    name: client.name,
+    phone: client.phone,
+    email: client.email,
+    status: client.status,
+    responsible_employee_id: canSync(client.responsibleId) ? client.responsibleId : null,
+    total_spent: client.totalSpent,
+    visits: client.visits,
+    last_visit: client.lastVisit,
+    next_appointment: client.nextAppointment ?? null,
+    source: client.source,
+    notes: client.notes
+  };
+}
+
+function toAppointmentRow(companyId: string, appointment: Appointment) {
+  return {
+    id: appointment.id,
+    company_id: companyId,
+    client_id: canSync(appointment.clientId) ? appointment.clientId : null,
+    employee_id: canSync(appointment.employeeId) ? appointment.employeeId : null,
+    resource_id: appointment.resourceId && canSync(appointment.resourceId) ? appointment.resourceId : null,
+    title: appointment.title,
+    date: appointment.date,
+    time: appointment.time,
+    duration_minutes: appointment.duration,
+    price: appointment.price,
+    status: toDbAppointmentStatus(appointment.status),
+    paid: appointment.paid,
+    promotion_id: appointment.promotionId && canSync(appointment.promotionId) ? appointment.promotionId : null,
+    comment: appointment.comment ?? null
+  };
 }
 
 function toDbAppointmentStatus(status: Appointment["status"]) {

@@ -337,8 +337,8 @@ function QuickActionsWidget({
   onCreate: (type: QuickCreateType) => void;
 }) {
   const allActions = [
-    { label: "добавить клиента", type: "client", action: "manageClients" },
-    { label: `создать ${appointmentTerm}`, type: "appointment", action: "manageAppointments" },
+    { label: "добавить клиента", type: "client", action: "createClients" },
+    { label: `создать ${appointmentTerm}`, type: "appointment", action: "createAppointments" },
     { label: `добавить ${productTerm}`, type: "product", action: "manageInventory" },
     { label: "создать задачу", type: "task", action: "manageTasks" },
     { label: "добавить продажу", type: "sale", action: "manageSales" }

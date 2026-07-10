@@ -250,6 +250,7 @@ function makeAppointments(templateId: string): Appointment[] {
       index % 5
     ] as Appointment["status"],
     paid: index % 3 !== 0,
+    promotionId: index % 4 === 0 ? `promotion-${(index % 3) + 1}` : undefined,
     comment: index % 4 === 0 ? "Нужно подтвердить за час до визита." : undefined
   }));
 }

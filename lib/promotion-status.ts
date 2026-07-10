@@ -52,6 +52,20 @@ export function getPromotionDisplayStatus(promotion: Promotion, today: string) {
   });
 }
 
+export function isPromotionSelectableNow(promotion: Promotion, today: string) {
+  const status = getPromotionDisplayStatus(promotion, today);
+  if (status !== "active" && status !== "ending") {
+    return false;
+  }
+
+  return (!promotion.startDate || promotion.startDate <= today) &&
+    (!promotion.endDate || promotion.endDate >= today);
+}
+
+export function getSelectablePromotions(promotions: Promotion[], today: string) {
+  return promotions.filter((promotion) => isPromotionSelectableNow(promotion, today));
+}
+
 function daysBetween(start: string, end: string) {
   const startTime = new Date(`${start}T00:00:00`).getTime();
   const endTime = new Date(`${end}T00:00:00`).getTime();

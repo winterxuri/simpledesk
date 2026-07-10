@@ -15,6 +15,8 @@ import { createInitialBusinessData } from "@/data/initial-data";
 import {
   deleteEmployee,
   deleteEmployeeShift,
+  insertAppointment,
+  insertClient,
   syncAppointment,
   syncClient,
   syncCompany,
@@ -521,7 +523,7 @@ export const useAppStore = create<AppStore>()(
             visits: 0,
             lastVisit: getLocalDateKey()
           };
-          runBackendSync(get, () => syncClient(state.company.id, nextClient));
+          runBackendSync(get, () => insertClient(state.company.id, nextClient));
           return {
             data: {
               ...state.data,
@@ -574,7 +576,7 @@ export const useAppStore = create<AppStore>()(
       addAppointment: (appointment) =>
         set((state) => {
           const nextAppointment = { ...appointment, id: createId("appointment") };
-          runBackendSync(get, () => syncAppointment(state.company.id, nextAppointment));
+          runBackendSync(get, () => insertAppointment(state.company.id, nextAppointment));
           return {
             data: {
               ...state.data,

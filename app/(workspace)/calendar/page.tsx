@@ -14,9 +14,10 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
+import { getSelectablePromotions } from "@/lib/promotion-status";
 import { getResourceSlotAvailability, hasResourceSlotConflict } from "@/lib/resource-availability";
 import { formatCurrency, formatDate } from "@/lib/utils";
-import type { Appointment } from "@/types";
+import type { Appointment, Client } from "@/types";
 
 const viewTabs = [
   { value: "day", label: "День" },
@@ -42,6 +43,7 @@ type AppointmentForm = {
   date: string;
   time: string;
   resourceId: string;
+  promotionId: string;
   title: string;
   duration: string;
   price: string;
@@ -90,8 +92,10 @@ export default function CalendarPage() {
   const employees = scopedData.employees.slice(0, 5);
   const appointments = scopedData.appointments;
   const clients = scopedData.clients;
-  const [form, setForm] = useState<AppointmentForm>(() => createEmptyForm(data, today, employees[0]?.id));
+  const currentEmployee = scopedData.currentEmployee;
+  const [form, setForm] = useState<AppointmentForm>(() => createEmptyForm(clients, today, employees[0]?.id));
   const canManageAppointments = canPerformAction(role, "manageAppointments");
+  const canCreateAppointments = canPerformAction(role, "createAppointments");
   const scheduleGridClass = employees.length <= 1
     ? "grid min-w-[320px] grid-cols-[96px_minmax(180px,1fr)]"
     : "grid min-w-[900px] grid-cols-[96px_repeat(5,minmax(150px,1fr))]";
@@ -124,6 +128,14 @@ export default function CalendarPage() {
     () => new Map(data.resources.map((resource) => [resource.id, resource])),
     [data.resources]
   );
+  const promotionById = useMemo(
+    () => new Map(data.promotions.map((promotion) => [promotion.id, promotion])),
+    [data.promotions]
+  );
+  const selectablePromotions = useMemo(
+    () => getSelectablePromotions(data.promotions, today),
+    [data.promotions, today]
+  );
   const selectedResource = form.resourceId ? resourceById.get(form.resourceId) : undefined;
   const selectedResourceAvailability = selectedResource
     ? getResourceSlotAvailability({
@@ -150,18 +162,43 @@ export default function CalendarPage() {
       label: `${resource.name} · ${resource.type} · ${availability.label}`
     };
   });
+  const promotionOptions = useMemo(() => {
+    const selectedPromotion = form.promotionId ? promotionById.get(form.promotionId) : undefined;
+    const list =
+      selectedPromotion && !selectablePromotions.some((promotion) => promotion.id === selectedPromotion.id)
+        ? [...selectablePromotions, selectedPromotion]
+        : selectablePromotions;
+
+    return list.map((promotion) => ({
+      value: promotion.id,
+      label: promotion.name
+    }));
+  }, [form.promotionId, promotionById, selectablePromotions]);
 
   function openCreate(slot?: { time: string; employeeId: string; date?: string }) {
-    if (!canManageAppointments) {
+    if (!canCreateAppointments) {
       addToast({
         title: "Недостаточно прав",
-        description: "Создание и перенос записей доступны владельцу или администратору.",
+        description: "Создание записей недоступно для текущей роли.",
         variant: "warning"
       });
       return;
     }
 
-    setForm(createEmptyForm(data, slot?.date ?? today, slot?.employeeId ?? employees[0]?.id, slot?.time));
+    const employeeId = role === "employee"
+      ? currentEmployee?.id
+      : slot?.employeeId ?? employees[0]?.id;
+
+    if (!employeeId) {
+      addToast({
+        title: "Не найден сотрудник",
+        description: "Создание записи доступно только сотруднику, привязанному к карточке команды.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    setForm(createEmptyForm(clients, slot?.date ?? today, employeeId, slot?.time, canManageAppointments));
     setDialogOpen(true);
   }
 
@@ -177,6 +214,7 @@ export default function CalendarPage() {
       date: appointment.date,
       time: appointment.time.slice(0, 5),
       resourceId: appointment.resourceId ?? "",
+      promotionId: appointment.promotionId ?? "",
       title: appointment.title,
       duration: String(appointment.duration),
       price: String(appointment.price),
@@ -190,7 +228,26 @@ export default function CalendarPage() {
   function saveAppointment() {
     const title = form.title.trim();
     const duration = Number(form.duration);
-    const price = Number(form.price);
+    const price = canManageAppointments ? Number(form.price) : 0;
+    const employeeId = canManageAppointments ? form.employeeId : currentEmployee?.id ?? "";
+
+    if (form.id && !canManageAppointments) {
+      addToast({
+        title: "Редактирование недоступно",
+        description: "Сотрудник может создавать записи на себя, но редактирование существующих записей пока доступно администратору.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!form.id && !canCreateAppointments) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Создание записей недоступно для текущей роли.",
+        variant: "warning"
+      });
+      return;
+    }
 
     if (!form.clientId) {
       addToast({
@@ -201,7 +258,16 @@ export default function CalendarPage() {
       return;
     }
 
-    if (!form.employeeId) {
+    if (!clients.some((client) => client.id === form.clientId)) {
+      addToast({
+        title: "Клиент недоступен",
+        description: "Сотрудник может создать запись только для клиента из своей рабочей зоны.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (!employeeId) {
       addToast({
         title: "Выберите сотрудника",
         description: "Запись должна быть назначена на конкретного сотрудника.",
@@ -246,6 +312,19 @@ export default function CalendarPage() {
       return;
     }
 
+    if (
+      !form.id &&
+      form.promotionId &&
+      !selectablePromotions.some((promotion) => promotion.id === form.promotionId)
+    ) {
+      addToast({
+        title: "Акция недоступна",
+        description: "Для новой записи можно выбрать только активную текущую акцию.",
+        variant: "warning"
+      });
+      return;
+    }
+
     if (selectedResourceAvailability && hasResourceSlotConflict(selectedResourceAvailability)) {
       addToast({
         title: "Ресурс недоступен",
@@ -257,15 +336,16 @@ export default function CalendarPage() {
 
     const payload = {
       clientId: form.clientId,
-      employeeId: form.employeeId,
+      employeeId,
       resourceId: form.resourceId || undefined,
       title,
       date: form.date,
       time: form.time,
       duration,
       price,
-      status: form.status,
-      paid: form.paid,
+      status: canManageAppointments ? form.status : "planned",
+      paid: canManageAppointments ? form.paid : false,
+      promotionId: form.promotionId || undefined,
       comment: form.comment
     };
 
@@ -289,7 +369,7 @@ export default function CalendarPage() {
         actions={
           <div className="flex gap-2">
             <Tabs items={viewTabs} value={view} onValueChange={setView} />
-            {canManageAppointments ? (
+            {canCreateAppointments ? (
             <Button type="button" onClick={() => openCreate({ time: "12:00", employeeId: employees[0]?.id ?? "employee-1" })}>
               <Plus className="h-4 w-4" />
               Создать запись
@@ -307,7 +387,7 @@ export default function CalendarPage() {
               <button
                 key={date}
                 type="button"
-                disabled={!canManageAppointments}
+                disabled={!canCreateAppointments}
                 onClick={() => openCreate({ date, time: "12:00", employeeId: employees[0]?.id ?? "employee-1" })}
                 className="min-h-28 rounded-lg border border-border bg-card p-3 text-left transition-colors hover:bg-muted/35 disabled:cursor-default disabled:hover:bg-card"
               >
@@ -337,7 +417,7 @@ export default function CalendarPage() {
                     <p className="font-medium">{formatDate(date, "EEEEEE")}</p>
                     <p className="text-xs text-muted-foreground">{formatDate(date, "d MMMM")}</p>
                   </div>
-                  {canManageAppointments ? (
+                  {canCreateAppointments ? (
                   <Button type="button" size="sm" variant="outline" onClick={() => openCreate({ date, time: "12:00", employeeId: employees[0]?.id ?? "employee-1" })}>
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -383,12 +463,13 @@ export default function CalendarPage() {
                 <div className="bg-muted/30 p-3 text-sm text-muted-foreground">{time}</div>
                 {employees.map((employee) => {
                   const appointment = byEmployeeAndTime.get(`${employee.id}-${time}`);
+                  const canUseSlot = appointment ? canManageAppointments : canCreateAppointments;
                   return (
                     <button
                       key={`${employee.id}-${time}`}
                       type="button"
                       onClick={() => appointment ? openEdit(appointment) : openCreate({ time, employeeId: employee.id })}
-                      disabled={!canManageAppointments}
+                      disabled={!canUseSlot}
                       onDragOver={(event) => {
                         if (canManageAppointments) {
                           event.preventDefault();
@@ -424,6 +505,11 @@ export default function CalendarPage() {
                               {resourceById.get(appointment.resourceId)?.name ?? "Ресурс"}
                             </p>
                           ) : null}
+                          {appointment.promotionId ? (
+                            <p className="mt-1 text-xs">
+                              {promotionById.get(appointment.promotionId)?.name ?? "Акция"}
+                            </p>
+                          ) : null}
                           <div className="mt-2 flex items-center justify-between gap-2">
                             <StatusBadge status={appointment.status} />
                             <span className="text-xs">{formatCurrency(appointment.price)}</span>
@@ -431,7 +517,7 @@ export default function CalendarPage() {
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">
-                          {canManageAppointments ? "Свободное окно" : "Нет записи"}
+                          {canCreateAppointments ? "Свободное окно" : "Нет записи"}
                         </span>
                       )}
                     </button>
@@ -465,23 +551,39 @@ export default function CalendarPage() {
             <div className="space-y-2">
               <Label>Клиент</Label>
               <Select value={form.clientId} onChange={(event) => setForm({ ...form, clientId: event.target.value })}>
-                {data.clients.map((client) => (
+                {clients.map((client) => (
                   <option key={client.id} value={client.id}>{client.name}</option>
                 ))}
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Специалист</Label>
-              <Select value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })}>
-                {data.employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>{employee.name}</option>
-                ))}
-              </Select>
+              {canManageAppointments ? (
+                <Select value={form.employeeId} onChange={(event) => setForm({ ...form, employeeId: event.target.value })}>
+                  {data.employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>{employee.name}</option>
+                  ))}
+                </Select>
+              ) : (
+                <Input value={currentEmployee?.name ?? "Текущий сотрудник"} disabled />
+              )}
             </div>
           </div>
           <div className="space-y-2">
             <Label>{company.terminology.service}</Label>
             <Input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label>Акция</Label>
+            <Select value={form.promotionId} onChange={(event) => setForm({ ...form, promotionId: event.target.value })}>
+              <option value="">Без акции</option>
+              {promotionOptions.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </Select>
+            <p className="text-sm text-muted-foreground">
+              В списке только активные акции. Стоимость и фактическую скидку администратор сможет учесть в продаже.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Помещение или оборудование</Label>
@@ -503,7 +605,7 @@ export default function CalendarPage() {
               </p>
             )}
           </div>
-          <div className="grid gap-4 sm:grid-cols-4">
+          <div className={`grid gap-4 ${canManageAppointments ? "sm:grid-cols-4" : "sm:grid-cols-3"}`}>
             <div className="space-y-2">
               <Label>Дата</Label>
               <Input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} />
@@ -516,30 +618,38 @@ export default function CalendarPage() {
               <Label>Длительность, мин</Label>
               <Input type="number" min="1" value={form.duration} onChange={(event) => setForm({ ...form, duration: event.target.value })} />
             </div>
-            <div className="space-y-2">
-              <Label>Стоимость</Label>
-              <Input type="number" min="0" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
-            </div>
+            {canManageAppointments ? (
+              <div className="space-y-2">
+                <Label>Стоимость</Label>
+                <Input type="number" min="0" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} />
+              </div>
+            ) : null}
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Статус</Label>
-              <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Appointment["status"] })}>
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </Select>
+          {canManageAppointments ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Статус</Label>
+                <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as Appointment["status"] })}>
+                  {statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </Select>
+              </div>
+              <label className="flex items-end gap-2 rounded-lg border border-border p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 accent-primary"
+                  checked={form.paid}
+                  onChange={(event) => setForm({ ...form, paid: event.target.checked })}
+                />
+                Оплачено
+              </label>
             </div>
-            <label className="flex items-end gap-2 rounded-lg border border-border p-3 text-sm">
-              <input
-                type="checkbox"
-                className="h-4 w-4 accent-primary"
-                checked={form.paid}
-                onChange={(event) => setForm({ ...form, paid: event.target.checked })}
-              />
-              Оплачено
-            </label>
-          </div>
+          ) : (
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+              Запись будет создана в статусе «Запланирована». Стоимость, оплату и перенос сможет изменить администратор или владелец.
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Комментарий</Label>
             <Textarea value={form.comment} onChange={(event) => setForm({ ...form, comment: event.target.value })} />
@@ -551,20 +661,22 @@ export default function CalendarPage() {
 }
 
 function createEmptyForm(
-  data: ReturnType<typeof useAppStore.getState>["data"],
+  clients: Client[],
   date: string,
   employeeId = "employee-1",
-  time = "12:00"
+  time = "12:00",
+  canManageAppointments = true
 ): AppointmentForm {
   return {
-    clientId: data.clients[0]?.id ?? "",
+    clientId: clients[0]?.id ?? "",
     employeeId,
     date,
     time,
     resourceId: "",
+    promotionId: "",
     title: "",
     duration: "60",
-    price: "2500",
+    price: canManageAppointments ? "2500" : "0",
     status: "planned",
     paid: false,
     comment: ""

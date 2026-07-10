@@ -200,6 +200,7 @@ export interface Appointment {
   price: number;
   status: AppointmentStatus;
   paid: boolean;
+  promotionId?: string;
   comment?: string;
 }
 

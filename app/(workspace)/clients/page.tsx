@@ -17,6 +17,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { useAppStore } from "@/store/app-store";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
+import { getSelectablePromotions } from "@/lib/promotion-status";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
 import type { Client, ClientStatus } from "@/types";
 
@@ -41,14 +42,25 @@ export default function ClientsPage() {
   const role = useAppStore((state) => state.role);
   const addToast = useAppStore((state) => state.addToast);
   const canManageClients = canPerformAction(role, "manageClients");
+  const canCreateClients = canPerformAction(role, "createClients");
   const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
+  const currentEmployee = scopedData.currentEmployee;
   const clients = scopedData.clients;
   const employees = canManageClients ? data.employees : scopedData.employees;
   const segmentOptions = canManageClients ? managerSegments : employeeSegments;
-  const promotionOptions = data.promotions.map((promotion) => ({
-    value: promotion.name,
-    label: promotion.name
-  }));
+  const today = getLocalDateKey();
+  const promotionOptions = useMemo(
+    () =>
+      getSelectablePromotions(data.promotions, today).map((promotion) => ({
+        value: promotion.name,
+        label: promotion.name
+      })),
+    [data.promotions, today]
+  );
+  const promotionSourceNames = useMemo(
+    () => new Set(data.promotions.map((promotion) => promotion.name.toLowerCase())),
+    [data.promotions]
+  );
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
   const [segment, setSegment] = useState("Все");
@@ -94,7 +106,8 @@ export default function ClientsPage() {
           return client.status === "inactive";
         }
         if (segment === "Из акции") {
-          return client.source.toLowerCase().includes("акц");
+          const source = client.source.toLowerCase();
+          return source.includes("акц") || source.includes("promo") || promotionSourceNames.has(source);
         }
         return true;
       })
@@ -105,7 +118,7 @@ export default function ClientsPage() {
             ? b.lastVisit.localeCompare(a.lastVisit)
             : b.totalSpent - a.totalSpent
       );
-  }, [clients, search, segment, sort, status]);
+  }, [clients, promotionSourceNames, search, segment, sort, status]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
@@ -177,9 +190,21 @@ export default function ClientsPage() {
   ];
 
   function saveClient() {
+    if (!canCreateClients) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Создание клиента недоступно для текущей роли.",
+        variant: "warning"
+      });
+      return;
+    }
+
     const name = buildFullName(form.lastName, form.firstName, form.middleName);
     const phone = form.phone.trim();
     const email = form.email.trim();
+    const responsibleId = canManageClients
+      ? form.responsibleId || employees[0]?.id || "employee-1"
+      : currentEmployee?.id ?? "";
 
     if (!name) {
       addToast({
@@ -208,14 +233,23 @@ export default function ClientsPage() {
       return;
     }
 
+    if (!responsibleId) {
+      addToast({
+        title: "Не найден сотрудник",
+        description: "Создание клиента доступно только сотруднику, привязанному к карточке команды.",
+        variant: "warning"
+      });
+      return;
+    }
+
     addClient({
       name,
       phone,
       email,
-      status: form.status,
-      responsibleId: form.responsibleId || employees[0]?.id || "employee-1",
+      status: canManageClients ? form.status : "new",
+      responsibleId,
       nextAppointment: form.nextAppointment || undefined,
-      source: form.source || "Ручное добавление",
+      source: form.source || (canManageClients ? "Ручное добавление" : "Создал сотрудник"),
       notes: form.notes
     });
     setOpen(false);
@@ -258,10 +292,10 @@ export default function ClientsPage() {
         description={
           canManageClients
             ? "Поиск, сегменты, история обращений и быстрые действия по базе клиентов."
-            : "Клиенты, связанные с вашими записями и задачами."
+            : "Клиенты, связанные с вашими записями, задачами и созданные вами."
         }
         actions={
-          canManageClients ? (
+          canCreateClients ? (
           <Button type="button" onClick={() => setOpen(true)}>
             <Plus className="h-4 w-4" />
             Добавить клиента
@@ -435,7 +469,11 @@ export default function ClientsPage() {
         open={open}
         onOpenChange={setOpen}
         title="Добавить клиента"
-        description="Клиент сохранится в рабочем пространстве и синхронизируется с Supabase для зарегистрированных компаний."
+        description={
+          canManageClients
+            ? "Клиент сохранится в рабочем пространстве и синхронизируется с Supabase для зарегистрированных компаний."
+            : "Клиент будет закреплён за вами и не попадёт в чужую рабочую зону."
+        }
         footer={
           <>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
@@ -470,36 +508,46 @@ export default function ClientsPage() {
             <Label>Email</Label>
             <Input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Статус</Label>
-              <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ClientStatus })}>
-                {statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </Select>
+          {canManageClients ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label>Статус</Label>
+                <Select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ClientStatus })}>
+                  {statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Ответственный</Label>
+                <Select value={form.responsibleId} onChange={(event) => setForm({ ...form, responsibleId: event.target.value })}>
+                  {employees.map((employee) => (
+                    <option key={employee.id} value={employee.id}>{employee.name}</option>
+                  ))}
+                </Select>
+              </div>
             </div>
+          ) : (
             <div className="space-y-2">
               <Label>Ответственный</Label>
-              <Select value={form.responsibleId} onChange={(event) => setForm({ ...form, responsibleId: event.target.value })}>
-                {employees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>{employee.name}</option>
-                ))}
-              </Select>
+              <Input value={currentEmployee?.name ?? "Текущий сотрудник"} disabled />
             </div>
-          </div>
+          )}
           <div className="space-y-2">
             <Label>Следующая {company.terminology.appointment}</Label>
             <Input type="date" min={getLocalDateKey()} value={form.nextAppointment} onChange={(event) => setForm({ ...form, nextAppointment: event.target.value })} />
           </div>
           <div className="space-y-2">
-            <Label>Акция / источник</Label>
+            <Label>Акция / источник привлечения</Label>
             <Select value={form.source} onChange={(event) => setForm({ ...form, source: event.target.value })}>
               <option value="">Без акции</option>
               {promotionOptions.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </Select>
+            <p className="text-xs text-muted-foreground">
+              В списке только активные акции. Ручной источник можно уточнить в комментарии.
+            </p>
           </div>
           <div className="space-y-2">
             <Label>Комментарий</Label>

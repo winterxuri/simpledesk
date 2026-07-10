@@ -2,7 +2,9 @@ import type { ModuleCode, Role } from "@/types";
 
 export type PermissionAction =
   | "manageClients"
+  | "createClients"
   | "manageAppointments"
+  | "createAppointments"
   | "manageTasks"
   | "updateTaskProgress"
   | "manageEmployees"
@@ -89,5 +91,9 @@ export function canPerformAction(role: Role, action: PermissionAction) {
     return action !== "manageSettings" && action !== "manageEmployeeAccess";
   }
 
-  return action === "updateTaskProgress";
+  return (
+    action === "updateTaskProgress" ||
+    action === "createClients" ||
+    action === "createAppointments"
+  );
 }
