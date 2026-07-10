@@ -19,7 +19,7 @@ import { useAppStore } from "@/store/app-store";
 import { getScopedWorkspaceData } from "@/lib/employee-scope";
 import { canPerformAction } from "@/lib/permissions";
 import { formatCurrency, formatDate, getLocalDateKey } from "@/lib/utils";
-import type { ClientStatus } from "@/types";
+import type { Appointment, ClientStatus, FinancialOperation, Sale, Task } from "@/types";
 
 const tabs = [
   { value: "overview", label: "Обзор" },
@@ -59,7 +59,6 @@ export default function ClientDetailPage() {
   const user = useAppStore((state) => state.user);
   const role = useAppStore((state) => state.role);
   const updateClient = useAppStore((state) => state.updateClient);
-  const addTask = useAppStore((state) => state.addTask);
   const addToast = useAppStore((state) => state.addToast);
   const canManageClients = canPerformAction(role, "manageClients");
   const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
@@ -100,6 +99,24 @@ export default function ClientDetailPage() {
   const visibleEmployees = canManageClients ? data.employees : scopedData.employees;
   const responsible = visibleEmployees.find((employee) => employee.id === currentClient.responsibleId);
   const appointments = scopedData.appointments.filter((appointment) => appointment.clientId === currentClient.id);
+  const tasks = scopedData.tasks.filter((task) => task.clientId === currentClient.id);
+  const sales = canManageClients
+    ? (data.sales ?? []).filter((sale) => sale.clientId === currentClient.id)
+    : [];
+  const saleOperationIds = new Set(sales.flatMap((sale) => sale.financialOperationId ? [sale.financialOperationId] : []));
+  const financialOperations = canManageClients
+    ? data.financialOperations.filter(
+        (operation) => operation.clientId === currentClient.id && !saleOperationIds.has(operation.id)
+      )
+    : [];
+  const employeeNames = new Map(data.employees.map((employee) => [employee.id, employee.name]));
+  const timelineEvents = buildClientTimeline({
+    appointments,
+    financialOperations,
+    sales,
+    tasks,
+    employeeNames
+  });
   const contactDescription = [client.phone, client.email].filter(Boolean).join(" · ") || "Контакты не указаны";
 
   function openEdit() {
@@ -163,50 +180,6 @@ export default function ClientDetailPage() {
       notes: editForm.notes
     });
     setEditOpen(false);
-  }
-
-  function runRecommendedAction(action: string) {
-    if (!canManageClients) {
-      addToast({
-        title: "Недостаточно прав",
-        description: "Эти действия доступны владельцу или администратору.",
-        variant: "warning"
-      });
-      return;
-    }
-
-    if (action === "Напомнить о повторном визите") {
-      updateClient(currentClient.id, { status: "attention" });
-      addToast({
-        title: "Клиент помечен",
-        description: "Статус изменён на «требует внимания».",
-        variant: "success"
-      });
-      return;
-    }
-    if (action === "Назначить задачу") {
-      addTask({
-        title: `Связаться с ${currentClient.name}`,
-        description: "Уточнить повторный визит и предложить удобное время.",
-        responsibleId: currentClient.responsibleId || data.employees[0]?.id || "employee-1",
-        dueDate: getLocalDateKey(),
-        priority: "medium",
-        status: "new",
-        clientId: currentClient.id,
-        checklist: [{ title: "Позвонить или написать клиенту", done: false }]
-      });
-      addToast({
-        title: "Задача создана",
-        description: "Задача добавлена в раздел задач.",
-        variant: "success"
-      });
-      return;
-    }
-    addToast({
-      title: action,
-      description: "Действие зафиксировано в текущем рабочем пространстве.",
-      variant: "info"
-    });
   }
 
   return (
@@ -274,7 +247,7 @@ export default function ClientDetailPage() {
               </div>
             </div>
           ) : null}
-          {tab === "history" ? <Timeline clientName={client.name} /> : null}
+          {tab === "history" ? <Timeline events={timelineEvents} /> : null}
           {tab === "appointments" ? (
             <div className="space-y-3">
               {appointments.map((appointment) => (
@@ -312,24 +285,9 @@ export default function ClientDetailPage() {
         </Card>
 
         <div className="space-y-6">
-          {canManageClients ? (
-          <Card className="p-5">
-            <h2 className="font-semibold">Рекомендуемое действие</h2>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Клиенту можно напомнить о повторном визите и предложить персональную акцию.
-            </p>
-            <div className="mt-4 grid gap-2">
-              {["Напомнить о повторном визите", "Предложить акцию", "Связаться", "Назначить задачу"].map((action) => (
-                <Button key={action} type="button" variant="outline" onClick={() => runRecommendedAction(action)}>
-                  {action}
-                </Button>
-              ))}
-            </div>
-          </Card>
-          ) : null}
           <Card className="p-5">
             <h2 className="font-semibold">Временная шкала</h2>
-            <Timeline clientName={client.name} compact showFinancial={canManageClients} />
+            <Timeline events={timelineEvents} compact />
           </Card>
         </div>
       </div>
@@ -423,39 +381,197 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Timeline({
-  clientName,
-  compact = false,
-  showFinancial = true
-}: {
-  clientName: string;
-  compact?: boolean;
-  showFinancial?: boolean;
-}) {
-  const items = showFinancial
-    ? [
-        `${clientName} подтвердил запись`,
-        "Администратор добавил заметку",
-        "Создана задача на повторный контакт",
-        "Оплата за услугу получена"
-      ]
-    : [
-        `${clientName} подтвердил запись`,
-        "Добавлена рабочая заметка",
-        "Создана задача по клиенту"
-      ];
+type ClientTimelineEvent = {
+  id: string;
+  date: string;
+  time?: string;
+  title: string;
+  description: string;
+  amount?: number;
+  status?: string;
+  type: "appointment" | "sale" | "finance" | "task";
+};
+
+const timelineTypeLabels: Record<ClientTimelineEvent["type"], string> = {
+  appointment: "Запись",
+  sale: "Продажа",
+  finance: "Финансы",
+  task: "Задача"
+};
+
+const paymentMethodLabels = {
+  cash: "наличные",
+  card: "карта",
+  transfer: "перевод",
+  online: "онлайн",
+  mixed: "смешанная оплата"
+};
+
+const paymentStatusLabels = {
+  paid: "оплачено",
+  partial: "частично оплачено",
+  unpaid: "не оплачено",
+  refunded: "возврат"
+};
+
+const priorityLabels = {
+  low: "низкий приоритет",
+  medium: "средний приоритет",
+  high: "высокий приоритет"
+};
+
+function Timeline({ events, compact = false }: { events: ClientTimelineEvent[]; compact?: boolean }) {
+  if (events.length === 0) {
+    return (
+      <div className="mt-4 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+        История пока пустая. Здесь появятся записи, продажи, оплаты и задачи, связанные с клиентом.
+      </div>
+    );
+  }
 
   return (
     <div className={compact ? "mt-4 space-y-3" : "mt-4 space-y-4"}>
-      {items.map((item, index) => (
-        <div key={item} className="flex gap-3">
+      {events.map((event) => (
+        <div key={event.id} className="flex gap-3">
           <div className="mt-1 h-2 w-2 rounded-full bg-primary" />
-          <div>
-            <p className="text-sm font-medium">{item}</p>
-            <p className="text-xs text-muted-foreground">{index + 1} дня назад</p>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium">{event.title}</p>
+              {!compact ? <span className="text-xs text-muted-foreground">{timelineTypeLabels[event.type]}</span> : null}
+              {event.status ? <StatusBadge status={event.status} /> : null}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{event.description}</p>
+            <div className="mt-1 flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <span>{formatTimelineDate(event)}</span>
+              {event.amount !== undefined ? <span>{formatCurrency(event.amount)}</span> : null}
+            </div>
           </div>
         </div>
       ))}
     </div>
   );
+}
+
+function buildClientTimeline({
+  appointments,
+  financialOperations,
+  sales,
+  tasks,
+  employeeNames
+}: {
+  appointments: Appointment[];
+  financialOperations: FinancialOperation[];
+  sales: Sale[];
+  tasks: Task[];
+  employeeNames: Map<string, string>;
+}): ClientTimelineEvent[] {
+  const appointmentEvents = appointments.map((appointment): ClientTimelineEvent => {
+    const employeeName = employeeNames.get(appointment.employeeId);
+    const details = [
+      appointment.time,
+      `${appointment.duration} мин.`,
+      employeeName,
+      appointment.comment,
+      appointment.cancellationReason ? `Причина отмены: ${appointment.cancellationReason}` : undefined
+    ].filter(Boolean);
+
+    return {
+      id: `appointment-${appointment.id}`,
+      type: "appointment",
+      title: appointment.title,
+      description: details.join(" · "),
+      date: appointment.date,
+      time: appointment.time,
+      amount: appointment.price,
+      status: appointment.status
+    };
+  });
+
+  const saleEvents = sales.map((sale): ClientTimelineEvent => {
+    const amount = getSaleNetAmount(sale);
+    const paymentMethod = paymentMethodLabels[sale.paymentMethod] ?? "оплата не указана";
+    const paymentStatus = paymentStatusLabels[sale.paymentStatus] ?? "";
+    const quantity = sale.quantity ? `${formatQuantity(Math.max(0, sale.quantity - (sale.refundedQuantity ?? 0)))} шт.` : "ручная продажа";
+    const details = [
+      sale.category,
+      quantity,
+      paymentMethod,
+      paymentStatus,
+      sale.comment,
+      sale.cancelReason ? `Причина: ${sale.cancelReason}` : undefined
+    ].filter(Boolean);
+
+    return {
+      id: `sale-${sale.id}`,
+      type: "sale",
+      title: sale.productName || sale.category || "Продажа",
+      description: details.join(" · "),
+      date: sale.date,
+      amount,
+      status: sale.status
+    };
+  });
+
+  const financeEvents = financialOperations.map((operation): ClientTimelineEvent => {
+    const paymentMethod = operation.paymentMethod ? paymentMethodLabels[operation.paymentMethod] : undefined;
+    const details = [
+      operation.type === "income" ? "доход" : "расход",
+      paymentMethod,
+      operation.comment
+    ].filter(Boolean);
+
+    return {
+      id: `finance-${operation.id}`,
+      type: "finance",
+      title: operation.category,
+      description: details.join(" · "),
+      date: operation.date,
+      amount: operation.type === "income" ? operation.amount : -operation.amount
+    };
+  });
+
+  const taskEvents = tasks.map((task): ClientTimelineEvent => {
+    const employeeName = employeeNames.get(task.responsibleId);
+    const checklistDone = task.checklist.filter((item) => item.done).length;
+    const checklistSummary = task.checklist.length
+      ? `чек-лист ${checklistDone}/${task.checklist.length}`
+      : undefined;
+    const details = [
+      task.description,
+      employeeName,
+      priorityLabels[task.priority],
+      checklistSummary
+    ].filter(Boolean);
+
+    return {
+      id: `task-${task.id}`,
+      type: "task",
+      title: task.title,
+      description: details.join(" · "),
+      date: task.dueDate,
+      status: task.status
+    };
+  });
+
+  return [...appointmentEvents, ...saleEvents, ...financeEvents, ...taskEvents].sort(compareTimelineEvents);
+}
+
+function compareTimelineEvents(first: ClientTimelineEvent, second: ClientTimelineEvent) {
+  return getTimelineSortKey(second).localeCompare(getTimelineSortKey(first));
+}
+
+function getTimelineSortKey(event: ClientTimelineEvent) {
+  return `${event.date}T${event.time ?? "23:59"}`;
+}
+
+function formatTimelineDate(event: ClientTimelineEvent) {
+  return event.time ? `${formatDate(event.date)} · ${event.time}` : formatDate(event.date);
+}
+
+function getSaleNetAmount(sale: Sale) {
+  return Math.max(0, sale.amount - (sale.refundedAmount ?? 0));
+}
+
+function formatQuantity(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, "");
 }

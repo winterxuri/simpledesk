@@ -132,6 +132,10 @@ export default function CalendarPage() {
   const scopedData = useMemo(() => getScopedWorkspaceData(data, user, role), [data, role, user]);
   const employees = scopedData.employees.slice(0, 5);
   const appointments = scopedData.appointments;
+  const calendarAppointments = useMemo(
+    () => appointments.filter(isVisibleInCalendar),
+    [appointments]
+  );
   const clients = scopedData.clients;
   const currentEmployee = scopedData.currentEmployee;
   const [form, setForm] = useState<AppointmentForm>(() => createEmptyForm(clients, today, employees[0]?.id));
@@ -161,13 +165,13 @@ export default function CalendarPage() {
 
   const byEmployeeAndTime = useMemo(() => {
     const map = new Map<string, Appointment>();
-    appointments
+    calendarAppointments
       .filter((appointment) => appointment.date === today)
       .forEach((appointment) => {
         map.set(`${appointment.employeeId}-${appointment.time.slice(0, 5)}`, appointment);
       });
     return map;
-  }, [appointments, today]);
+  }, [calendarAppointments, today]);
   const resourceById = useMemo(
     () => new Map(data.resources.map((resource) => [resource.id, resource])),
     [data.resources]
@@ -748,7 +752,7 @@ export default function CalendarPage() {
       {view === "month" ? (
         <div className="grid gap-3 md:grid-cols-7">
           {monthDays.map((date) => {
-            const dayAppointments = appointments.filter((appointment) => appointment.date === date);
+            const dayAppointments = calendarAppointments.filter((appointment) => appointment.date === date);
             return (
               <button
                 key={date}
@@ -775,7 +779,7 @@ export default function CalendarPage() {
       {view === "week" ? (
         <div className="grid gap-3 lg:grid-cols-7">
           {weekDays.map((date) => {
-            const dayAppointments = appointments.filter((appointment) => appointment.date === date);
+            const dayAppointments = calendarAppointments.filter((appointment) => appointment.date === date);
             return (
               <div key={date} className="rounded-lg border border-border bg-card p-3">
                 <div className="flex items-start justify-between gap-2">
@@ -1301,6 +1305,10 @@ function createEmptyForm(
     cancelledAt: "",
     comment: ""
   };
+}
+
+function isVisibleInCalendar(appointment: Appointment) {
+  return appointment.status !== "cancelled";
 }
 
 function createEmptySaleForm(): AppointmentSaleForm {
