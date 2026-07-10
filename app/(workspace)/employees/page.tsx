@@ -13,6 +13,7 @@ import { StatusBadge } from "@/components/modules/status-badge";
 import { getEmployeeStatusForDate, getShiftLabel } from "@/lib/employee-status";
 import { createEmployeeInvite, loadEmployeeInvites } from "@/lib/backend/auth";
 import { syncEmployee } from "@/lib/backend/sync";
+import { canPerformAction } from "@/lib/permissions";
 import { useAppStore } from "@/store/app-store";
 import { formatCurrency, getLocalDateKey } from "@/lib/utils";
 import type { Employee, EmployeeInvite } from "@/types";
@@ -53,6 +54,7 @@ export default function EmployeesPage() {
   const data = useAppStore((state) => state.data);
   const company = useAppStore((state) => state.company);
   const sessionMode = useAppStore((state) => state.sessionMode);
+  const role = useAppStore((state) => state.role);
   const addEmployee = useAppStore((state) => state.addEmployee);
   const updateEmployee = useAppStore((state) => state.updateEmployee);
   const dismissEmployee = useAppStore((state) => state.dismissEmployee);
@@ -65,6 +67,7 @@ export default function EmployeesPage() {
   const [invites, setInvites] = useState<EmployeeInvite[]>([]);
   const [latestInvite, setLatestInvite] = useState<EmployeeInvite | null>(null);
   const today = getLocalDateKey();
+  const canManageEmployeeAccess = canPerformAction(role, "manageEmployeeAccess");
 
   useEffect(() => {
     if (sessionMode !== "registered") {
@@ -106,6 +109,7 @@ export default function EmployeesPage() {
     const name = form.name.trim();
     const position = form.position.trim();
     const schedule = buildSchedule(form.scheduleStart, form.scheduleEnd);
+    const nextRole = canManageEmployeeAccess ? form.role : selected.role;
 
     if (!name || !position) {
       addToast({
@@ -134,7 +138,16 @@ export default function EmployeesPage() {
       return;
     }
 
-    if (selected.role === "owner" && form.role !== "owner") {
+    if (!canManageEmployeeAccess && form.role !== selected.role) {
+      addToast({
+        title: "Недостаточно прав",
+        description: "Системную роль сотрудника может менять только владелец.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (selected.role === "owner" && nextRole !== "owner") {
       addToast({
         title: "Роль владельца нельзя снять здесь",
         description: "Передача прав владельца должна быть отдельным подтверждаемым действием.",
@@ -152,7 +165,7 @@ export default function EmployeesPage() {
       return;
     }
 
-    if (selected.role !== "owner" && form.role === "owner") {
+    if (selected.role !== "owner" && nextRole === "owner") {
       addToast({
         title: "Нельзя назначить владельца из карточки",
         description: "Передача прав владельца требует отдельного безопасного сценария.",
@@ -168,7 +181,7 @@ export default function EmployeesPage() {
       position,
       status: form.status,
       schedule,
-      role: form.role,
+      role: nextRole,
       loadPercent: Number(form.loadPercent) || 0,
       revenue: Number(form.revenue) || 0,
       appointmentsCount: Number(form.appointmentsCount) || 0,
@@ -195,6 +208,7 @@ export default function EmployeesPage() {
     const email = form.email.trim().toLowerCase();
     const phone = form.phone.trim();
     const schedule = buildSchedule(form.scheduleStart, form.scheduleEnd);
+    const employeeRole = canManageEmployeeAccess ? form.role : "employee";
 
     if (!name || !position) {
       addToast({
@@ -230,7 +244,7 @@ export default function EmployeesPage() {
       position,
       status: form.status,
       schedule,
-      role: form.role,
+      role: employeeRole,
       loadPercent: Number(form.loadPercent) || 0,
       revenue: Number(form.revenue) || 0,
       appointmentsCount: Number(form.appointmentsCount) || 0,
@@ -252,7 +266,7 @@ export default function EmployeesPage() {
     if (email && sessionMode === "registered") {
       try {
         await syncEmployee(company.id, { ...payload, id: employeeId });
-        await createInvite(employeeId, email, form.role);
+        await createInvite(employeeId, email, employeeRole);
       } catch (error) {
         addToast({
           title: "Сотрудник создан, но invite не создан",
@@ -271,6 +285,15 @@ export default function EmployeesPage() {
       addToast({
         title: "Owner не приглашается через карточку",
         description: "Передача владельца должна быть отдельным подтверждаемым действием.",
+        variant: "warning"
+      });
+      return;
+    }
+
+    if (role === "admin" && !canManageEmployeeAccess) {
+      addToast({
+        title: "Admin-доступ выдаёт владелец",
+        description: "Администратор может приглашать обычных сотрудников, но не создавать других администраторов.",
         variant: "warning"
       });
       return;
@@ -468,10 +491,14 @@ export default function EmployeesPage() {
             </div>
             <div className="space-y-2">
               <Label>Роль</Label>
-              <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Employee["role"] })}>
-                <option value="admin">Администратор</option>
-                <option value="employee">Сотрудник</option>
-              </Select>
+              {canManageEmployeeAccess ? (
+                <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Employee["role"] })}>
+                  <option value="admin">Администратор</option>
+                  <option value="employee">Сотрудник</option>
+                </Select>
+              ) : (
+                <Input value="Сотрудник" disabled />
+              )}
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-2">
@@ -560,7 +587,11 @@ export default function EmployeesPage() {
                     </div>
                     <div className="space-y-2">
                       <Label>Роль</Label>
-                      <Select value={form.role} onChange={(event) => setForm({ ...form, role: event.target.value as Employee["role"] })}>
+                      <Select
+                        value={form.role}
+                        disabled={!canManageEmployeeAccess || selected.role === "owner"}
+                        onChange={(event) => setForm({ ...form, role: event.target.value as Employee["role"] })}
+                      >
                         {selected.role === "owner" ? <option value="owner">Владелец</option> : null}
                         <option value="admin">Администратор</option>
                         <option value="employee">Сотрудник</option>
@@ -671,10 +702,15 @@ export default function EmployeesPage() {
                 <>
                   <Row label="Финансы" value={selected.role === "employee" ? "ограничено" : "доступно"} />
                   <Row label="Настройки" value={selected.role === "owner" ? "полный доступ" : "ограничено"} />
+                  <Row label="Роли и доступ" value={canManageEmployeeAccess ? "можно менять" : "только владелец"} />
                   <Row label="Email входа" value={selected.email || "не указан"} />
                   {selected.role === "owner" ? (
                     <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
                       Владелец входит через основной аккаунт. Передача роли owner будет отдельным безопасным сценарием.
+                    </div>
+                  ) : !canManageEmployeeAccess && selected.role !== "employee" ? (
+                    <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
+                      Приглашение с ролью администратора может создать или пересоздать только владелец.
                     </div>
                   ) : (
                     <div className="space-y-3 rounded-lg border border-border bg-background p-3">
@@ -695,7 +731,13 @@ export default function EmployeesPage() {
                       <Button
                         type="button"
                         variant={selectedInvite ? "outline" : "default"}
-                        onClick={() => createInvite(selected.id, form.email.trim().toLowerCase() || selected.email || "", form.role)}
+                        onClick={() =>
+                          createInvite(
+                            selected.id,
+                            form.email.trim().toLowerCase() || selected.email || "",
+                            canManageEmployeeAccess ? form.role : "employee"
+                          )
+                        }
                       >
                         {selectedInvite ? "Пересоздать приглашение" : "Создать приглашение"}
                       </Button>

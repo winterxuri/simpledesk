@@ -6,6 +6,7 @@ export type PermissionAction =
   | "manageTasks"
   | "updateTaskProgress"
   | "manageEmployees"
+  | "manageEmployeeAccess"
   | "manageSchedules"
   | "manageInventory"
   | "manageSales"
@@ -85,7 +86,7 @@ export function canPerformAction(role: Role, action: PermissionAction) {
   }
 
   if (role === "admin") {
-    return action !== "manageSettings";
+    return action !== "manageSettings" && action !== "manageEmployeeAccess";
   }
 
   return action === "updateTaskProgress";
