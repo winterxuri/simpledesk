@@ -94,7 +94,6 @@ const paymentStatusOptions: { value: SalePaymentStatus; label: string }[] = [
 
 const compensationOptions: { value: NonNullable<Employee["compensationType"]>; label: string }[] = [
   { value: "fixed", label: "Фикс" },
-  { value: "hourly", label: "Почасовая" },
   { value: "commission", label: "Процент" },
   { value: "mixed", label: "Фикс + процент" }
 ];
@@ -175,7 +174,6 @@ type QuickCreateForm = {
   employeeScheduleEnd: string;
   employeeCompensationType: NonNullable<Employee["compensationType"]>;
   employeeBaseSalary: string;
-  employeeHourlyRate: string;
   employeeCommissionPercent: string;
 };
 
@@ -264,7 +262,6 @@ function createInitialForm(
     employeeScheduleEnd: "18:00",
     employeeCompensationType: "fixed",
     employeeBaseSalary: "0",
-    employeeHourlyRate: "0",
     employeeCommissionPercent: "0"
   };
 }
@@ -935,7 +932,6 @@ export function QuickCreateMenu() {
     const email = form.employeeEmail.trim().toLowerCase();
     const schedule = buildScheduleFromTimes(form.employeeScheduleStart, form.employeeScheduleEnd);
     const baseSalary = Number(form.employeeBaseSalary);
-    const hourlyRate = Number(form.employeeHourlyRate);
     const commissionPercent = Number(form.employeeCommissionPercent);
 
     if (!name || !position) {
@@ -965,20 +961,12 @@ export function QuickCreateMenu() {
       return false;
     }
 
-    if (![baseSalary, hourlyRate, commissionPercent].every((value) => Number.isFinite(value) && value >= 0)) {
+    if (![baseSalary, commissionPercent].every((value) => Number.isFinite(value) && value >= 0)) {
       addToast({
         title: "Проверьте оплату",
-        description: "Фикс, ставка и процент не могут быть пустыми или отрицательными.",
+        description: "Фикс и процент не могут быть пустыми или отрицательными.",
         variant: "warning"
       });
-      return false;
-    }
-    if (commissionPercent > 100) {
-      addToast({ title: "Проверьте оплату", description: "Процент не может превышать 100%.", variant: "warning" });
-      return false;
-    }
-    if (form.employeeCompensationType === "hourly" && hourlyRate <= 0) {
-      addToast({ title: "Проверьте оплату", description: "Для почасовой оплаты укажите ставку больше нуля.", variant: "warning" });
       return false;
     }
 
@@ -996,7 +984,6 @@ export function QuickCreateMenu() {
       rating: 0,
       compensationType: form.employeeCompensationType,
       baseSalary,
-      hourlyRate,
       commissionPercent
     });
     return true;
@@ -1672,15 +1659,8 @@ function renderEmployeeForm(form: QuickCreateForm, setForm: (form: QuickCreateFo
         />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
-        {form.employeeCompensationType === "fixed" || form.employeeCompensationType === "mixed" ? (
-          <Field id="quick-employee-base" label="Фикс за месяц, ₽" type="number" min="0" value={form.employeeBaseSalary} onChange={(employeeBaseSalary) => setForm({ ...form, employeeBaseSalary })} />
-        ) : null}
-        {form.employeeCompensationType === "hourly" ? (
-          <Field id="quick-employee-hourly" label="Ставка за час, ₽" type="number" min="0" value={form.employeeHourlyRate} onChange={(employeeHourlyRate) => setForm({ ...form, employeeHourlyRate })} />
-        ) : null}
-        {form.employeeCompensationType === "commission" || form.employeeCompensationType === "mixed" ? (
-          <Field id="quick-employee-percent" label="Процент от выручки, %" type="number" min="0" max="100" value={form.employeeCommissionPercent} onChange={(employeeCommissionPercent) => setForm({ ...form, employeeCommissionPercent })} />
-        ) : null}
+        <Field id="quick-employee-base" label="Фикс, ₽" type="number" min="0" value={form.employeeBaseSalary} onChange={(employeeBaseSalary) => setForm({ ...form, employeeBaseSalary })} />
+        <Field id="quick-employee-percent" label="Процент, %" type="number" min="0" value={form.employeeCommissionPercent} onChange={(employeeCommissionPercent) => setForm({ ...form, employeeCommissionPercent })} />
       </div>
       <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
         Быстрое создание добавляет карточку сотрудника. Приглашение для входа можно создать в разделе «Сотрудники».

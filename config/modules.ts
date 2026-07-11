@@ -139,7 +139,7 @@ export const MODULES: ModuleDefinition[] = [
     route: "/settings/integrations",
     dependencies: [],
     defaultOrder: 14,
-    plan: "basic"
+    plan: "pro"
   }
 ];
 

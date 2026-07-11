@@ -159,9 +159,8 @@ export interface Employee {
   appointmentsCount: number;
   rating: number;
   role: Role;
-  compensationType?: "fixed" | "hourly" | "commission" | "mixed";
+  compensationType?: "fixed" | "commission" | "mixed";
   baseSalary?: number;
-  hourlyRate?: number;
   commissionPercent?: number;
   dismissedAt?: string;
 }

@@ -116,7 +116,6 @@ export async function syncEmployee(companyId: string, employee: Employee) {
       rating: employee.rating,
       compensation_type: employee.compensationType ?? "fixed",
       base_salary: employee.baseSalary ?? 0,
-      hourly_rate: employee.hourlyRate ?? 0,
       commission_percent: employee.commissionPercent ?? 0,
       dismissed_at: employee.dismissedAt ?? null
     })
