@@ -1,0 +1,223 @@
+{"kind":"deck","id":"pr/t2zsui","name":"Deck"}
+{"kind":"layout","layoutId":"aeab18fe-8858-4be2-ac50-8f5f5502811b","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"a713e269-2293-4b57-93fc-4d9f5c2a3cfa","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/7uyypn","slide":1,"title":"Рабочая платформа","textShapes":10}
+{"kind":"shape","id":"sh/exg3ilkv","slide":1,"bbox":[0,0,22,720]}
+{"kind":"shape","id":"sh/1k72t0j6","slide":1,"bbox":[865,0,415,720]}
+{"kind":"textbox","id":"sh/rupknq14","slide":1,"text":"Рабочая платформа\nдля малого бизнеса","textPreview":"Рабочая платформа | для малого бизнеса","textChars":36,"textLines":2,"bbox":[64,178,690,150]}
+{"kind":"textbox","id":"sh/qtw3elkj","slide":1,"text":"Клиенты, записи, команда, продажи и отчёты —\nв одном понятном рабочем пространстве.","textPreview":"Клиенты, записи, команда, продажи и отчёты — | в одном понятном рабочем пространстве.","textChars":83,"textLines":2,"bbox":[66,356,650,72]}
+{"kind":"shape","id":"sh/dw72pgja","slide":1,"bbox":[66,486,285,38]}
+{"kind":"textbox","id":"sh/svylgb2p","slide":1,"text":"ПРОДУКТОВАЯ ПРЕЗЕНТАЦИЯ","textPreview":"ПРОДУКТОВАЯ ПРЕЗЕНТАЦИЯ","textChars":23,"textLines":1,"bbox":[80,486,257,38]}
+{"kind":"textbox","id":"sh/3q5kj618","slide":1,"text":"От ежедневной операции — к управляемому бизнесу","textPreview":"От ежедневной операции — к управляемому бизнесу","textChars":47,"textLines":1,"bbox":[900,112,300,100]}
+{"kind":"shape","id":"sh/ipwja1kn","slide":1,"bbox":[900,260,245,50]}
+{"kind":"textbox","id":"sh/83id8jy1","slide":1,"text":"Клиенты и записи","textPreview":"Клиенты и записи","textChars":16,"textLines":1,"bbox":[918,260,210,50]}
+{"kind":"shape","id":"sh/94re1oz6","slide":1,"bbox":[900,334,245,50]}
+{"kind":"textbox","id":"sh/m1gv69gv","slide":1,"text":"Команда и ресурсы","textPreview":"Команда и ресурсы","textChars":17,"textLines":1,"bbox":[918,334,210,50]}
+{"kind":"shape","id":"sh/729wzehg","slide":1,"bbox":[900,408,245,50]}
+{"kind":"textbox","id":"sh/kzyd4zyp","slide":1,"text":"Продажи и финансы","textPreview":"Продажи и финансы","textChars":17,"textLines":1,"bbox":[918,408,210,50]}
+{"kind":"shape","id":"sh/l07ex4za","slide":1,"bbox":[900,482,245,50]}
+{"kind":"textbox","id":"sh/ydgv29gj","slide":1,"text":"Аналитика и отчёты","textPreview":"Аналитика и отчёты","textChars":18,"textLines":1,"bbox":[918,482,210,50]}
+{"kind":"textbox","id":"sh/zypcveh4","slide":1,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/4v2dg3y9","slide":1,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"image","id":"im/147ipwje","slide":1,"name":"","alt":"SimpleDesk","bbox":[64,56,250,62]}
+{"kind":"notes","id":"nt/7uyypn","slide":1,"text":""}
+{"kind":"slide","id":"sl/pxyahm","slide":2,"title":"КОНТЕКСТ","textShapes":14}
+{"kind":"textbox","id":"sh/d8jqxw32","slide":2,"text":"КОНТЕКСТ","textPreview":"КОНТЕКСТ","textChars":8,"textLines":1,"bbox":[64,50,500,22]}
+{"kind":"textbox","id":"sh/q5s72hkb","slide":2,"text":"Малый бизнес часто управляется между таблицами, чатами и памятью","textPreview":"Малый бизнес часто управляется между таблицами, чатами и памятью","textChars":64,"textLines":1,"bbox":[64,86,1100,90]}
+{"kind":"textbox","id":"sh/r618vmlw","slide":2,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[64,242,70,34]}
+{"kind":"shape","id":"sh/0vup8r2d","slide":2,"bbox":[140,258,72,2]}
+{"kind":"textbox","id":"sh/1w3q1w3y","slide":2,"text":"Клиентская история теряется","textPreview":"Клиентская история теряется","textChars":27,"textLines":1,"bbox":[238,238,380,42]}
+{"kind":"textbox","id":"sh/e9s761kn","slide":2,"text":"Нет единой картины визитов, продаж и следующего контакта.","textPreview":"Нет единой картины визитов, продаж и следующего контакта.","textChars":57,"textLines":1,"bbox":[650,238,500,50]}
+{"kind":"textbox","id":"sh/ful8z6ls","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[64,362,70,34]}
+{"kind":"shape","id":"sh/gzqpw7m9","slide":2,"bbox":[140,378,72,2]}
+{"kind":"textbox","id":"sh/h0zqpc3u","slide":2,"text":"День требует ручного контроля","textPreview":"День требует ручного контроля","textChars":29,"textLines":1,"bbox":[238,358,380,42]}
+{"kind":"textbox","id":"sh/xcru9gfm","slide":2,"text":"Записи, задачи, смены и ресурсы живут в разных местах.","textPreview":"Записи, задачи, смены и ресурсы живут в разных местах.","textChars":54,"textLines":1,"bbox":[650,358,500,50]}
+{"kind":"textbox","id":"sh/wrid0be1","slide":2,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[64,482,70,34]}
+{"kind":"shape","id":"sh/bq9c76xw","slide":2,"bbox":[140,498,72,2]}
+{"kind":"textbox","id":"sh/ap0by1wb","slide":2,"text":"Данные приходят слишком поздно","textPreview":"Данные приходят слишком поздно","textChars":30,"textLines":1,"bbox":[238,478,380,42]}
+{"kind":"textbox","id":"sh/lgrudgfy","slide":2,"text":"Владелец узнаёт о кассе, остатках и проблемах постфактум.","textPreview":"Владелец узнаёт о кассе, остатках и проблемах постфактум.","textChars":57,"textLines":1,"bbox":[650,478,500,50]}
+{"kind":"textbox","id":"sh/kfid4bed","slide":2,"text":"SimpleDesk собирает эти процессы в один ежедневный ритм.","textPreview":"SimpleDesk собирает эти процессы в один ежедневный ритм.","textChars":56,"textLines":1,"bbox":[64,610,1080,40]}
+{"kind":"textbox","id":"sh/je9cbqxs","slide":2,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/yd0v2lw7","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/pxyahm","slide":2,"text":""}
+{"kind":"slide","id":"sl/njopk9","slide":3,"title":"ПРОДУКТ","textShapes":24}
+{"kind":"textbox","id":"sh/3a1obatw","slide":3,"text":"ПРОДУКТ","textPreview":"ПРОДУКТ","textChars":7,"textLines":1,"bbox":[64,52,300,20]}
+{"kind":"textbox","id":"sh/4vu54fah","slide":3,"text":"Один контур: от первого обращения до управленческого решения","textPreview":"Один контур: от первого обращения до управленческого решения","textChars":60,"textLines":1,"bbox":[64,88,1080,92]}
+{"kind":"shape","id":"sh/5w36dkb2","slide":3,"bbox":[64,264,190,190]}
+{"kind":"textbox","id":"sh/qxcn6psn","slide":3,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[82,282,40,24]}
+{"kind":"textbox","id":"sh/rylofuts","slide":3,"text":"КЛИЕНТ","textPreview":"КЛИЕНТ","textChars":6,"textLines":1,"bbox":[82,336,154,30]}
+{"kind":"textbox","id":"sh/szup8zad","slide":3,"text":"контакт, история, сегмент","textPreview":"контакт, история, сегмент","textChars":25,"textLines":1,"bbox":[82,382,154,52]}
+{"kind":"textbox","id":"sh/d036h4by","slide":3,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[260,330,28,36]}
+{"kind":"shape","id":"sh/m18nu5s3","slide":3,"bbox":[294,264,190,190]}
+{"kind":"textbox","id":"sh/72ho3qto","slide":3,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[312,282,40,24]}
+{"kind":"textbox","id":"sh/vmts3adk","slide":3,"text":"ЗАПИСЬ","textPreview":"ЗАПИСЬ","textChars":6,"textLines":1,"bbox":[312,336,154,30]}
+{"kind":"textbox","id":"sh/ulkru5wz","slide":3,"text":"время, сотрудник, ресурс","textPreview":"время, сотрудник, ресурс","textChars":24,"textLines":1,"bbox":[312,382,154,52]}
+{"kind":"textbox","id":"sh/h8ba5kvq","slide":3,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[490,330,28,36]}
+{"kind":"shape","id":"sh/gn29wfe5","slide":3,"bbox":[524,264,190,190]}
+{"kind":"textbox","id":"sh/7i98zqd8","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[542,282,40,24]}
+{"kind":"textbox","id":"sh/6h0rqlw3","slide":3,"text":"ОПЕРАЦИЯ","textPreview":"ОПЕРАЦИЯ","textChars":8,"textLines":1,"bbox":[542,336,154,30]}
+{"kind":"textbox","id":"sh/tkbq10ve","slide":3,"text":"услуга, товар, задача","textPreview":"услуга, товар, задача","textChars":21,"textLines":1,"bbox":[542,382,154,52]}
+{"kind":"textbox","id":"sh/8j29svet","slide":3,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[720,330,28,36]}
+{"kind":"shape","id":"sh/je98vqdc","slide":3,"bbox":[754,264,190,190]}
+{"kind":"textbox","id":"sh/yd0rmlwr","slide":3,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[772,282,40,24]}
+{"kind":"textbox","id":"sh/mpgrylgj","slide":3,"text":"ДЕНЬГИ","textPreview":"ДЕНЬГИ","textChars":6,"textLines":1,"bbox":[772,336,154,30]}
+{"kind":"textbox","id":"sh/nqps7qh4","slide":3,"text":"оплата, расход, возврат","textPreview":"оплата, расход, возврат","textChars":23,"textLines":1,"bbox":[772,382,154,52]}
+{"kind":"textbox","id":"sh/obi90vyp","slide":3,"text":"→","textPreview":"→","textChars":1,"textLines":1,"bbox":[950,330,28,36]}
+{"kind":"shape","id":"sh/9cra9gza","slide":3,"bbox":[984,264,190,190]}
+{"kind":"textbox","id":"sh/ad0b2lgv","slide":3,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1002,282,40,24]}
+{"kind":"textbox","id":"sh/be9sbqhg","slide":3,"text":"РЕШЕНИЕ","textPreview":"РЕШЕНИЕ","textChars":7,"textLines":1,"bbox":[1002,336,154,30]}
+{"kind":"textbox","id":"sh/wfit4vy1","slide":3,"text":"аналитика, отчёт, действие","textPreview":"аналитика, отчёт, действие","textChars":26,"textLines":1,"bbox":[1002,382,154,52]}
+{"kind":"textbox","id":"sh/xgrad0z6","slide":3,"text":"Каждое действие обновляет общую картину — без повторного ввода и ручной сверки.","textPreview":"Каждое действие обновляет общую картину — без повторного ввода и ручной сверки.","textChars":79,"textLines":1,"bbox":[64,520,1100,52]}
+{"kind":"textbox","id":"sh/yh0b65gr","slide":3,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/ji9sfahc","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/njopk9","slide":3,"text":""}
+{"kind":"slide","id":"sl/hzipdn","slide":4,"title":"ВОЗМОЖНОСТИ","textShapes":11}
+{"kind":"textbox","id":"sh/d4nihwv6","slide":4,"text":"ВОЗМОЖНОСТИ","textPreview":"ВОЗМОЖНОСТИ","textChars":11,"textLines":1,"bbox":[64,50,500,22]}
+{"kind":"textbox","id":"sh/q1wzmhwv","slide":4,"text":"Модули собраны вокруг реального рабочего дня","textPreview":"Модули собраны вокруг реального рабочего дня","textChars":44,"textLines":1,"bbox":[64,86,1100,90]}
+{"kind":"textbox","id":"sh/r250fmdg","slide":4,"text":"Компания включает только нужные разделы и настраивает порядок навигации.","textPreview":"Компания включает только нужные разделы и настраивает порядок навигации.","textChars":72,"textLines":1,"bbox":[64,176,980,52]}
+{"kind":"shape","id":"sh/07y1srux","slide":4,"bbox":[64,258,350,316]}
+{"kind":"shape","id":"sh/187ilwvi","slide":4,"bbox":[64,258,350,12]}
+{"kind":"textbox","id":"sh/e5wjq1cr","slide":4,"text":"ПРОДАЖИ И КЛИЕНТЫ","textPreview":"ПРОДАЖИ И КЛИЕНТЫ","textChars":17,"textLines":1,"bbox":[88,294,300,26]}
+{"kind":"textbox","id":"sh/z6p0j6dc","slide":4,"text":"Клиенты\nКалендарь и записи\nПродажи\nАкции","textPreview":"Клиенты | Календарь и записи | Продажи | Акции","textChars":40,"textLines":4,"bbox":[88,342,300,178]}
+{"kind":"shape","id":"sh/ovy1wbut","slide":4,"bbox":[454,258,350,316]}
+{"kind":"shape","id":"sh/9w7ipgve","slide":4,"bbox":[454,258,350,12]}
+{"kind":"textbox","id":"sh/h0bm1cn2","slide":4,"text":"ЛЮДИ И ОПЕРАЦИИ","textPreview":"ЛЮДИ И ОПЕРАЦИИ","textChars":15,"textLines":1,"bbox":[478,294,300,26]}
+{"kind":"textbox","id":"sh/wz25sr6h","slide":4,"text":"Сотрудники\nГрафики\nЗадачи\nРесурсы","textPreview":"Сотрудники | Графики | Задачи | Ресурсы","textChars":33,"textLines":4,"bbox":[478,342,300,178]}
+{"kind":"shape","id":"sh/vyt4zm5w","slide":4,"bbox":[844,258,350,316]}
+{"kind":"shape","id":"sh/adknqhor","slide":4,"bbox":[844,258,350,12]}
+{"kind":"textbox","id":"sh/54bm5wne","slide":4,"text":"КОНТРОЛЬ БИЗНЕСА","textPreview":"КОНТРОЛЬ БИЗНЕСА","textChars":16,"textLines":1,"bbox":[868,294,300,26]}
+{"kind":"textbox","id":"sh/4325wr6t","slide":4,"text":"Товары и расходники\nФинансы\nАналитика\nОтчёты","textPreview":"Товары и расходники | Финансы | Аналитика | Отчёты","textChars":44,"textLines":4,"bbox":[868,342,300,178]}
+{"kind":"textbox","id":"sh/j2t43m58","slide":4,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/i1knuhon","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/hzipdn","slide":4,"text":""}
+{"kind":"slide","id":"sl/yumtjo","slide":5,"title":"РАБОЧИЙ СЦЕНАРИЙ","textShapes":17}
+{"kind":"textbox","id":"sh/q5o3ap87","slide":5,"text":"РАБОЧИЙ СЦЕНАРИЙ","textPreview":"РАБОЧИЙ СЦЕНАРИЙ","textChars":16,"textLines":1,"bbox":[64,50,500,22]}
+{"kind":"textbox","id":"sh/d8fml4ri","slide":5,"text":"SimpleDesk помогает команде вести день, а не обслуживать систему","textPreview":"SimpleDesk помогает команде вести день, а не обслуживать систему","textChars":64,"textLines":1,"bbox":[64,86,1100,90]}
+{"kind":"textbox","id":"sh/c76lczqd","slide":5,"text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[64,244,38,38]}
+{"kind":"shape","id":"sh/3idkfa9g","slide":5,"bbox":[64,244,38,38]}
+{"kind":"textbox","id":"sh/2h436p8v","slide":5,"text":"Утро","textPreview":"Утро","textChars":4,"textLines":1,"bbox":[64,304,250,34]}
+{"kind":"textbox","id":"sh/p4f2hkrm","slide":5,"text":"Открыть панель «Сегодня»\nПроверить записи и задачи","textPreview":"Открыть панель «Сегодня» | Проверить записи и задачи","textChars":50,"textLines":2,"bbox":[64,360,245,116]}
+{"kind":"shape","id":"sh/o36l8fq1","slide":5,"bbox":[248,262,98,2]}
+{"kind":"textbox","id":"sh/fedkba9k","slide":5,"text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[358,244,38,38]}
+{"kind":"shape","id":"sh/ed43258z","slide":5,"bbox":[358,244,38,38]}
+{"kind":"textbox","id":"sh/4fu94vul","slide":5,"text":"В течение дня","textPreview":"В течение дня","textChars":13,"textLines":1,"bbox":[358,304,250,34]}
+{"kind":"textbox","id":"sh/5g3qxgv6","slide":5,"text":"Принять клиента\nПровести продажу\nСписать расходники","textPreview":"Принять клиента | Провести продажу | Списать расходники","textChars":51,"textLines":3,"bbox":[358,360,245,116]}
+{"kind":"shape","id":"sh/idcr2lcv","slide":5,"bbox":[542,262,98,2]}
+{"kind":"textbox","id":"sh/3el8vqd0","slide":5,"text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[652,244,38,38]}
+{"kind":"shape","id":"sh/gbu90bup","slide":5,"bbox":[652,244,38,38]}
+{"kind":"textbox","id":"sh/hc3qtgva","slide":5,"text":"По ситуации","textPreview":"По ситуации","textChars":11,"textLines":1,"bbox":[652,304,250,34]}
+{"kind":"textbox","id":"sh/u9cry1cj","slide":5,"text":"Перенести запись\nНазначить ответственного\nУвидеть дефицит","textPreview":"Перенести запись | Назначить ответственного | Увидеть дефицит","textChars":57,"textLines":3,"bbox":[652,360,245,116]}
+{"kind":"shape","id":"sh/val8r6d4","slide":5,"bbox":[836,262,98,2]}
+{"kind":"textbox","id":"sh/07e9cfut","slide":5,"text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[946,244,38,38]}
+{"kind":"shape","id":"sh/187a5kbe","slide":5,"bbox":[946,244,38,38]}
+{"kind":"textbox","id":"sh/943qp03i","slide":5,"text":"Вечером","textPreview":"Вечером","textChars":7,"textLines":1,"bbox":[946,304,250,34]}
+{"kind":"textbox","id":"sh/83u9wvmx","slide":5,"text":"Сверить кассу\nСохранить отчёт\nОпределить действия","textPreview":"Сверить кассу | Сохранить отчёт | Определить действия","textChars":49,"textLines":3,"bbox":[946,360,245,116]}
+{"kind":"shape","id":"sh/n218nalc","slide":5,"bbox":[64,548,1110,62]}
+{"kind":"textbox","id":"sh/m1sru547","slide":5,"text":"Результат: у каждого есть следующий шаг, у владельца — актуальная картина дня.","textPreview":"Результат: у каждого есть следующий шаг, у владельца — актуальная картина дня.","textChars":78,"textLines":1,"bbox":[88,548,1060,62]}
+{"kind":"textbox","id":"sh/10jql0nm","slide":5,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/0za9svm1","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/yumtjo","slide":5,"text":""}
+{"kind":"slide","id":"sl/8n1u0w","slide":6,"title":"ЦЕННОСТЬ","textShapes":16}
+{"kind":"textbox","id":"sh/pcfeds32","slide":6,"text":"ЦЕННОСТЬ","textPreview":"ЦЕННОСТЬ","textChars":8,"textLines":1,"bbox":[64,50,500,22]}
+{"kind":"textbox","id":"sh/294v2x4r","slide":6,"text":"Что бизнес получает на практике","textPreview":"Что бизнес получает на практике","textChars":31,"textLines":1,"bbox":[64,86,1100,90]}
+{"kind":"textbox","id":"sh/3adwbilw","slide":6,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[64,238,50,32]}
+{"kind":"textbox","id":"sh/g7md0nml","slide":6,"text":"Меньше потерь контекста","textPreview":"Меньше потерь контекста","textChars":23,"textLines":1,"bbox":[128,236,450,36]}
+{"kind":"textbox","id":"sh/h8ve9sn6","slide":6,"text":"Карточка клиента связывает историю, визиты, продажи и задачи.","textPreview":"Карточка клиента связывает историю, визиты, продажи и задачи.","textChars":61,"textLines":1,"bbox":[128,286,450,58]}
+{"kind":"textbox","id":"sh/u54vyd4f","slide":6,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[632,238,50,32]}
+{"kind":"textbox","id":"sh/f6dc7i50","slide":6,"text":"Быстрее ежедневные решения","textPreview":"Быстрее ежедневные решения","textChars":26,"textLines":1,"bbox":[696,236,450,36]}
+{"kind":"textbox","id":"sh/s32dw3m9","slide":6,"text":"Записи, загрузка, остатки и деньги видны в одном месте.","textPreview":"Записи, загрузка, остатки и деньги видны в одном месте.","textChars":55,"textLines":1,"bbox":[696,286,450,58]}
+{"kind":"textbox","id":"sh/t4vu58nu","slide":6,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[64,412,50,32]}
+{"kind":"textbox","id":"sh/d4bmtozy","slide":6,"text":"Понятнее ответственность","textPreview":"Понятнее ответственность","textChars":24,"textLines":1,"bbox":[128,410,450,36]}
+{"kind":"textbox","id":"sh/c32l0jid","slide":6,"text":"Роли, права, графики и ответственные закреплены в системе.","textPreview":"Роли, права, графики и ответственные закреплены в системе.","textChars":58,"textLines":1,"bbox":[128,460,450,58]}
+{"kind":"textbox","id":"sh/b294ryhs","slide":6,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[632,412,50,32]}
+{"kind":"textbox","id":"sh/q103yt07","slide":6,"text":"Управление по фактам","textPreview":"Управление по фактам","textChars":20,"textLines":1,"bbox":[696,410,450,36]}
+{"kind":"textbox","id":"sh/p0rmpozm","slide":6,"text":"Отчёты показывают, что произошло и где требуется действие.","textPreview":"Отчёты показывают, что произошло и где требуется действие.","textChars":58,"textLines":1,"bbox":[696,460,450,58]}
+{"kind":"textbox","id":"sh/ozilwjih","slide":6,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/3y94nehw","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/8n1u0w","slide":6,"text":""}
+{"kind":"slide","id":"sl/v6ulhq","slide":7,"title":"ПРЕИМУЩЕСТВА","textShapes":16}
+{"kind":"textbox","id":"sh/kvm5c725","slide":7,"text":"ПРЕИМУЩЕСТВА","textPreview":"ПРЕИМУЩЕСТВА","textChars":12,"textLines":1,"bbox":[64,52,300,20]}
+{"kind":"textbox","id":"sh/zud4j2l0","slide":7,"text":"Продукт адаптируется под бизнес — не наоборот","textPreview":"Продукт адаптируется под бизнес — не наоборот","textChars":45,"textLines":1,"bbox":[64,88,1000,60]}
+{"kind":"shape","id":"sh/yt4naxkf","slide":7,"bbox":[64,214,350,152]}
+{"kind":"textbox","id":"sh/xsvmhs3u","slide":7,"text":"Модульность","textPreview":"Модульность","textChars":11,"textLines":1,"bbox":[86,232,305,32]}
+{"kind":"textbox","id":"sh/c7258n29","slide":7,"text":"Можно отключить лишние разделы и сохранить простой интерфейс.","textPreview":"Можно отключить лишние разделы и сохранить простой интерфейс.","textChars":61,"textLines":1,"bbox":[86,276,305,66]}
+{"kind":"shape","id":"sh/b6t4filo","slide":7,"bbox":[454,214,350,152]}
+{"kind":"textbox","id":"sh/a5kn6dk3","slide":7,"text":"Шаблоны ниш","textPreview":"Шаблоны ниш","textChars":11,"textLines":1,"bbox":[476,232,305,32]}
+{"kind":"textbox","id":"sh/p4bmd83i","slide":7,"text":"Салон, автосервис, кофейня, магазин или универсальный сценарий.","textPreview":"Салон, автосервис, кофейня, магазин или универсальный сценарий.","textChars":63,"textLines":1,"bbox":[476,276,305,66]}
+{"kind":"shape","id":"sh/o3254n2d","slide":7,"bbox":[844,214,350,152]}
+{"kind":"textbox","id":"sh/ixwfipkb","slide":7,"text":"Ролевой доступ","textPreview":"Ролевой доступ","textChars":14,"textLines":1,"bbox":[866,232,305,32]}
+{"kind":"textbox","id":"sh/jy5wbulw","slide":7,"text":"Владелец, администратор и сотрудник видят свою рабочую зону.","textPreview":"Владелец, администратор и сотрудник видят свою рабочую зону.","textChars":60,"textLines":1,"bbox":[866,276,305,66]}
+{"kind":"shape","id":"sh/kzexkz2h","slide":7,"bbox":[64,404,350,152]}
+{"kind":"textbox","id":"sh/50ned432","slide":7,"text":"Единая база","textPreview":"Единая база","textChars":11,"textLines":1,"bbox":[86,422,305,32]}
+{"kind":"textbox","id":"sh/a9cvep4f","slide":7,"text":"Данные компании разделены и защищены на уровне company_id и RLS.","textPreview":"Данные компании разделены и защищены на уровне company_id и RLS.","textChars":64,"textLines":1,"bbox":[86,466,305,66]}
+{"kind":"shape","id":"sh/valw7ul0","slide":7,"bbox":[454,404,350,152]}
+{"kind":"textbox","id":"sh/wbuxgz2l","slide":7,"text":"Светлая и тёмная темы","textPreview":"Светлая и тёмная темы","textChars":21,"textLines":1,"bbox":[476,422,305,32]}
+{"kind":"textbox","id":"sh/xw3e9k3q","slide":7,"text":"Комфортная работа в разных условиях и на разных ролях.","textPreview":"Комфортная работа в разных условиях и на разных ролях.","textChars":54,"textLines":1,"bbox":[476,466,305,66]}
+{"kind":"shape","id":"sh/m5cva543","slide":7,"bbox":[844,404,350,152]}
+{"kind":"textbox","id":"sh/n6lw3alo","slide":7,"text":"Быстрый старт","textPreview":"Быстрый старт","textChars":13,"textLines":1,"bbox":[866,422,305,32]}
+{"kind":"textbox","id":"sh/rahcb61g","slide":7,"text":"Демо-режим и мастер настройки помогают увидеть ценность сразу.","textPreview":"Демо-режим и мастер настройки помогают увидеть ценность сразу.","textChars":62,"textLines":1,"bbox":[866,466,305,66]}
+{"kind":"textbox","id":"sh/q98b21kv","slide":7,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/dczudgjm","slide":7,"text":"07","textPreview":"07","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/v6ulhq","slide":7,"text":""}
+{"kind":"slide","id":"sl/eg7g3v","slide":8,"title":"ПОЗИЦИОНИРОВАНИЕ","textShapes":13}
+{"kind":"textbox","id":"sh/b25ojq1w","slide":8,"text":"ПОЗИЦИОНИРОВАНИЕ","textPreview":"ПОЗИЦИОНИРОВАНИЕ","textChars":16,"textLines":1,"bbox":[64,50,500,22]}
+{"kind":"textbox","id":"sh/w3ypsv2h","slide":8,"text":"Кому SimpleDesk особенно полезен","textPreview":"Кому SimpleDesk особенно полезен","textChars":32,"textLines":1,"bbox":[64,86,1100,90]}
+{"kind":"textbox","id":"sh/xo76l0j2","slide":8,"text":"Командам, где есть клиенты, повторяющиеся операции и необходимость видеть день целиком.","textPreview":"Командам, где есть клиенты, повторяющиеся операции и необходимость видеть день целиком.","textChars":87,"textLines":1,"bbox":[64,176,980,52]}
+{"kind":"textbox","id":"sh/mxw7mlkf","slide":8,"text":"Сервисные компании","textPreview":"Сервисные компании","textChars":18,"textLines":1,"bbox":[64,250,370,32]}
+{"kind":"textbox","id":"sh/ny5ofq10","slide":8,"text":"салоны, студии, автосервисы, ремонт","textPreview":"салоны, студии, автосервисы, ремонт","textChars":35,"textLines":1,"bbox":[470,250,680,32]}
+{"kind":"shape","id":"sh/ozepob25","slide":8,"bbox":[64,306,1086,2]}
+{"kind":"textbox","id":"sh/90n6hgjq","slide":8,"text":"Небольшая розница","textPreview":"Небольшая розница","textChars":17,"textLines":1,"bbox":[64,336,370,32]}
+{"kind":"textbox","id":"sh/6tg7y50j","slide":8,"text":"магазины, шоурумы, точки с остатками","textPreview":"магазины, шоурумы, точки с остатками","textChars":36,"textLines":1,"bbox":[470,336,680,32]}
+{"kind":"shape","id":"sh/7u98ra14","slide":8,"bbox":[64,392,1086,2]}
+{"kind":"textbox","id":"sh/z6dw7m9s","slide":8,"text":"Кофейни и локальные проекты","textPreview":"Кофейни и локальные проекты","textChars":27,"textLines":1,"bbox":[64,422,370,32]}
+{"kind":"textbox","id":"sh/y5kvehs7","slide":8,"text":"смены, закупки, задачи и кассовая дисциплина","textPreview":"смены, закупки, задачи и кассовая дисциплина","textChars":44,"textLines":1,"bbox":[470,422,680,32]}
+{"kind":"shape","id":"sh/lsve9wri","slide":8,"bbox":[64,478,1086,2]}
+{"kind":"textbox","id":"sh/07mdgrax","slide":8,"text":"Универсальный малый бизнес","textPreview":"Универсальный малый бизнес","textChars":26,"textLines":1,"bbox":[64,508,370,32]}
+{"kind":"textbox","id":"sh/nudwb69o","slide":8,"text":"команды, которым CRM недостаточно, а ERP слишком тяжела","textPreview":"команды, которым CRM недостаточно, а ERP слишком тяжела","textChars":55,"textLines":1,"bbox":[470,508,680,32]}
+{"kind":"shape","id":"sh/mt4vi1s3","slide":8,"bbox":[64,564,1086,2]}
+{"kind":"textbox","id":"sh/9wvedwru","slide":8,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/8vmdkba9","slide":8,"text":"08","textPreview":"08","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/eg7g3v","slide":8,"text":""}
+{"kind":"slide","id":"sl/2b171y","slide":9,"title":"ТЕКУЩИЙ ЭТАП","textShapes":9}
+{"kind":"textbox","id":"sh/8zep43ip","slide":9,"text":"ТЕКУЩИЙ ЭТАП","textPreview":"ТЕКУЩИЙ ЭТАП","textChars":12,"textLines":1,"bbox":[64,50,500,22]}
+{"kind":"textbox","id":"sh/7yloby14","slide":9,"text":"MVP уже закрывает базовый операционный цикл","textPreview":"MVP уже закрывает базовый операционный цикл","textChars":43,"textLines":1,"bbox":[64,86,1100,90]}
+{"kind":"textbox","id":"sh/mxc72t0j","slide":9,"text":"Презентация отделяет реализованное ядро от направлений, которые ещё требуют развития.","textPreview":"Презентация отделяет реализованное ядро от направлений, которые ещё требуют развития.","textChars":85,"textLines":1,"bbox":[64,176,980,52]}
+{"kind":"shape","id":"sh/honqh8j6","slide":9,"bbox":[64,250,535,292]}
+{"kind":"textbox","id":"sh/wnep8ni1","slide":9,"text":"УЖЕ В ПРОДУКТЕ","textPreview":"УЖЕ В ПРОДУКТЕ","textChars":14,"textLines":1,"bbox":[88,274,450,26]}
+{"kind":"textbox","id":"sh/vm58fi1g","slide":9,"text":"• клиенты, сотрудники и записи\n• графики, ресурсы и задачи\n• склад, продажи и финансы\n• акции, аналитика и отчёты\n• Supabase Auth, PostgreSQL и RLS","textPreview":"• клиенты, сотрудники и записи | • графики, ресурсы и задачи | • склад, продажи и финансы | • акции, аналитика и отчёты | • Supabase Auth...","textChars":147,"textLines":5,"bbox":[88,324,440,184]}
+{"kind":"shape","id":"sh/ulw76d0v","slide":9,"bbox":[635,250,539,292]}
+{"kind":"textbox","id":"sh/xs365oj2","slide":9,"text":"СЛЕДУЮЩИЙ УРОВЕНЬ","textPreview":"СЛЕДУЮЩИЙ УРОВЕНЬ","textChars":17,"textLines":1,"bbox":[659,274,450,26]}
+{"kind":"textbox","id":"sh/crupwj2h","slide":9,"text":"• полноценные приглашения сотрудников\n• детальная матрица прав\n• автоматизации и напоминания\n• рабочие интеграции и платежи\n• импорт, API и вебхуки","textPreview":"• полноценные приглашения сотрудников | • детальная матрица прав | • автоматизации и напоминания | • рабочие интеграции и платежи | • имп...","textChars":147,"textLines":5,"bbox":[659,324,450,184]}
+{"kind":"textbox","id":"sh/edwvy9wb","slide":9,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/ze5w7edw","slide":9,"text":"09","textPreview":"09","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/2b171y","slide":9,"text":""}
+{"kind":"slide","id":"sl/lgnc8p","slide":10,"title":"ИДЕИ ДЛЯ РАЗВИТИЯ","textShapes":17}
+{"kind":"textbox","id":"sh/gvelczax","slide":10,"text":"ИДЕИ ДЛЯ РАЗВИТИЯ","textPreview":"ИДЕИ ДЛЯ РАЗВИТИЯ","textChars":17,"textLines":1,"bbox":[64,52,400,20]}
+{"kind":"textbox","id":"sh/vu5k3utc","slide":10,"text":"Следующий рост — не больше экранов, а больше автоматических действий","textPreview":"Следующий рост — не больше экранов, а больше автоматических действий","textChars":68,"textLines":1,"bbox":[64,88,1100,92]}
+{"kind":"textbox","id":"sh/utw3apsr","slide":10,"text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[64,246,44,28]}
+{"kind":"textbox","id":"sh/tsn21kbm","slide":10,"text":"Умный рабочий день","textPreview":"Умный рабочий день","textChars":18,"textLines":1,"bbox":[122,244,450,32]}
+{"kind":"textbox","id":"sh/8rel8fa1","slide":10,"text":"Автоприоритеты: кого подтвердить, что докупить, где есть окно.","textPreview":"Автоприоритеты: кого подтвердить, что докупить, где есть окно.","textChars":62,"textLines":1,"bbox":[122,286,450,62]}
+{"kind":"textbox","id":"sh/7q5kzatg","slide":10,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[632,246,44,28]}
+{"kind":"textbox","id":"sh/6pw365sv","slide":10,"text":"Возврат клиентов","textPreview":"Возврат клиентов","textChars":16,"textLines":1,"bbox":[690,244,450,32]}
+{"kind":"textbox","id":"sh/lon2xkba","slide":10,"text":"Сегменты по давности визита и готовые сценарии повторного контакта.","textPreview":"Сегменты по давности визита и готовые сценарии повторного контакта.","textChars":67,"textLines":1,"bbox":[690,286,450,62]}
+{"kind":"textbox","id":"sh/k3ul4fap","slide":10,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[64,400,44,28]}
+{"kind":"textbox","id":"sh/6p8b6pwb","slide":10,"text":"Контроль маржинальности","textPreview":"Контроль маржинальности","textChars":23,"textLines":1,"bbox":[122,398,450,32]}
+{"kind":"textbox","id":"sh/rqhczudw","slide":10,"text":"Прибыль по услуге, сотруднику, акции и категории товара.","textPreview":"Прибыль по услуге, сотруднику, акции и категории товара.","textChars":56,"textLines":1,"bbox":[122,440,450,62]}
+{"kind":"textbox","id":"sh/srqt8zeh","slide":10,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[632,400,44,28]}
+{"kind":"textbox","id":"sh/tszu1kv2","slide":10,"text":"Telegram для команды","textPreview":"Telegram для команды","textChars":20,"textLines":1,"bbox":[690,398,450,32]}
+{"kind":"textbox","id":"sh/ilob25wf","slide":10,"text":"Задачи, напоминания и короткая сводка владельцу без входа в систему.","textPreview":"Задачи, напоминания и короткая сводка владельцу без входа в систему.","textChars":68,"textLines":1,"bbox":[690,440,450,62]}
+{"kind":"textbox","id":"sh/jmhcvadk","slide":10,"text":"Рекомендуемый пилот: 1 ниша · 3–5 компаний · 4 недели наблюдения за рабочими сценариями","textPreview":"Рекомендуемый пилот: 1 ниша · 3–5 компаний · 4 недели наблюдения за рабочими сценариями","textChars":87,"textLines":1,"bbox":[64,590,1110,42]}
+{"kind":"textbox","id":"sh/4nqt4fe5","slide":10,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/5ozuxkvq","slide":10,"text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"notes","id":"nt/lgnc8p","slide":10,"text":""}
+{"kind":"slide","id":"sl/ybnuvz","slide":11,"title":"SimpleDesk","textShapes":7}
+{"kind":"textbox","id":"sh/b6xs7ylc","slide":11,"text":"SimpleDesk","textPreview":"SimpleDesk","textChars":10,"textLines":1,"bbox":[158,54,300,70]}
+{"kind":"textbox","id":"sh/a5obetkr","slide":11,"text":"Сделать ежедневную работу\nпонятной, связной и управляемой","textPreview":"Сделать ежедневную работу | понятной, связной и управляемой","textChars":57,"textLines":2,"bbox":[64,192,850,126]}
+{"kind":"textbox","id":"sh/lwzud83e","slide":11,"text":"Следующий шаг — показать продукт на реальном сценарии бизнеса\nи выбрать гипотезы для пилота.","textPreview":"Следующий шаг — показать продукт на реальном сценарии бизнеса | и выбрать гипотезы для пилота.","textChars":92,"textLines":2,"bbox":[66,354,790,70]}
+{"kind":"shape","id":"sh/kvqtk32t","slide":11,"bbox":[900,156,280,330]}
+{"kind":"textbox","id":"sh/zuhsbylo","slide":11,"text":"ДЕМО-ФОКУС","textPreview":"ДЕМО-ФОКУС","textChars":10,"textLines":1,"bbox":[928,184,220,24]}
+{"kind":"textbox","id":"sh/y98bitk3","slide":11,"text":"1. Настроить компанию\n2. Создать запись\n3. Провести продажу\n4. Посмотреть отчёт","textPreview":"1. Настроить компанию | 2. Создать запись | 3. Провести продажу | 4. Посмотреть отчёт","textChars":79,"textLines":4,"bbox":[928,238,210,180]}
+{"kind":"textbox","id":"sh/t0juh83q","slide":11,"text":"SIMPLEDESK","textPreview":"SIMPLEDESK","textChars":10,"textLines":1,"bbox":[64,668,180,18]}
+{"kind":"textbox","id":"sh/8zqton25","slide":11,"text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1160,668,56,18]}
+{"kind":"image","id":"im/l03u9orq","slide":11,"name":"","alt":"SimpleDesk","bbox":[64,54,70,70]}
+{"kind":"notes","id":"nt/ybnuvz","slide":11,"text":""}
