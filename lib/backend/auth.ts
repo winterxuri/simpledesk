@@ -94,11 +94,11 @@ export async function signUpOwner({
     .insert({
       id: companyId,
       name: companyName,
-      business_template_id: "universal",
-      industry: "Универсальный бизнес",
+      business_template_id: "beauty",
+      industry: "Салон красоты",
       email,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Moscow",
-      terminology: getBusinessTemplate("universal").terminology
+      terminology: getBusinessTemplate("beauty").terminology
     });
 
   if (companyError) {
@@ -139,7 +139,7 @@ export async function signUpOwner({
   }
 
   const { error: modulesError } = await supabase.from("company_modules").insert(
-    buildDefaultCompanyModules("universal").map((module) => ({
+    buildDefaultCompanyModules("beauty").map((module) => ({
       company_id: companyId,
       code: module.code,
       status: module.status,
@@ -443,7 +443,7 @@ async function loadCompanyModules(companyId: string): Promise<CompanyModule[]> {
     availableOnTariff: bool(row, "available_on_tariff", true)
   })) ?? [];
 
-  return modules.length ? modules : buildDefaultCompanyModules("universal");
+  return modules.length ? modules : buildDefaultCompanyModules("beauty");
 }
 
 async function loadCompanyData(

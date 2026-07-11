@@ -93,7 +93,7 @@ export default function RegisterPage() {
           </Link>
           <h1 className="mt-3 text-2xl font-semibold">Регистрация</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            После регистрации откроется мастер настройки бизнеса.
+            После регистрации откроется мастер настройки салона.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit(submit)}>

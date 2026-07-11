@@ -18,38 +18,38 @@ import { PRODUCT_NAME } from "@/config/product";
 const productBlocks = [
   {
     title: "Клиенты",
-    text: "Единая база, история визитов, ответственный, источник и следующий контакт.",
+    text: "Единая база, история визитов, любимый мастер, источник и следующая запись.",
     icon: UsersRound
   },
   {
     title: "Записи",
-    text: "Календарь, время, услуга, сотрудник, стоимость и статус выполнения.",
+    text: "Календарь по мастерам, услуга, время, стоимость и статус визита.",
     icon: CalendarDays
   },
   {
-    title: "Остатки",
-    text: "Товары, расходники, минимальные остатки, поставщики и списания.",
+    title: "Расходники",
+    text: "Краска, гель-лак и материалы: остатки, минимальные запасы и списания по услугам.",
     icon: ClipboardList
   },
   {
     title: "Отчёты",
-    text: "Дневные и периодические сводки, экспорт, импорт и история сохранений.",
+    text: "Выручка по мастерам и услугам, экспорт, импорт и история сохранений.",
     icon: ChartNoAxesCombined
   }
 ];
 
 const workflows = [
-  ["01", "Принять клиента", "Добавьте клиента, создайте запись или продажу и назначьте ответственного."],
-  ["02", "Вести день", "Команда видит задачи, записи, остатки и рабочие приоритеты."],
-  ["03", "Проверить цифры", "Аналитика и отчёты показывают выручку, расходы, записи и проблемные зоны."],
-  ["04", "Улучшить процесс", "По данным видно, кого вернуть, что докупить и какие задачи закрыть."]
+  ["01", "Записать клиента", "Добавьте клиента, выберите мастера и услугу, назначьте время визита."],
+  ["02", "Вести смену", "Мастера видят своё расписание, клиентов и расходники, которые заканчиваются."],
+  ["03", "Проверить кассу", "Аналитика показывает выручку по мастерам, услугам и загрузку кресел."],
+  ["04", "Вернуть клиента", "Акции и напоминания поднимают повторные записи и средний чек."]
 ];
 
 const launchChecklist = [
-  "название компании и ниша",
-  "список сотрудников и роли",
+  "название салона и адрес",
+  "список мастеров и услуги",
   "клиенты или таблица для импорта",
-  "товары, расходники и минимальные остатки",
+  "расходники и минимальные остатки",
   "рабочие дни, часы и валюта",
   "какие отчёты нужны владельцу"
 ];
@@ -62,7 +62,7 @@ export default function LandingPage() {
           <div>
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-sm text-muted-foreground">
               <span className="h-2 w-2 rounded-full bg-primary" />
-              CRM, записи и отчёты для малого бизнеса
+              Записи и CRM для салонов красоты и студий с несколькими мастерами
             </div>
             <div className="flex flex-wrap items-center gap-4">
               <ProductMark decorative className="h-12 w-12 rounded-xl md:h-16 md:w-16" />
@@ -71,8 +71,9 @@ export default function LandingPage() {
               </h1>
             </div>
             <p className="mt-6 max-w-2xl text-xl leading-8 text-muted-foreground">
-              Простая рабочая платформа для клиентов, записей, сотрудников,
-              остатков, акций, задач и отчётов без перегруженного интерфейса.
+              Простая платформа для салона или студии с несколькими мастерами:
+              клиенты, запись, расходники, зарплата мастеров и отчёты — без
+              переплаты за функции для сетей.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Button asChild size="lg">
@@ -86,7 +87,7 @@ export default function LandingPage() {
               </Button>
             </div>
             <div className="mt-8 grid max-w-2xl gap-3 sm:grid-cols-3">
-              {["Быстрый старт", "Без лишних модулей", "Экспорт отчётов"].map((item) => (
+              {["Настройка за один день", "Без предоплаты на год", "Расходники под контролем"].map((item) => (
                 <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
                   <CheckCircle2 className="h-4 w-4 text-primary" />
                   {item}
@@ -120,7 +121,7 @@ export default function LandingPage() {
               <div className="rounded-lg border border-border bg-background p-4">
                 <p className="text-sm font-medium">Расписание</p>
                 <div className="mt-4 space-y-3">
-                  {["10:00 Консультация", "13:30 Продажа", "17:00 Повторный визит"].map((item) => (
+                  {["10:00 Маникюр — Ирина", "13:30 Окрашивание — София", "17:00 Коррекция бровей — Анна"].map((item) => (
                     <div key={item} className="flex items-center justify-between rounded-lg bg-muted/50 px-3 py-2 text-sm">
                       <span>{item}</span>
                       <span className="h-2 w-2 rounded-full bg-primary" />
@@ -148,11 +149,12 @@ export default function LandingPage() {
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.16em] text-primary">Что внутри</p>
-            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Операционная система для ежедневной работы</h2>
+            <h2 className="mt-2 text-3xl font-semibold tracking-normal">Всё для записи и работы мастеров</h2>
           </div>
           <p className="max-w-xl text-sm leading-6 text-muted-foreground">
-            SimpleDesk не заменяет все корпоративные системы сразу. MVP закрывает
-            базовые процессы, которые чаще всего нужны малому бизнесу каждый день.
+            SimpleDesk не пытается заменить большие CRM для сетей салонов. MVP
+            закрывает то, что нужно каждый день небольшому салону или студии
+            с несколькими мастерами.
           </p>
         </div>
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -218,12 +220,12 @@ export default function LandingPage() {
             <h2 className="text-2xl font-semibold">Что ещё нужно собрать</h2>
           </div>
           <p className="mt-4 text-sm leading-6 text-muted-foreground">
-            Для хорошего запуска пригодятся реальные примеры отчётов владельца,
-            таблицы клиентов/товаров, список частых действий сотрудников, правила
-            начисления зарплаты и список интеграций, откуда приходят заявки.
+            Для хорошего запуска пригодятся прайс-лист на услуги, список мастеров
+            с графиком, правила начисления зарплаты (ставка/процент) и каналы,
+            откуда приходят клиенты — Instagram, Яндекс, рекомендации.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            {["Excel клиентов", "Excel остатков", "шаблон отчёта", "список ролей", "каналы заявок"].map((item) => (
+            {["Excel клиентов", "Excel расходников", "прайс-лист услуг", "график мастеров", "каналы клиентов"].map((item) => (
               <span key={item} className="rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
                 {item}
               </span>
@@ -235,7 +237,7 @@ export default function LandingPage() {
       <section className="border-t border-border bg-card">
         <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-12 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold">Попробуйте SimpleDesk на своих процессах</h2>
+            <h2 className="text-2xl font-semibold">Попробуйте SimpleDesk на процессах своего салона</h2>
             <p className="mt-2 text-sm text-muted-foreground">
               Можно открыть демо, а затем создать рабочий аккаунт и подключить Supabase.
             </p>

@@ -112,7 +112,7 @@ type RefundSaleInput = {
 };
 
 function createBlankRegisteredCompany(name: string, id?: string): Company {
-  const template = getBusinessTemplate("universal");
+  const template = getBusinessTemplate("beauty");
   return {
     id: id ?? createId("company"),
     name,
@@ -337,7 +337,7 @@ export const useAppStore = create<AppStore>()(
           role: "owner",
           sessionMode: "registered",
           company: createBlankRegisteredCompany(companyName, companyId),
-          companyModules: buildDefaultCompanyModules("universal"),
+          companyModules: buildDefaultCompanyModules("beauty"),
           data: createInitialBusinessData({ id: "owner", name, email, role: "owner" }, ownerEmployeeId),
           onboardingComplete: false
         })),

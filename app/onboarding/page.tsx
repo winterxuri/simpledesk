@@ -11,10 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import {
-  ONBOARDING_BUSINESS_OPTIONS,
-  getBusinessTemplate
-} from "@/config/templates";
+import { getBusinessTemplate } from "@/config/templates";
 import { MODULES } from "@/config/modules";
 import { getModuleTitle, isRequiredModule, withRequiredModules } from "@/config/navigation";
 import { completeBackendOnboarding } from "@/lib/backend/auth";
@@ -39,18 +36,10 @@ const accountingOptions = [
   "помещения",
   "рабочие места",
   "поставщиков",
-  "автомобили или другие объекты клиента"
+  "сертификаты и абонементы"
 ];
 
-function getInitialBusinessOptionId(templateId: string, industry: string) {
-  return (
-    ONBOARDING_BUSINESS_OPTIONS.find(
-      (option) => option.templateId === templateId && option.title === industry
-    )?.id ??
-    ONBOARDING_BUSINESS_OPTIONS.find((option) => option.templateId === templateId)?.id ??
-    ONBOARDING_BUSINESS_OPTIONS[0].id
-  );
-}
+const TEMPLATE_ID = "beauty";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -64,10 +53,6 @@ export default function OnboardingPage() {
   const addToast = useAppStore((state) => state.addToast);
   const [step, setStep] = useState(1);
   const [isSaving, setIsSaving] = useState(false);
-  const [businessOptionId, setBusinessOptionId] = useState(() =>
-    getInitialBusinessOptionId(company.businessTemplateId, company.industry)
-  );
-  const [templateId, setTemplateId] = useState(company.businessTemplateId);
   const [work, setWork] = useState<string[]>([]);
   const [accounting, setAccounting] = useState<string[]>([]);
   const [team, setTeam] = useState({
@@ -77,15 +62,11 @@ export default function OnboardingPage() {
     financeAccess: true
   });
   const [selectedModules, setSelectedModules] = useState<ModuleCode[]>(
-    withRequiredModules(getBusinessTemplate(templateId).activeModules)
+    withRequiredModules(getBusinessTemplate(TEMPLATE_ID).activeModules)
   );
 
-  const template = useMemo(() => getBusinessTemplate(templateId), [templateId]);
-  const progress = Math.round((step / 6) * 100);
-
-  useEffect(() => {
-    setSelectedModules(withRequiredModules(getBusinessTemplate(templateId).activeModules));
-  }, [templateId]);
+  const template = useMemo(() => getBusinessTemplate(TEMPLATE_ID), []);
+  const progress = Math.round((step / 5) * 100);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -128,12 +109,12 @@ export default function OnboardingPage() {
         await completeBackendOnboarding(
           {
             ...company,
-            businessTemplateId: templateId
+            businessTemplateId: TEMPLATE_ID
           },
           safeSelectedModules
         );
       }
-      completeOnboarding(templateId, safeSelectedModules);
+      completeOnboarding(TEMPLATE_ID, safeSelectedModules);
       router.push("/dashboard");
     } catch (error) {
       addToast({
@@ -170,14 +151,14 @@ export default function OnboardingPage() {
                 wordmarkClassName="text-sm text-primary"
               />
             </Link>
-            <h1 className="mt-2 text-3xl font-semibold">Настройка рабочего пространства</h1>
+            <h1 className="mt-2 text-3xl font-semibold">Настройка салона</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              6 коротких шагов, чтобы оставить только нужные разделы и термины.
+              5 коротких шагов, чтобы оставить только нужные разделы и термины.
             </p>
           </div>
           <div className="min-w-64">
             <div className="mb-2 flex justify-between text-sm text-muted-foreground">
-              <span>Шаг {step} из 6</span>
+              <span>Шаг {step} из 5</span>
               <span>{progress}%</span>
             </div>
             <Progress value={progress} />
@@ -186,37 +167,6 @@ export default function OnboardingPage() {
 
         <Card className="p-5 md:p-6">
           {step === 1 ? (
-            <section>
-              <h2 className="text-xl font-semibold">Вид бизнеса</h2>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Выберите ближайший вариант. Шаблон можно изменить позже.
-              </p>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                {ONBOARDING_BUSINESS_OPTIONS.map((option, index) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    aria-pressed={businessOptionId === option.id}
-                    onClick={() => {
-                      setBusinessOptionId(option.id);
-                      setTemplateId(option.templateId);
-                    }}
-                    className={`rounded-lg border p-4 text-left transition-colors ${
-                      businessOptionId === option.id
-                        ? "border-primary bg-accent"
-                        : "border-border bg-background hover:bg-muted/50"
-                    }`}
-                  >
-                    <AppIcon name={option.icon} className="h-6 w-6 text-primary" />
-                    <p className="mt-3 font-medium">{option.title}</p>
-                    <p className="mt-1 text-sm text-muted-foreground">{option.description}</p>
-                  </button>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
-          {step === 2 ? (
             <section>
               <h2 className="text-xl font-semibold">Как бизнес работает с клиентами</h2>
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -233,7 +183,7 @@ export default function OnboardingPage() {
             </section>
           ) : null}
 
-          {step === 3 ? (
+          {step === 2 ? (
             <section>
               <h2 className="text-xl font-semibold">Что нужно учитывать</h2>
               <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -249,7 +199,7 @@ export default function OnboardingPage() {
             </section>
           ) : null}
 
-          {step === 4 ? (
+          {step === 3 ? (
             <section>
               <h2 className="text-xl font-semibold">Команда</h2>
               <div className="mt-5 grid gap-4 md:grid-cols-2">
@@ -279,7 +229,7 @@ export default function OnboardingPage() {
             </section>
           ) : null}
 
-          {step === 5 ? (
+          {step === 4 ? (
             <section>
               <h2 className="text-xl font-semibold">Необходимые функции</h2>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -298,7 +248,7 @@ export default function OnboardingPage() {
                         </div>
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-medium">{getModuleTitle(module.code, templateId)}</p>
+                            <p className="font-medium">{getModuleTitle(module.code, TEMPLATE_ID)}</p>
                             {recommended ? (
                               <span className="rounded-md bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
                                 рекомендовано
@@ -316,7 +266,7 @@ export default function OnboardingPage() {
                       <Switch
                         checked={checked}
                         disabled={required || module.plan === "pro"}
-                        label={`Включить модуль ${getModuleTitle(module.code, templateId)}`}
+                        label={`Включить модуль ${getModuleTitle(module.code, TEMPLATE_ID)}`}
                         onCheckedChange={(value) =>
                           setSelectedModules((current) =>
                             value
@@ -332,7 +282,7 @@ export default function OnboardingPage() {
             </section>
           ) : null}
 
-          {step === 6 ? (
+          {step === 5 ? (
             <section>
               <h2 className="text-xl font-semibold">Готовая конфигурация</h2>
               <div className="mt-5 grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
@@ -358,7 +308,7 @@ export default function OnboardingPage() {
                       {selectedModules.slice(0, 8).map((code) => (
                         <div key={code} className="flex items-center gap-2 text-sm">
                           <CheckCircle2 className="h-4 w-4 text-primary" />
-                          {getModuleTitle(code, templateId)}
+                          {getModuleTitle(code, TEMPLATE_ID)}
                         </div>
                       ))}
                     </div>
@@ -406,9 +356,9 @@ export default function OnboardingPage() {
               Назад
             </Button>
             <div className="flex gap-2">
-              {step === 6 ? (
+              {step === 5 ? (
                 <>
-                  <Button type="button" variant="outline" disabled={isSaving} onClick={() => setStep(5)}>
+                  <Button type="button" variant="outline" disabled={isSaving} onClick={() => setStep(4)}>
                     Изменить настройки
                   </Button>
                   <Button type="button" disabled={isSaving} onClick={finish}>

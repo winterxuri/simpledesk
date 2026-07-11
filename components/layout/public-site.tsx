@@ -117,8 +117,9 @@ function PublicFooter() {
               <ProductLogo wordmarkClassName="text-lg" />
             </Link>
             <p className="mt-5 max-w-sm text-sm leading-7 text-muted-foreground">
-              Рабочая платформа для малого бизнеса: клиенты, записи, сотрудники,
-              остатки, акции, отчёты и понятная операционная картина дня.
+              Рабочая платформа для салонов красоты и студий с несколькими
+              мастерами: клиенты, записи, расходники, акции, отчёты и понятная
+              операционная картина дня.
             </p>
             <div className="mt-6 flex gap-2">
               <Button type="button" size="icon" variant="outline" asChild title="Обратная связь">

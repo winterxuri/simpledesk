@@ -55,36 +55,9 @@ const templateServices: Record<string, string[]> = {
     "Стрижка и укладка",
     "Окрашивание",
     "Маникюр",
+    "Педикюр",
     "Уход для волос",
     "Коррекция бровей"
-  ],
-  auto: [
-    "Диагностика ходовой",
-    "Замена масла",
-    "Ремонт тормозов",
-    "Шиномонтаж",
-    "Компьютерная диагностика"
-  ],
-  cafe: [
-    "Кофейный сет",
-    "Завтрак",
-    "Корпоративный заказ",
-    "Десертный набор",
-    "Поставка зерна"
-  ],
-  shop: [
-    "Продажа аксессуаров",
-    "Консультация",
-    "Комплектация заказа",
-    "Возврат товара",
-    "Предзаказ"
-  ],
-  universal: [
-    "Консультация",
-    "Услуга стандарт",
-    "Заказ клиента",
-    "Повторный визит",
-    "Подготовка материалов"
   ]
 };
 
@@ -97,57 +70,19 @@ const productByTemplate: Record<string, string[]> = {
     "Перчатки нитриловые",
     "Пилки 180/240",
     "Гель-лак нюдовый",
+    "База для гель-лака",
+    "Топ для гель-лака",
     "Средство для дезинфекции",
     "Одноразовые полотенца",
-    "Сыворотка для волос"
-  ],
-  auto: [
-    "Моторное масло 5W-30",
-    "Масляный фильтр",
-    "Тормозные колодки",
-    "Свечи зажигания",
-    "Антифриз G12",
-    "Воздушный фильтр",
-    "Салонный фильтр",
-    "Лампа H7",
-    "Очиститель тормозов",
-    "Технические салфетки"
-  ],
-  cafe: [
-    "Зерно Бразилия 1 кг",
-    "Молоко 3,2%",
-    "Сироп ваниль",
-    "Стаканы 250 мл",
-    "Крышки для стаканов",
-    "Круассан замороженный",
-    "Сахар в стиках",
-    "Какао",
-    "Чай черный",
-    "Салфетки"
-  ],
-  shop: [
-    "Рюкзак городской",
-    "Термокружка",
-    "Подарочный сертификат",
-    "Носки хлопковые",
-    "Ежедневник",
-    "Чехол для телефона",
-    "Батарейки AA",
-    "Кабель USB-C",
-    "Пакеты брендированные",
-    "Ценники"
-  ],
-  universal: [
-    "Товар базовый",
-    "Расходный материал",
-    "Комплект деталей",
-    "Упаковка",
-    "Сервисный набор",
-    "Бланки",
-    "Маркировочные стикеры",
-    "Средство очистки",
-    "Запасной элемент",
-    "Подарочная карта"
+    "Сыворотка для волос",
+    "Масло для кутикулы",
+    "Пемза для педикюра",
+    "Воск для депиляции",
+    "Ватные диски",
+    "Праймер для ногтей",
+    "Фольга для окрашивания",
+    "Расходники для бровей",
+    "Подарочный сертификат"
   ]
 };
 
@@ -234,7 +169,7 @@ function makeEmployeeShifts(): EmployeeShift[] {
 }
 
 function makeAppointments(templateId: string): Appointment[] {
-  const services = templateServices[templateId] ?? templateServices.universal;
+  const services = templateServices[templateId] ?? templateServices.beauty;
 
   return Array.from({ length: 25 }, (_, index) => ({
     id: `appointment-${index + 1}`,
@@ -256,8 +191,7 @@ function makeAppointments(templateId: string): Appointment[] {
 }
 
 function makeProducts(templateId: string): Product[] {
-  const names = productByTemplate[templateId] ?? productByTemplate.universal;
-  const list = [...names, ...productByTemplate.universal].slice(0, 20);
+  const list = productByTemplate[templateId] ?? productByTemplate.beauty;
 
   return list.map((name, index) => {
     const minStock = 6 + (index % 5);
@@ -304,7 +238,7 @@ function makeMovements(): InventoryMovement[] {
 }
 
 function makeSales(templateId: string): Sale[] {
-  const names = productByTemplate[templateId] ?? productByTemplate.universal;
+  const names = productByTemplate[templateId] ?? productByTemplate.beauty;
 
   return Array.from({ length: 18 }, (_, index) => {
     const quantity = 1 + (index % 3);
@@ -370,34 +304,9 @@ function makeResources(templateId: string): Resource[] {
       "Мойка",
       "Зона ожидания"
     ],
-    auto: [
-      "Пост 1",
-      "Пост 2",
-      "Подъемник 1",
-      "Диагностический стенд",
-      "Шиномонтажная зона",
-      "Мойка деталей"
-    ],
-    cafe: [
-      "Кофемашина",
-      "Гриндер 1",
-      "Витрина",
-      "Кухонный стол",
-      "Зал 1",
-      "Склад"
-    ],
-    universal: [
-      "Рабочее место 1",
-      "Рабочее место 2",
-      "Кабинет",
-      "Оборудование",
-      "Помещение",
-      "Складская зона"
-    ]
   };
 
-  const names =
-    namesByTemplate[templateId] ?? namesByTemplate.universal;
+  const names = namesByTemplate[templateId] ?? namesByTemplate.beauty;
 
   return names.map((name, index) => ({
     id: `resource-${index + 1}`,
