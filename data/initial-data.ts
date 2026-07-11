@@ -16,6 +16,7 @@ export function createInitialBusinessData(owner: User | null, ownerEmployeeId?: 
     role: "owner",
     compensationType: "mixed",
     baseSalary: 0,
+    hourlyRate: 0,
     commissionPercent: 0
   };
 

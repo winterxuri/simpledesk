@@ -131,6 +131,7 @@ export async function signUpOwner({
       rating: 5,
       compensation_type: "mixed",
       base_salary: 0,
+      hourly_rate: 0,
       commission_percent: 0
     });
 
@@ -326,10 +327,14 @@ export async function loadCurrentBackendWorkspace(): Promise<BackendWorkspace | 
 
   const { data: employee } = await supabase
     .from("employees")
-    .select("id")
+    .select("id, status")
     .eq("company_id", company.id)
     .eq("user_id", userData.user.id)
     .maybeSingle();
+
+  if (membership.role !== "owner" && (!employee || employee.status === "dismissed")) {
+    return null;
+  }
 
   const backendUser = {
     id: userData.user.id,
@@ -616,6 +621,7 @@ function mapEmployee(row: LooseRow): Employee {
     rating: num(row, "rating"),
     compensationType: text(row, "compensation_type", "fixed") as Employee["compensationType"],
     baseSalary: num(row, "base_salary"),
+    hourlyRate: num(row, "hourly_rate"),
     commissionPercent: num(row, "commission_percent"),
     dismissedAt: nullableText(row, "dismissed_at")
   };

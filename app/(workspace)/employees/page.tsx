@@ -16,7 +16,7 @@ import { syncEmployee } from "@/lib/backend/sync";
 import { canPerformAction } from "@/lib/permissions";
 import { useAppStore } from "@/store/app-store";
 import { formatCurrency, getLocalDateKey } from "@/lib/utils";
-import type { Employee, EmployeeInvite } from "@/types";
+import type { Employee, EmployeeInvite, EmployeeShift, Task } from "@/types";
 
 const profileTabs = [
   { value: "info", label: "Информация" },
@@ -46,6 +46,7 @@ function employeeToForm(employee?: Employee) {
     rating: String(employee?.rating ?? 0),
     compensationType: employee?.compensationType ?? "fixed" as NonNullable<Employee["compensationType"]>,
     baseSalary: String(employee?.baseSalary ?? 0),
+    hourlyRate: String(employee?.hourlyRate ?? 0),
     commissionPercent: String(employee?.commissionPercent ?? 0)
   };
 }
@@ -147,6 +148,12 @@ export default function EmployeesPage() {
       return;
     }
 
+    const compensationError = getCompensationValidationError(form);
+    if (compensationError) {
+      addToast({ title: "Проверьте условия оплаты", description: compensationError, variant: "warning" });
+      return;
+    }
+
     if (selected.role === "owner" && nextRole !== "owner") {
       addToast({
         title: "Роль владельца нельзя снять здесь",
@@ -188,6 +195,7 @@ export default function EmployeesPage() {
       rating: Number(form.rating) || 0,
       compensationType: form.compensationType,
       baseSalary: Number(form.baseSalary) || 0,
+      hourlyRate: Number(form.hourlyRate) || 0,
       commissionPercent: Number(form.commissionPercent) || 0
     };
     updateEmployee(selected.id, patch);
@@ -237,6 +245,12 @@ export default function EmployeesPage() {
       return;
     }
 
+    const compensationError = getCompensationValidationError(form);
+    if (compensationError) {
+      addToast({ title: "Проверьте условия оплаты", description: compensationError, variant: "warning" });
+      return;
+    }
+
     const payload: Omit<Employee, "id"> = {
       name,
       phone,
@@ -251,6 +265,7 @@ export default function EmployeesPage() {
       rating: Number(form.rating) || 0,
       compensationType: form.compensationType,
       baseSalary: Number(form.baseSalary) || 0,
+      hourlyRate: Number(form.hourlyRate) || 0,
       commissionPercent: Number(form.commissionPercent) || 0
     };
     const employeeId = addEmployee(payload);
@@ -514,18 +529,29 @@ export default function EmployeesPage() {
               <Label>Схема оплаты</Label>
               <Select value={form.compensationType} onChange={(event) => setForm({ ...form, compensationType: event.target.value as NonNullable<Employee["compensationType"]> })}>
                 <option value="fixed">Фикс</option>
+                <option value="hourly">Почасовая</option>
                 <option value="commission">Процент</option>
                 <option value="mixed">Фикс + процент</option>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Фикс, ₽</Label>
-              <Input type="number" value={form.baseSalary} onChange={(event) => setForm({ ...form, baseSalary: event.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label>Процент, %</Label>
-              <Input type="number" value={form.commissionPercent} onChange={(event) => setForm({ ...form, commissionPercent: event.target.value })} />
-            </div>
+            {form.compensationType === "fixed" || form.compensationType === "mixed" ? (
+              <div className="space-y-2">
+                <Label>Фикс за месяц, ₽</Label>
+                <Input type="number" min="0" value={form.baseSalary} onChange={(event) => setForm({ ...form, baseSalary: event.target.value })} />
+              </div>
+            ) : null}
+            {form.compensationType === "hourly" ? (
+              <div className="space-y-2">
+                <Label>Ставка за час, ₽</Label>
+                <Input type="number" min="0" value={form.hourlyRate} onChange={(event) => setForm({ ...form, hourlyRate: event.target.value })} />
+              </div>
+            ) : null}
+            {form.compensationType === "commission" || form.compensationType === "mixed" ? (
+              <div className="space-y-2">
+                <Label>Процент от выручки, %</Label>
+                <Input type="number" min="0" max="100" value={form.commissionPercent} onChange={(event) => setForm({ ...form, commissionPercent: event.target.value })} />
+              </div>
+            ) : null}
           </div>
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
             Если указать email, после создания карточки будет создана ссылка приглашения. Сотрудник сам задаст пароль.
@@ -646,7 +672,7 @@ export default function EmployeesPage() {
                   <Row label="Ближайшая запись" value={data.appointments.find((appointment) => appointment.employeeId === selected.id)?.time ?? "не назначена"} />
                 </>
               ) : null}
-              {tab === "tasks" ? <Row label="Активные задачи" value="5 задач, 1 просрочена" /> : null}
+              {tab === "tasks" ? <EmployeeTasksSummary employeeId={selected.id} tasks={data.tasks} /> : null}
               {tab === "metrics" ? (
                 <>
                   <div className="grid gap-4 sm:grid-cols-2">
@@ -673,26 +699,39 @@ export default function EmployeesPage() {
                       <Label>Схема оплаты</Label>
                       <Select value={form.compensationType} onChange={(event) => setForm({ ...form, compensationType: event.target.value as NonNullable<Employee["compensationType"]> })}>
                         <option value="fixed">Фикс</option>
+                        <option value="hourly">Почасовая</option>
                         <option value="commission">Процент</option>
                         <option value="mixed">Фикс + процент</option>
                       </Select>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Фикс, ₽</Label>
-                      <Input type="number" value={form.baseSalary} onChange={(event) => setForm({ ...form, baseSalary: event.target.value })} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Процент, %</Label>
-                      <Input type="number" value={form.commissionPercent} onChange={(event) => setForm({ ...form, commissionPercent: event.target.value })} />
-                    </div>
+                    {form.compensationType === "fixed" || form.compensationType === "mixed" ? (
+                      <div className="space-y-2">
+                        <Label>Фикс за месяц, ₽</Label>
+                        <Input type="number" min="0" value={form.baseSalary} onChange={(event) => setForm({ ...form, baseSalary: event.target.value })} />
+                      </div>
+                    ) : null}
+                    {form.compensationType === "hourly" ? (
+                      <div className="space-y-2">
+                        <Label>Ставка за час, ₽</Label>
+                        <Input type="number" min="0" value={form.hourlyRate} onChange={(event) => setForm({ ...form, hourlyRate: event.target.value })} />
+                      </div>
+                    ) : null}
+                    {form.compensationType === "commission" || form.compensationType === "mixed" ? (
+                      <div className="space-y-2">
+                        <Label>Процент от выручки, %</Label>
+                        <Input type="number" min="0" max="100" value={form.commissionPercent} onChange={(event) => setForm({ ...form, commissionPercent: event.target.value })} />
+                      </div>
+                    ) : null}
                     <div className="rounded-lg border border-border bg-background p-3 text-sm">
-                      <p className="text-muted-foreground">Расчёт за месяц по текущей выручке</p>
+                      <p className="text-muted-foreground">Начислено за текущий месяц</p>
                       <p className="mt-1 text-lg font-semibold">
-                        {formatCurrency(
-                          (Number(form.baseSalary) || 0) +
-                            (Number(form.revenue) || 0) * ((Number(form.commissionPercent) || 0) / 100)
-                        )}
+                        {formatCurrency(calculateEmployeePay(selected, form, data.employeeShifts, today))}
                       </p>
+                      {form.compensationType === "hourly" ? (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatHours(getMonthlyShiftHours(selected.id, data.employeeShifts, today, false))} по прошедшим рабочим сменам. Прогноз за весь месяц: {formatCurrency(calculateHourlyForecast(form, selected.id, data.employeeShifts, today))}.
+                        </p>
+                      ) : null}
                     </div>
                   </div>
                   <Button type="button" onClick={saveEmployee}>Сохранить условия</Button>
@@ -798,6 +837,9 @@ function InviteBox({
 }
 
 function getCompensationLabel(employee: Employee) {
+  if (employee.compensationType === "hourly") {
+    return `${formatCurrency(employee.hourlyRate ?? 0)}/ч`;
+  }
   if (employee.compensationType === "commission") {
     return `${employee.commissionPercent ?? 0}%`;
   }
@@ -805,6 +847,103 @@ function getCompensationLabel(employee: Employee) {
     return `${formatCurrency(employee.baseSalary ?? 0)} + ${employee.commissionPercent ?? 0}%`;
   }
   return formatCurrency(employee.baseSalary ?? 0);
+}
+
+function EmployeeTasksSummary({ employeeId, tasks }: { employeeId: string; tasks: Task[] }) {
+  const employeeTasks = tasks.filter((task) => task.responsibleId === employeeId);
+  if (!employeeTasks.length) {
+    return (
+      <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+        Сотруднику пока не назначено ни одной задачи.
+      </div>
+    );
+  }
+
+  const activeTasks = employeeTasks.filter((task) => task.status !== "done" && task.status !== "cancelled");
+  const overdueTasks = activeTasks.filter((task) => task.status === "overdue");
+  return (
+    <div className="space-y-3">
+      <Row label="Всего задач" value={String(employeeTasks.length)} />
+      <Row label="Активные" value={String(activeTasks.length)} />
+      <Row label="Просроченные" value={String(overdueTasks.length)} />
+      {activeTasks.map((task) => (
+        <div key={task.id} className="rounded-lg border border-border bg-background p-3">
+          <p className="text-sm font-medium">{task.title}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Срок: {new Date(`${task.dueDate}T00:00:00`).toLocaleDateString("ru-RU")}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function getCompensationValidationError(form: ReturnType<typeof employeeToForm>) {
+  const baseSalary = Number(form.baseSalary);
+  const hourlyRate = Number(form.hourlyRate);
+  const commissionPercent = Number(form.commissionPercent);
+  if ([baseSalary, hourlyRate, commissionPercent].some((value) => !Number.isFinite(value) || value < 0)) {
+    return "Суммы и процент должны быть неотрицательными числами.";
+  }
+  if (commissionPercent > 100) {
+    return "Процент от выручки не может превышать 100%.";
+  }
+  if (form.compensationType === "hourly" && hourlyRate <= 0) {
+    return "Для почасовой оплаты укажите ставку больше нуля.";
+  }
+  return "";
+}
+
+function calculateEmployeePay(
+  employee: Employee,
+  form: ReturnType<typeof employeeToForm>,
+  shifts: EmployeeShift[],
+  today: string
+) {
+  const fixed = Number(form.baseSalary) || 0;
+  const commission = (Number(form.revenue) || 0) * ((Number(form.commissionPercent) || 0) / 100);
+  if (form.compensationType === "hourly") {
+    return getMonthlyShiftHours(employee.id, shifts, today, false) * (Number(form.hourlyRate) || 0);
+  }
+  if (form.compensationType === "commission") {
+    return commission;
+  }
+  if (form.compensationType === "mixed") {
+    return fixed + commission;
+  }
+  return fixed;
+}
+
+function calculateHourlyForecast(
+  form: ReturnType<typeof employeeToForm>,
+  employeeId: string,
+  shifts: EmployeeShift[],
+  today: string
+) {
+  return getMonthlyShiftHours(employeeId, shifts, today, true) * (Number(form.hourlyRate) || 0);
+}
+
+function getMonthlyShiftHours(employeeId: string, shifts: EmployeeShift[], today: string, includeFuture: boolean) {
+  const month = today.slice(0, 7);
+  return shifts
+    .filter((shift) =>
+      shift.employeeId === employeeId &&
+      shift.type === "work" &&
+      shift.date.startsWith(month) &&
+      (includeFuture || shift.date <= today)
+    )
+    .reduce((total, shift) => total + getShiftDurationHours(shift.startTime, shift.endTime), 0);
+}
+
+function getShiftDurationHours(startTime: string, endTime: string) {
+  const [startHours, startMinutes] = startTime.split(":").map(Number);
+  const [endHours, endMinutes] = endTime.split(":").map(Number);
+  if (![startHours, startMinutes, endHours, endMinutes].every(Number.isFinite)) {
+    return 0;
+  }
+  return Math.max(0, (endHours * 60 + endMinutes - startHours * 60 - startMinutes) / 60);
+}
+
+function formatHours(hours: number) {
+  return `${new Intl.NumberFormat("ru-RU", { maximumFractionDigits: 2 }).format(hours)} ч`;
 }
 
 function parseSchedule(schedule?: string) {
