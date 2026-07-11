@@ -86,6 +86,29 @@ const productByTemplate: Record<string, string[]> = {
   ]
 };
 
+const productTypeByName: Record<string, "product" | "material"> = {
+  "Краска Estel 7/0": "material",
+  "Оксид 6%": "material",
+  "Шампунь восстанавливающий": "product",
+  "Маска для волос": "product",
+  "Перчатки нитриловые": "material",
+  "Пилки 180/240": "material",
+  "Гель-лак нюдовый": "material",
+  "База для гель-лака": "material",
+  "Топ для гель-лака": "material",
+  "Средство для дезинфекции": "material",
+  "Одноразовые полотенца": "material",
+  "Сыворотка для волос": "product",
+  "Масло для кутикулы": "material",
+  "Пемза для педикюра": "material",
+  "Воск для депиляции": "material",
+  "Ватные диски": "material",
+  "Праймер для ногтей": "material",
+  "Фольга для окрашивания": "material",
+  "Расходники для бровей": "material",
+  "Подарочный сертификат": "product"
+};
+
 function isoDate(offset: number) {
   return formatISO(addDays(new Date(), offset), { representation: "date" });
 }
@@ -208,7 +231,7 @@ function makeProducts(templateId: string): Product[] {
     return {
       id: `product-${index + 1}`,
       name,
-      type: index % 3 === 0 ? "material" : index % 3 === 1 ? "product" : "part",
+      type: productTypeByName[name] ?? "material",
       category: ["Основное", "Расходники", "Премиум", "Упаковка"][index % 4],
       currentStock,
       minStock,
