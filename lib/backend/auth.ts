@@ -74,7 +74,8 @@ export async function signUpOwner({
       data: {
         name,
         company_name: companyName
-      }
+      },
+      emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding`
     }
   });
 
@@ -86,77 +87,55 @@ export async function signUpOwner({
     return { requiresEmailConfirmation: true };
   }
 
-  const companyId = crypto.randomUUID();
-  const ownerEmployeeId = crypto.randomUUID();
-
-  const { error: companyError } = await supabase
-    .from("companies")
-    .insert({
-      id: companyId,
-      name: companyName,
-      business_template_id: "beauty",
-      industry: "Салон красоты",
-      email,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Moscow",
-      terminology: getBusinessTemplate("beauty").terminology
-    });
-
-  if (companyError) {
-    throwSupabaseError("Create company", companyError);
-  }
-
-  const { error: memberError } = await supabase.from("company_members").insert({
-    company_id: companyId,
-    user_id: data.user.id,
-    role: "owner",
-    display_name: name
+  return provisionCompanyForCurrentUser({
+    companyName,
+    ownerName: name,
+    ownerEmail: email
   });
+}
 
-  if (memberError) {
-    throwSupabaseError("Create company member", memberError);
+export async function provisionCompanyForCurrentUser({
+  companyName,
+  ownerName,
+  ownerEmail
+}: {
+  companyName: string;
+  ownerName: string;
+  ownerEmail: string;
+}): Promise<OwnerSignupResult> {
+  const supabase = createSupabaseBrowserClient();
+  const template = getBusinessTemplate("beauty");
+  const modules = buildDefaultCompanyModules("beauty").map((module) => ({
+    code: module.code,
+    status: module.status,
+    visible: module.visible,
+    sort_order: module.order,
+    available_on_tariff: module.availableOnTariff
+  }));
+
+  const { data, error } = await supabase
+    .rpc("create_company_owner", {
+      p_company_name: companyName,
+      p_owner_name: ownerName,
+      p_owner_email: ownerEmail,
+      p_business_template_id: "beauty",
+      p_industry: "Салон красоты",
+      p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Moscow",
+      p_terminology: template.terminology,
+      p_modules: modules
+    })
+    .single();
+
+  if (error) {
+    throwSupabaseError("Create company", error);
   }
 
-  const { error: employeeError } = await supabase
-    .from("employees")
-    .insert({
-      id: ownerEmployeeId,
-      company_id: companyId,
-      user_id: data.user.id,
-      name,
-      email,
-      position: "Владелец",
-      status: "working",
-      schedule: "09:00-18:00",
-      role: "owner",
-      rating: 5,
-      compensation_type: "mixed",
-      base_salary: 0,
-      commission_percent: 0
-    });
-
-  if (employeeError) {
-    throwSupabaseError("Create owner employee", employeeError);
-  }
-
-  const { error: modulesError } = await supabase.from("company_modules").insert(
-    buildDefaultCompanyModules("beauty").map((module) => ({
-      company_id: companyId,
-      code: module.code,
-      status: module.status,
-      visible: module.visible,
-      sort_order: module.order,
-      available_on_tariff: module.availableOnTariff
-    }))
-  );
-
-  if (modulesError) {
-    throwSupabaseError("Create company modules", modulesError);
-  }
+  const result = data as { company_id: string; owner_employee_id: string; already_existed: boolean };
 
   return {
     requiresEmailConfirmation: false,
-    companyId,
-    ownerEmployeeId
+    companyId: result.company_id,
+    ownerEmployeeId: result.owner_employee_id
   };
 }
 

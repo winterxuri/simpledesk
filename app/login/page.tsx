@@ -92,7 +92,7 @@ export default function LoginPage() {
     }
 
     const { error } = await createSupabaseBrowserClient().auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/login`
+      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`
     });
     addToast(
       error
